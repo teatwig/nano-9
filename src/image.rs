@@ -78,6 +78,7 @@ impl UserData for N9Image {
                     None,
                     None,
                 )));
+                system_state.apply(&mut world);
                 Ok(())
             },
         );
@@ -181,6 +182,7 @@ impl UserData for N9Image {
             let image = images.get_mut(&this.handle).unwrap();
             let height = image.texture_descriptor.size.height;
             let _ = image.set_pixel((x as usize, (height as f32 - y) as usize), color);
+            system_state.apply(&mut world);
             Ok(())
         });
 

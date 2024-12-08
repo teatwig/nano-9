@@ -123,7 +123,7 @@ impl UserDataComponent for Transform {
             let world = ctx.get_world()?;
             let mut world = world.write();
             let mut system_state: SystemState<Query<&Transform>> = SystemState::new(&mut world);
-            let transforms = system_state.get(&mut world);
+            let transforms = system_state.get(&world);
             let transform = transforms.get(this.entity()).unwrap();
             Ok(transform.translation.x)
         });
@@ -135,14 +135,15 @@ impl UserDataComponent for Transform {
             let mut transforms = system_state.get_mut(&mut world);
             let mut transform = transforms.get_mut(this.entity()).unwrap();
             transform.translation.x = value;
+            system_state.apply(&mut world);
             Ok(())
         });
         fields.add_field_method_get("y", |ctx, this| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let mut system_state: SystemState<Query<&mut Transform>> = SystemState::new(&mut world);
-            let mut transforms = system_state.get_mut(&mut world);
-            let transform = transforms.get_mut(this.entity()).unwrap();
+            let mut system_state: SystemState<Query<&Transform>> = SystemState::new(&mut world);
+            let mut transforms = system_state.get(&world);
+            let transform = transforms.get(this.entity()).unwrap();
             Ok(transform.translation.y)
         });
 
@@ -160,7 +161,7 @@ impl UserDataComponent for Transform {
             let world = ctx.get_world()?;
             let mut world = world.write();
             let mut system_state: SystemState<Query<&Transform>> = SystemState::new(&mut world);
-            let transforms = system_state.get(&mut world);
+            let transforms = system_state.get(&world);
             let transform = transforms.get(this.entity()).unwrap();
             Ok(transform.translation.z)
         });
@@ -198,7 +199,7 @@ impl UserDataComponent for GlobalTransform {
             let world = ctx.get_world()?;
             let mut world = world.write();
             let mut system_state: SystemState<Query<&GlobalTransform>> = SystemState::new(&mut world);
-            let transforms = system_state.get(&mut world);
+            let transforms = system_state.get(&world);
             let transform = transforms.get(this.entity()).unwrap();
             Ok(transform.translation().x)
         });
@@ -219,9 +220,9 @@ impl UserDataComponent for GlobalTransform {
         fields.add_field_method_get("y", |ctx, this| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let mut system_state: SystemState<Query<&mut GlobalTransform>> = SystemState::new(&mut world);
-            let mut transforms = system_state.get_mut(&mut world);
-            let transform = transforms.get_mut(this.entity()).unwrap();
+            let mut system_state: SystemState<Query<&GlobalTransform>> = SystemState::new(&mut world);
+            let mut transforms = system_state.get(&mut world);
+            let transform = transforms.get(this.entity()).unwrap();
             Ok(transform.translation().y)
         });
 
@@ -235,6 +236,7 @@ impl UserDataComponent for GlobalTransform {
             let mut p = global.translation();
             p.y = value;
             transform.translation = m.transform_vector3(p);
+            system_state.apply(&mut world);
             Ok(())
         });
 
@@ -242,7 +244,7 @@ impl UserDataComponent for GlobalTransform {
             let world = ctx.get_world()?;
             let mut world = world.write();
             let mut system_state: SystemState<Query<&GlobalTransform>> = SystemState::new(&mut world);
-            let transforms = system_state.get(&mut world);
+            let transforms = system_state.get(&world);
             let transform = transforms.get(this.entity()).unwrap();
             Ok(transform.translation().z)
         });
@@ -257,6 +259,7 @@ impl UserDataComponent for GlobalTransform {
             let mut p = global.translation();
             p.z = value;
             transform.translation = m.transform_vector3(p);
+            system_state.apply(&mut world);
             Ok(())
         });
 

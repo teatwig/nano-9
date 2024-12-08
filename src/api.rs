@@ -144,6 +144,7 @@ impl APIProvider for Nano9API {
                     let (screen, mut images) = system_state.get_mut(&mut world);
                     let image = images.get_mut(&screen.0).unwrap();
                     let _ = image.set_pixel((x as usize, y as usize), color);
+                    system_state.apply(&mut world);
                     Ok(())
                 })
                 .map_err(ScriptError::new_other)?,
@@ -234,6 +235,7 @@ impl APIProvider for Nano9API {
                     let (screen, mut images) = system_state.get_mut(&mut world);
                     let image = images.get_mut(&screen.0).unwrap();
                     let _ = image.set_pixels(|_, _| c);
+                    system_state.apply(&mut world);
                     Ok(())
                 })
                 .map_err(ScriptError::new_other)?,
