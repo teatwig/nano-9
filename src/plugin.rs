@@ -12,16 +12,15 @@ use bevy::{
     window::{PresentMode, PrimaryWindow, WindowMode, WindowResized, WindowResolution},
 };
 
-use bevy_asset_loader::prelude::*;
 use bevy_mod_scripting::{core::event::ScriptLoaded, prelude::*};
 
 use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{Variadic};
 // use bevy_pixel_buffer::prelude::*;
 use crate::{api::{N9Arg, N9Args}, assets::ImageHandles, screens, DropPolicy, N9Camera, N9Sprite};
 
-#[derive(AssetCollection, Resource)]
+#[derive(Resource)]
 struct ImageAssets {
-    #[asset(path = "images/pico-8-palette.png")]
+    // #[asset(path = "images/pico-8-palette.png")]
     palette: Handle<Image>,
 }
 

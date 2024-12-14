@@ -14,6 +14,7 @@ mod plugin;
 pub mod screens;
 mod sprite;
 mod text;
+#[cfg(feature = "level")]
 mod level;
 mod entity;
 
@@ -26,6 +27,7 @@ pub use palette::*;
 pub use plugin::*;
 pub use sprite::*;
 pub use text::*;
+#[cfg(feature = "level")]
 pub use level::*;
 pub use entity::*;
 
