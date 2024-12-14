@@ -330,6 +330,15 @@ impl UserData for N9Sprite {
             Ok(())
         });
 
+        fields.add_field_method_get("flip_x", |ctx, this| {
+            let world = ctx.get_world()?;
+            let mut world = world.write();
+            let mut system_state: SystemState<Query<&Sprite>> = SystemState::new(&mut world);
+            let mut query = system_state.get(&mut world);
+            let mut item = query.get(this.entity).unwrap();
+            Ok(item.flip_x)
+        });
+
         fields.add_field_method_set("flip_x", |ctx, this, value: bool| {
             let world = ctx.get_world()?;
             let mut world = world.write();
@@ -368,6 +377,15 @@ impl UserData for N9Sprite {
             let mut item = query.get_mut(this.entity).unwrap();
             item.flip_y = value;
             Ok(())
+        });
+
+        fields.add_field_method_get("flip_y", |ctx, this| {
+            let world = ctx.get_world()?;
+            let mut world = world.write();
+            let mut system_state: SystemState<Query<&Sprite>> = SystemState::new(&mut world);
+            let mut query = system_state.get(&mut world);
+            let mut item = query.get(this.entity).unwrap();
+            Ok(item.flip_y)
         });
 
         fields.add_field_method_set("index", |ctx, this, value| {
