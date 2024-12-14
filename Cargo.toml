@@ -9,7 +9,7 @@ bevy-inspector-egui = "0.25.2"
 # bevy = { version = "0.13", default-features = false, features = [ "bevy_winit", "bevy_asset", "bevy_render" ] }
 # bevy_asset_loader = "0.21"
 bevy_ecs_ldtk = { version = "0.10", optional = true }
-bevy_mod_scripting = { version = "0.6.0", features = ["lua54", "lua_script_api", "unsafe_lua_modules"] }
+bevy_mod_scripting = { version = "0.7.0", features = ["lua54", "lua_script_api", "unsafe_lua_modules"] }
 bytemuck = "1.16.3"
 thiserror = "1.0.63"
 # bevy_pixel_buffer = "0.7.0"
@@ -27,5 +27,5 @@ bench = false
 
 [patch.crates-io]
 # bevy_mod_scripting = { path = "../bevy_mod_scripting" }
-bevy_mod_scripting = { git = "https://github.com/makspll/bevy_mod_scripting.git", branch = "main" }
+# bevy_mod_scripting = { git = "https://github.com/makspll/bevy_mod_scripting.git", branch = "main" }
 # bevy_pixel_buffer = { path = "../bevy_pixel_buffer" }
