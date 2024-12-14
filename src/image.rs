@@ -83,6 +83,9 @@ impl UserData for N9Image {
             },
         );
 
+        /// XXX: What's the difference between sprite and spr?
+        ///
+        /// Sprite uses N9Entity, which is perhaps more general and dynamic.
         methods.add_method_mut("sprite", |ctx, this, mut args: LuaMultiValue| {
             let world = ctx.get_world()?;
             let mut world = world.write();
