@@ -1,6 +1,7 @@
 #![allow(deprecated)]
 use std::sync::{Mutex, Arc};
 use bevy::{
+    ecs::prelude::Condition,
     prelude::*,
     reflect::Reflect,
     render::{
@@ -16,7 +17,7 @@ use bevy_mod_scripting::{core::event::ScriptLoaded, prelude::*};
 
 use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{Variadic};
 // use bevy_pixel_buffer::prelude::*;
-use crate::{api::{N9Arg, N9Args}, assets::ImageHandles, screens, DropPolicy, N9Camera, N9Sprite};
+use crate::{api::{N9Arg, N9Args}, assets::ImageHandles, screens, DropPolicy, N9Camera, N9Sprite, error::ErrorState};
 
 #[derive(Resource)]
 struct ImageAssets {
@@ -358,7 +359,8 @@ impl Plugin for Nano9Plugin {
             FixedUpdate,
             (send_update, send_draw)
                 .chain()
-                .run_if(in_state(screens::Screen::Playing)),
+                .run_if(in_state(screens::Screen::Playing)
+                        .and_then(in_state(ErrorState::None))),
         );
 
         if app.is_plugin_added::<WindowPlugin>() {

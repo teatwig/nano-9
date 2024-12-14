@@ -9,8 +9,8 @@ pub(crate) fn plugin(app: &mut App) {
 
     if app.is_plugin_added::<WindowPlugin>() {
         app
-            .add_systems(OnEnter(ErrorState::Empty), hide::<ErrorMessages>)
-            .add_systems(OnExit(ErrorState::Empty), show::<ErrorMessages>);
+            .add_systems(OnEnter(ErrorState::None), hide::<ErrorMessages>)
+            .add_systems(OnExit(ErrorState::None), show::<ErrorMessages>);
     }
 }
 
@@ -19,9 +19,9 @@ const PADDING: Val = Val::Px(5.);
 const LEFT_PADDING: Val = Val::Px(10.);
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
-enum ErrorState {
+pub enum ErrorState {
     #[default]
-    Empty,
+    None,
     Messages {
         frame: u32,
     },
@@ -126,6 +126,7 @@ pub fn add_messages(
                 ScriptError::FailedToLoad { script, msg } => msg.clone(),
                 x => format!("{}", x),
             };
+            // panic!("{}", msg);
             parent.spawn(TextBundle::from_section(msg, error_style));
         }
     });
@@ -155,5 +156,5 @@ pub fn clear_messages(
     let id = query.single();
     commands.entity(id).despawn_descendants();
 
-    next_state.set(ErrorState::Empty);
+    next_state.set(ErrorState::None);
 }

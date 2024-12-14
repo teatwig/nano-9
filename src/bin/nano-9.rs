@@ -15,7 +15,6 @@ fn main() -> std::io::Result<()> {
     App::new()
         .add_plugins(nano9_plugin.default_plugins())
         .add_plugins(nano9_plugin)
-        .add_plugins(WorldInspectorPlugin::new())
         .add_systems(
             Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
