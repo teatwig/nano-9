@@ -9,8 +9,10 @@ use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{self, UserData, Variadi
 // use bevy_pixel_buffer::prelude::*;
 use crate::{
     pixel::PixelAccess, DropPolicy, N9AudioLoader, N9Camera, N9Image, N9ImageLoader, N9Sprite,
-    N9TextLoader, Nano9Palette, Nano9Screen, N9LevelLoader, N9Sound,
+    N9TextLoader, Nano9Palette, Nano9Screen, N9Sound,
 };
+#[cfg(feature = "level")]
+use crate::N9LevelLoader;
 
 #[derive(Clone)]
 pub struct MyHandle<T: Asset + Clone>(pub Handle<T>);
@@ -92,6 +94,7 @@ impl APIProvider for Nano9API {
         // check the Rlua documentation for more details
 
         let ctx = ctx.get_mut().unwrap();
+        #[cfg(feature = "level")]
         ctx.globals()
             .set("level", N9LevelLoader)
             .map_err(ScriptError::new_other)?;

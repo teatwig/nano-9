@@ -53,6 +53,7 @@ pub(crate) fn plugin(app: &mut App) {
         // level::plugin,
     ));
     if app.is_plugin_added::<WindowPlugin>() {
+        #[cfg(feature = "level")]
         app.add_plugins(level::plugin);
     }
 
