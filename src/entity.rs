@@ -2,7 +2,7 @@ use bevy::{
     ecs::{system::SystemState, world::Command},
     prelude::*,
     sprite::Anchor,
-    transform::commands::PushChildInPlace,
+    transform::commands::AddChildInPlace,
 };
 
 use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{

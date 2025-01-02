@@ -67,14 +67,11 @@ impl FromLua<'_> for N9TextLoader {
     }
 }
 
-struct Print(Entity, String, TextStyle);
+struct Print(Entity, String, TextFont);
 
 impl Command for Print {
     fn apply(self, world: &mut World) {
-        world.entity_mut(self.0).insert(Text2dBundle {
-            text: Text::from_section(self.1, self.2),
-            ..default()
-        });
+        world.entity_mut(self.0).insert((Text::new(self.1), self.2));
     }
 }
 
@@ -90,22 +87,19 @@ impl UserData for N9TextLoader {
             let mut system_state: SystemState<(Res<AssetServer>,)> = SystemState::new(&mut world);
             let (server,) = system_state.get(&world);
             let font: Handle<Font> = server.load(path);
-            Ok(N9TextStyle(TextStyle { font, ..default() }))
+            Ok(N9TextStyle(TextFont::from_font(font)))
         });
 
         methods.add_method_mut("print", |ctx, this, str: String| {
             if let Ok(world) = ctx.get_world() {
                 let mut world = world.write();
                 let id = world
-                    .spawn(Text2dBundle {
-                        text: Text::from_section(str, TextStyle::default()),
-                        ..default()
-                    })
+                    .spawn(Text::new(str))
                     .id();
             } else if let Some(entities) = reserved_entities() {
                 if let Some(id) = entities.pop() {
                     if let Some(c) = deferred_commands() {
-                        c.push(Print(id, str, TextStyle::default()))
+                        c.push(Print(id, str, TextFont::default()))
                     }
                 } else {
                     warn!("Ran out of reserved entities.");
@@ -117,7 +111,7 @@ impl UserData for N9TextLoader {
 }
 
 #[derive(Clone, Default)]
-pub struct N9TextStyle(TextStyle);
+pub struct N9TextStyle(TextFont);
 impl FromLua<'_> for N9TextStyle {
     fn from_lua(value: Value, _: &Lua) -> mlua::Result<Self> {
         match value {
@@ -136,11 +130,11 @@ impl UserData for N9TextStyle {
             let y = y.unwrap_or(0.0);
             let z = z.unwrap_or(0.0);
             let id = world
-                .spawn(Text2dBundle {
-                    text: Text::from_section(str, this.0.clone()),
-                    transform: Transform::from_xyz(x, y, z),
-                    ..default()
-                })
+                .spawn((
+                    Text::new(str),
+                    this.0.clone(),
+                    Transform::from_xyz(x, y, z),
+                ))
                 .id();
             Ok(())
         });

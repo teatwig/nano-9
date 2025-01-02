@@ -143,7 +143,7 @@ fn spawn_camera(
     let mut camera_bundle = Camera2dBundle::default();
     camera_bundle.transform = Transform::from_xyz(64.0, 64.0, 0.0);
     // camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(512.0);
-    camera_bundle.projection.scaling_mode = ScalingMode::WindowSize(settings.pixel_scale);
+    camera_bundle.projection.scaling_mode = ScalingMode::WindowSize;//(settings.pixel_scale);
 
     commands
         .spawn((
@@ -155,12 +155,10 @@ fn spawn_camera(
         ))
         .with_children(|parent| {
             parent.spawn((
-                SpriteBundle {
+                Sprite::from_image(screen.0.clone()),
                     // transform: Transform::from_xyz(64.0, 64.0, -1.0),
-                    transform: Transform::from_xyz(0.0, 0.0, -100.0),
-                    texture: screen.0.clone(),
-                    ..default()
-                },
+                    Transform::from_xyz(0.0, 0.0, -100.0)
+                        .with_scale(Vec3::splat(1.0/settings.pixel_scale)),
                 Nano9Sprite,
                 N9Var::new("background"),
                 Name::new("background"),
@@ -178,7 +176,7 @@ pub fn fullscreen_key(
         use WindowMode::*;
         let mut primary_window = primary_windows.single_mut();
         primary_window.mode = match primary_window.mode {
-            Windowed => Fullscreen,
+            Windowed => Fullscreen(MonitorSelection::Current),
             _ => Windowed,
         }
     }
@@ -189,7 +187,7 @@ pub fn sync_window_size(
     mut settings: ResMut<N9Settings>,
     // mut query: Query<&mut Sprite, With<Nano9Sprite>>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
-    mut orthographic: Query<&mut OrthographicProjection, With<Camera>>,
+    mut orthographic: Query<(&mut OrthographicProjection, &mut Transform), With<Camera>>,
 ) {
     if let Some(e) = resize_event
         .read()
@@ -204,7 +202,7 @@ pub fn sync_window_size(
             primary_window.physical_width() as f32,
             primary_window.physical_height() as f32,
         ) / window_scale;
-        let mut orthographic = orthographic.single_mut();
+        let (mut orthographic, mut transform) = orthographic.single_mut();
 
         let canvas_size = settings.canvas_size.as_vec2();
         let canvas_aspect = canvas_size.x / canvas_size.y;
@@ -216,7 +214,8 @@ pub fn sync_window_size(
         // info!("window_size {window_size}");
         // info!("new_scale {new_scale}");
         settings.pixel_scale = new_scale;
-        orthographic.scaling_mode = ScalingMode::WindowSize(new_scale);
+        // orthographic.scaling_mode = ScalingMode::WindowSize(new_scale);
+        transform.scale = Vec3::splat(1.0 / new_scale);
 
         // let scale = if settings.canvas_size.x > settings.canvas_size.y
         // {

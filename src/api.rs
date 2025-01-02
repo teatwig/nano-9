@@ -8,7 +8,7 @@ use bevy_mod_scripting::api::providers::bevy_ecs::LuaEntity;
 use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{self, UserData, Variadic};
 // use bevy_pixel_buffer::prelude::*;
 use crate::{
-    pixel::PixelAccess, DropPolicy, N9AudioLoader, N9Camera, N9Image, N9ImageLoader, N9Sprite,
+    DropPolicy, N9AudioLoader, N9Camera, N9Image, N9ImageLoader, N9Sprite,
     N9TextLoader, Nano9Palette, Nano9Screen, N9Sound, N9Var, N9Entity,
 };
 #[cfg(feature = "level")]
@@ -148,7 +148,7 @@ impl APIProvider for Nano9API {
                         SystemState::new(&mut world);
                     let (screen, mut images) = system_state.get_mut(&mut world);
                     let image = images.get_mut(&screen.0).unwrap();
-                    let _ = image.set_pixel((x as usize, y as usize), color);
+                    let _ = image.set_color_at(x as u32, y as u32, color);
                     system_state.apply(&mut world);
                     Ok(())
                 })
@@ -164,7 +164,7 @@ impl APIProvider for Nano9API {
                     let mut world = world.write();
                     let mut system_state: SystemState<Res<Time>> = SystemState::new(&mut world);
                     let time = system_state.get(&world);
-                    Ok(time.elapsed_seconds())
+                    Ok(time.elapsed_secs())
                 })
                 .map_err(ScriptError::new_other)?,
             )
@@ -178,7 +178,7 @@ impl APIProvider for Nano9API {
                     let mut world = world.write();
                     let mut system_state: SystemState<Res<Time>> = SystemState::new(&mut world);
                     let time = system_state.get(&world);
-                    Ok(time.delta_seconds())
+                    Ok(time.delta_secs())
                 })
                 .map_err(ScriptError::new_other)?,
             )
@@ -239,7 +239,11 @@ impl APIProvider for Nano9API {
                         SystemState::new(&mut world);
                     let (screen, mut images) = system_state.get_mut(&mut world);
                     let image = images.get_mut(&screen.0).unwrap();
-                    let _ = image.set_pixels(|_, _| c);
+                    for i in 0..image.width() {
+                        for j in 0..image.height() {
+                            image.set_color_at(i, j, c);
+                        }
+                    }
                     system_state.apply(&mut world);
                     Ok(())
                 })

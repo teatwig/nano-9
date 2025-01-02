@@ -5,7 +5,7 @@
 
 use bevy::{
     prelude::*,
-    render::texture::{ImageLoaderSettings, ImageSampler},
+    image::{ImageLoaderSettings, ImageSampler},
     utils::HashMap,
 };
 

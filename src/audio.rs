@@ -58,13 +58,12 @@ impl UserData for N9Audio {
             let world = ctx.get_world()?;
             let mut world = world.write();
             let id = world
-                .spawn(AudioBundle {
-                    source: this.handle.clone(),
-                    settings: PlaybackSettings {
+                .spawn((AudioPlayer::new(this.handle.clone_weak()),
+                    PlaybackSettings {
                         mode: PlaybackMode::Despawn,
                         ..default()
                     },
-                })
+                ))
                 .id();
             Ok(Arc::new(N9Sound(id)))
         });
@@ -72,13 +71,12 @@ impl UserData for N9Audio {
             let world = ctx.get_world()?;
             let mut world = world.write();
             let id = world
-                .spawn(AudioBundle {
-                    source: this.handle.clone(),
-                    settings: PlaybackSettings {
+                .spawn((AudioPlayer::new(this.handle.clone_weak()),
+                    PlaybackSettings {
                         mode: PlaybackMode::Loop,
                         ..default()
                     },
-                })
+                ))
                 .id();
             Ok(Arc::new(N9Sound(id)))
         });

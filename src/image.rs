@@ -1,7 +1,7 @@
 use std::sync::{Mutex, Arc};
 use bevy::{ecs::system::SystemState, prelude::*};
 
-use crate::{palette::Nano9Palette, pixel::PixelAccess, DropPolicy, N9Color, N9Sprite, ValueExt, N9Entity};
+use crate::{palette::Nano9Palette, DropPolicy, N9Color, N9Sprite, ValueExt, N9Entity};
 use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{UserData, UserDataMethods};
 use bevy_mod_scripting::prelude::*;
 
@@ -100,18 +100,15 @@ impl UserData for N9Image {
             let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
             // eprintln!("x {x} y {y}");
             Ok(Arc::new(if let Some(n) = n {
+                let atlas = TextureAtlas {
+                                layout: this.layout.clone().unwrap(),
+                                index: n,
+                            };
                 N9Entity {
                     entity: world
                         .spawn((
-                            SpriteBundle {
-                                texture: this.handle.clone(),
-                                transform: Transform::from_xyz(x, y, 0.0),
-                                ..default()
-                            },
-                            TextureAtlas {
-                                layout: this.layout.clone().unwrap(),
-                                index: n,
-                            },
+                            Sprite::from_atlas_image(this.handle.clone(), atlas),
+                            Transform::from_xyz(x, y, 0.0),
                         ))
                         .id(),
                     drop: DropPolicy::Despawn,
@@ -119,11 +116,10 @@ impl UserData for N9Image {
             } else {
                 N9Entity {
                     entity: world
-                        .spawn((SpriteBundle {
-                            texture: this.handle.clone(),
-                            transform: Transform::from_xyz(x, y, 0.0),
-                            ..default()
-                        },))
+                        .spawn((
+                            Sprite::from_image(this.handle.clone()),
+                            Transform::from_xyz(x, y, 0.0),
+                        ))
                         .id(),
                     drop: DropPolicy::Despawn,
                 }
@@ -143,18 +139,15 @@ impl UserData for N9Image {
             let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
             // eprintln!("x {x} y {y}");
             Ok(Arc::new(Mutex::new(if let Some(n) = n {
+                let atlas = TextureAtlas {
+                                layout: this.layout.clone().unwrap(),
+                                index: n,
+                            };
                 N9Sprite {
                     entity: world
                         .spawn((
-                            SpriteBundle {
-                                texture: this.handle.clone(),
-                                transform: Transform::from_xyz(x, y, 0.0),
-                                ..default()
-                            },
-                            TextureAtlas {
-                                layout: this.layout.clone().unwrap(),
-                                index: n,
-                            },
+                            Sprite::from_atlas_image(this.handle.clone(), atlas),
+                            Transform::from_xyz(x, y, 0.0),
                         ))
                         .id(),
                     drop: DropPolicy::Despawn,
@@ -162,11 +155,10 @@ impl UserData for N9Image {
             } else {
                 N9Sprite {
                     entity: world
-                        .spawn((SpriteBundle {
-                            texture: this.handle.clone(),
-                            transform: Transform::from_xyz(x, y, 0.0),
-                            ..default()
-                        },))
+                        .spawn((
+                            Sprite::from_image(this.handle.clone()),
+                            Transform::from_xyz(x, y, 0.0),
+                        ))
                         .id(),
                     drop: DropPolicy::Despawn,
                 }
@@ -185,7 +177,7 @@ impl UserData for N9Image {
             let (mut images,) = system_state.get_mut(&mut world);
             let image = images.get_mut(&this.handle).unwrap();
             let height = image.texture_descriptor.size.height;
-            let _ = image.set_pixel((x as usize, (height as f32 - y) as usize), color);
+            let _ = image.set_color_at(x as u32, (height as f32 - y) as u32, color);
             system_state.apply(&mut world);
             Ok(())
         });

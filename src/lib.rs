@@ -9,7 +9,7 @@ mod error;
 mod ext;
 mod image;
 mod palette;
-mod pixel;
+// mod pixel;
 mod plugin;
 pub mod screens;
 mod sprite;

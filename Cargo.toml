@@ -4,23 +4,23 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = "0.14"
-bevy-inspector-egui = "0.25.2"
+bevy = "0.15"
+bevy-inspector-egui = "0.28"
 # bevy = { version = "0.13", default-features = false, features = [ "bevy_winit", "bevy_asset", "bevy_render" ] }
 # bevy_asset_loader = "0.21"
-bevy_ecs_ldtk = { version = "0.10", optional = true }
-bevy_mod_scripting = { version = "0.7.0", features = ["lua54", "lua_script_api", "unsafe_lua_modules"] }
+bevy_ecs_ldtk = { version = "0.11", optional = true }
+bevy_mod_scripting = { version = "0.8.0", features = ["lua54", "lua_script_api", "unsafe_lua_modules"] }
 bytemuck = "1.16.3"
 thiserror = "1.0.63"
 # bevy_pixel_buffer = "0.7.0"
-bevy_minibuffer = "0.1.0"
-# bevy_minibuffer_inspectors = { version = "0.1.0", path = "../bevy_minibuffer_inspectors" }
+bevy_minibuffer = "0.3.0"
+bevy_minibuffer_inspector = "0.1.0"
 
 [features]
 level = [ "dep:bevy_ecs_ldtk" ]
 
 [dev-dependencies]
-bevy = "0.14"
+bevy = "0.15"
 
 [[bin]]
 name = "nano-9"

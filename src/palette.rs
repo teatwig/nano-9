@@ -2,7 +2,7 @@ use bevy::{ecs::system::SystemState, prelude::*};
 
 use bevy_mod_scripting::prelude::*;
 // use bevy_pixel_buffer::prelude::*;
-use crate::{assets::ImageHandles, pixel::PixelAccess, DrawState};
+use crate::{assets::ImageHandles, DrawState};
 
 pub(crate) fn plugin(app: &mut App) {
     app.add_systems(Startup, setup);
@@ -28,7 +28,7 @@ impl Nano9Palette {
         match c {
             Value::Integer(n) => images
                 .get(&palette.0)
-                .and_then(|pal| pal.get_pixel(n as usize).ok())
+                .and_then(|pal| pal.get_color_at_1d(n as u32).ok())
                 .unwrap_or(draw_state.pen),
             _ => draw_state.pen,
         }
@@ -43,7 +43,7 @@ impl Nano9Palette {
             .get(&palette.0)
             .ok_or_else(|| LuaError::RuntimeError(format!("no such palette {:?}", &palette.0)))
             .and_then(|pal| {
-                pal.get_pixel(index)
+                pal.get_color_at_1d(index as u32)
                     .map_err(|_| LuaError::RuntimeError(format!("no such pixel index {:?}", index)))
             })
     }

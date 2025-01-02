@@ -2,7 +2,7 @@ use bevy::{
     ecs::{system::SystemState, world::Command},
     prelude::*,
     sprite::Anchor,
-    transform::commands::PushChildInPlace,
+    transform::commands::AddChildInPlace,
 };
 
 use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{
@@ -107,7 +107,7 @@ impl<T: EntityRep> UserDataComponent for T {
         fields.add_field_method_set("parent", |ctx, this, parent: LuaEntity| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let cmd = PushChildInPlace {
+            let cmd = AddChildInPlace {
                 child: this.entity(),
                 parent: parent.inner()?,
             };
@@ -179,7 +179,7 @@ impl UserDataComponent for Transform {
         fields.add_field_method_set("parent", |ctx, this, parent: LuaEntity| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let cmd = PushChildInPlace {
+            let cmd = AddChildInPlace {
                 child: this.entity(),
                 parent: parent.inner()?,
             };
@@ -266,7 +266,7 @@ impl UserDataComponent for GlobalTransform {
         fields.add_field_method_set("parent", |ctx, this, parent: LuaEntity| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let cmd = PushChildInPlace {
+            let cmd = AddChildInPlace {
                 child: this.entity(),
                 parent: parent.inner()?,
             };
@@ -391,11 +391,15 @@ impl UserData for N9Sprite {
         fields.add_field_method_set("index", |ctx, this, value| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let mut system_state: SystemState<Query<&mut TextureAtlas>> =
+            let mut system_state: SystemState<Query<&mut Sprite>> =
                 SystemState::new(&mut world);
             let mut query = system_state.get_mut(&mut world);
             let mut item = query.get_mut(this.entity).unwrap();
-            item.index = value;
+            if let Some(ref mut atlas) = item.texture_atlas {
+                atlas.index = value;
+            } else {
+                warn!("sprite has no index");
+            }
             Ok(())
         });
 
@@ -427,12 +431,12 @@ impl UserData for N9Sprite {
         fields.add_field_method_get("image", |ctx, this| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let mut system_state: SystemState<(Query<&Handle<Image>>,)> =
+            let mut system_state: SystemState<(Query<&Sprite>,)> =
                 SystemState::new(&mut world);
             let (query,) = system_state.get_mut(&mut world);
             let item = query.get(this.entity).unwrap();
             Ok(N9Image {
-                handle: item.clone(),
+                handle: item.image.clone(),
                 layout: None,
             }) //.ok_or(LuaError::RuntimeError("No such image".into()))
         });
