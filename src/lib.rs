@@ -17,6 +17,7 @@ mod text;
 #[cfg(feature = "level")]
 mod level;
 mod entity;
+mod var;
 
 pub use audio::*;
 pub use camera::*;
@@ -30,6 +31,7 @@ pub use text::*;
 #[cfg(feature = "level")]
 pub use level::*;
 pub use entity::*;
+pub use var::*;
 
 #[derive(thiserror::Error, Debug)]
 pub enum N9Error {
@@ -49,6 +51,7 @@ pub(crate) fn plugin(app: &mut App) {
         palette::plugin,
         error::plugin,
         text::plugin,
+        var::plugin,
         // audio::plugin,
         // level::plugin,
     ));

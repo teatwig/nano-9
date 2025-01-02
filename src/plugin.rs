@@ -17,7 +17,7 @@ use bevy_mod_scripting::{core::event::ScriptLoaded, prelude::*};
 
 use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{Variadic};
 // use bevy_pixel_buffer::prelude::*;
-use crate::{api::{N9Arg, N9Args}, assets::ImageHandles, screens, DropPolicy, N9Camera, N9Sprite, error::ErrorState};
+use crate::{api::{N9Arg, N9Args}, N9Var, assets::ImageHandles, screens, DropPolicy, N9Camera, N9Sprite, error::ErrorState};
 
 #[derive(Resource)]
 struct ImageAssets {
@@ -150,6 +150,8 @@ fn spawn_camera(
             camera_bundle,
             IsDefaultUiCamera,
             InheritedVisibility::default(),
+            N9Var::new("camera"),
+            Name::new("camera"),
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -160,6 +162,8 @@ fn spawn_camera(
                     ..default()
                 },
                 Nano9Sprite,
+                N9Var::new("background"),
+                Name::new("background"),
             ));
         });
 }
@@ -341,19 +345,19 @@ impl Plugin for Nano9Plugin {
         // .add_systems(OnExit(screens::Screen::Loading), setup_image)
         .add_systems(
             Startup,
-            (setup_image, set_background, spawn_camera, set_camera).chain(),
+            (setup_image, spawn_camera, set_camera).chain(),
         )
         // .add_systems(OnEnter(screens::Screen::Playing), send_init)
         // .add_systems(PreUpdate, send_init.run_if(on_asset_modified::<LuaFile>()))
         .add_systems(
             PreUpdate,
             send_init)
-        .add_systems(
-            PreUpdate,
-            (set_background, set_camera)
-                .chain()
-                .run_if(on_event::<ScriptLoaded>()),
-        )
+        // .add_systems(
+        //     PreUpdate,
+        //     (set_background, set_camera)
+        //         .chain()
+        //         .run_if(on_event::<ScriptLoaded>()),
+        // )
         // .add_systems(PreUpdate, (send_init).chain().run_if(on_event::<ScriptLoaded>()))
         .add_systems(
             FixedUpdate,

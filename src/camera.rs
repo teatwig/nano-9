@@ -19,3 +19,4 @@ impl UserData for N9Camera {
         Transform::add_fields::<'lua, Self, _>(fields);
     }
 }
+

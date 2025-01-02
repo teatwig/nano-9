@@ -83,6 +83,7 @@ impl UserData for N9Image {
             },
         );
 
+        /// sprite([n], [x], [y])
         /// XXX: What's the difference between sprite and spr?
         ///
         /// Sprite uses N9Entity, which is perhaps more general and dynamic.
@@ -98,7 +99,7 @@ impl UserData for N9Image {
             let x = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
             let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
             // eprintln!("x {x} y {y}");
-            Ok(Arc::new(Mutex::new(if let Some(n) = n {
+            Ok(Arc::new(if let Some(n) = n {
                 N9Entity {
                     entity: world
                         .spawn((
@@ -126,7 +127,7 @@ impl UserData for N9Image {
                         .id(),
                     drop: DropPolicy::Despawn,
                 }
-            })))
+            }))
         });
 
         methods.add_method_mut("spr", |ctx, this, mut args: LuaMultiValue| {

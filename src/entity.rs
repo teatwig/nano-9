@@ -15,12 +15,25 @@ use bevy_mod_scripting::api::{
 };
 use bevy_mod_scripting::prelude::*;
 // use bevy_pixel_buffer::prelude::*;
-use crate::{palette::Nano9Palette, N9Color, N9Image, DropPolicy};
+use crate::{palette::Nano9Palette, N9Color, N9Image, DropPolicy, despawn_list};
 use std::sync::OnceLock;
 
+#[derive(Clone)]
 pub struct N9Entity {
     pub entity: Entity,
     pub drop: DropPolicy,
+}
+
+impl Drop for N9Entity {
+    fn drop(&mut self) {
+        if matches!(self.drop, DropPolicy::Despawn) {
+            if let Some(list) = despawn_list() {
+                list.push(self.entity);
+            } else {
+                warn!("Unable to despawn {:?}.", self.entity);
+            }
+        }
+    }
 }
 
 impl UserData for N9Entity {
@@ -43,23 +56,23 @@ impl UserData for N9Entity {
             Ok(())
         });
 
-        fields.add_field_method_get("sprite", |ctx, this| {
-            let world = ctx.get_world()?;
-            let world = ScriptWorld::new(world);
-            // let mut world = world.write();
-            let t = world.get_type_by_name("Sprite").unwrap();
-            world.get_component(this.entity, t)
-                .map_err(|e| LuaError::RuntimeError(e.to_string()))
-        });
+        // fields.add_field_method_get("sprite", |ctx, this| {
+        //     let world = ctx.get_world()?;
+        //     let world = ScriptWorld::new(world);
+        //     // let mut world = world.write();
+        //     let t = world.get_type_by_name("Sprite").unwrap();
+        //     world.get_component(this.entity, t)
+        //         .map_err(|e| LuaError::RuntimeError(e.to_string()))
+        // });
 
-        fields.add_field_method_get("transform", |ctx, this| {
-            let world = ctx.get_world()?;
-            let world = ScriptWorld::new(world);
-            // let mut world = world.write();
-            let t = world.get_type_by_name("Transform").unwrap();
-            world.get_component(this.entity, t)
-                .map_err(|e| LuaError::RuntimeError(e.to_string()))
-        });
+        // fields.add_field_method_get("transform", |ctx, this| {
+        //     let world = ctx.get_world()?;
+        //     let world = ScriptWorld::new(world);
+        //     // let mut world = world.write();
+        //     let t = world.get_type_by_name("Transform").unwrap();
+        //     world.get_component(this.entity, t)
+        //         .map_err(|e| LuaError::RuntimeError(e.to_string()))
+        // });
     }
 
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
@@ -68,9 +81,19 @@ impl UserData for N9Entity {
             let world = ctx.get_world()?;
             let world = ScriptWorld::new(world);
             // let mut world = world.write();
-            let t = world.get_type_by_name(&index).unwrap();
+            let t = world.get_type_by_name(&index).ok_or_else(|| LuaError::RuntimeError(format!("No such type {:?}", &index)))?;
             world.get_component(this.entity, t)
                 .map_err(|e| LuaError::RuntimeError(e.to_string()))
         });
+
+        // methods.add_meta_method(MetaMethod::NewIndex, |ctx, this, index: String| {
+
+        //     let world = ctx.get_world()?;
+        //     let world = ScriptWorld::new(world);
+        //     // let mut world = world.write();
+        //     let t = world.get_type_by_name(&index).unwrap();
+        //     world.get_component(this.entity, t)
+        //         .map_err(|e| LuaError::RuntimeError(e.to_string()))
+        // });
     }
 }

@@ -3,9 +3,10 @@ use bevy_mod_scripting::prelude::*;
 use nano_9::*;
 use std::env;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_minibuffer::prelude::*;
 
 fn main() -> std::io::Result<()> {
-    let mut args = env::args();
+    let args = env::args();
     let script_path: String = args
         .skip(1)
         .next()
@@ -15,6 +16,11 @@ fn main() -> std::io::Result<()> {
     App::new()
         .add_plugins(nano9_plugin.default_plugins())
         .add_plugins(nano9_plugin)
+        .add_plugins(MinibufferPlugins)
+        .add_acts((BasicActs::default(),
+                   // acts::universal::UniversalActs::default(),
+                   // acts::tape::TapeActs::default()
+        ))
         .add_systems(
             Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
@@ -26,6 +32,7 @@ fn main() -> std::io::Result<()> {
                 });
             },
         )
+        .add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new())
         .run();
     Ok(())
 }

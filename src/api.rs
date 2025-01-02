@@ -9,7 +9,7 @@ use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{self, UserData, Variadi
 // use bevy_pixel_buffer::prelude::*;
 use crate::{
     pixel::PixelAccess, DropPolicy, N9AudioLoader, N9Camera, N9Image, N9ImageLoader, N9Sprite,
-    N9TextLoader, Nano9Palette, Nano9Screen, N9Sound,
+    N9TextLoader, Nano9Palette, Nano9Screen, N9Sound, N9Var, N9Entity,
 };
 #[cfg(feature = "level")]
 use crate::N9LevelLoader;
@@ -42,6 +42,7 @@ impl<'lua> IntoLua<'lua> for N9Arg {
             Sound(x) => x.into_lua(lua),
             Entity(x) => LuaEntity::new(x).into_lua(lua),
             DropPolicy(x) => x.into_lua(lua),
+            N9Entity(x) => x.into_lua(lua),
         }
     }
 }
@@ -54,6 +55,7 @@ pub enum N9Arg {
     Sprite(Arc<Mutex<N9Sprite>>),
     Sound(Arc<Mutex<N9Sound>>),
     Entity(Entity),
+    N9Entity(Arc<N9Entity>),
     DropPolicy(DropPolicy),
 }
 

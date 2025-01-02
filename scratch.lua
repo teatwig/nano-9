@@ -1,9 +1,16 @@
 -- text:print("Hello, World!")
 
 function _init()
-    background.image:set_pixel(16,32, 8)
+    -- background.image:set_pixel(16,32, 8)
     pixie = image:load("images/pixie.png")
-    jar = pixie:spr(64,64)
+    -- jar = pixie:spr(64,64)
+    local jar = pixie:sprite()
+    jar2 = jar
+
+    -- local Transform = world:get_type_by_name("Transform")
+    -- local t = Transform.from_xyz(0,1, 2)
+    -- local t = world:get_component(entity,Transform)
+    -- jar = nil
 
 
     -- sprite = nil
@@ -15,6 +22,10 @@ end
 x = 0
 c = {r = 0, g = 0, b = 1}
 function _update()
-    background.image:set_pixel(x, x, c)
+    -- background.Sprite:set_pixel(x, x, c)
+    --background.Sprite.flip_x = x % 2 == 0
+    -- jar2.Sprite.flip_x = x % 10 == 0
+
+
     x = x + 1
 end
