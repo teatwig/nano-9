@@ -1,7 +1,9 @@
 -- text:print("Hello, World!")
 
+c = {r = 0, g = 0, b = 1}
 function _init()
-    -- background.image:set_pixel(16,32, 8)
+    cls(c)
+    background.image:set_pixel(16,32, c)
     pixie = image:load("images/pixie.png")
     -- jar = pixie:spr(64,64)
     local jar = pixie:sprite()
@@ -20,9 +22,9 @@ function _init()
 end
 
 x = 0
-c = {r = 0, g = 0, b = 1}
 function _update()
-    -- background.Sprite:set_pixel(x, x, c)
+    -- background.name = "what"
+    background.image:set_pixel(x, x, c)
     --background.Sprite.flip_x = x % 2 == 0
     -- jar2.Sprite.flip_x = x % 10 == 0
 

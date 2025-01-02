@@ -9,7 +9,7 @@ use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{self, UserData, Variadi
 // use bevy_pixel_buffer::prelude::*;
 use crate::{
     DropPolicy, N9AudioLoader, N9Camera, N9Image, N9ImageLoader, N9Sprite,
-    N9TextLoader, Nano9Palette, Nano9Screen, N9Sound, N9Var, N9Entity,
+    N9TextLoader, Nano9Palette, Nano9Screen, N9Sound, N9Var, N9Entity, N9Color,
 };
 #[cfg(feature = "level")]
 use crate::N9LevelLoader;
@@ -140,7 +140,7 @@ impl APIProvider for Nano9API {
         ctx.globals()
             .set(
                 "pset",
-                ctx.create_function(|ctx, (x, y, c): (f32, f32, Value)| {
+                ctx.create_function(|ctx, (x, y, c): (f32, f32, N9Color)| {
                     let world = ctx.get_world()?;
                     let mut world = world.write();
                     let color = Nano9Palette::get_color_or_pen(c, &mut world);

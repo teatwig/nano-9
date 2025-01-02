@@ -56,6 +56,19 @@ impl UserData for N9Entity {
             Ok(())
         });
 
+        fields.add_field_method_get("image", |ctx, this| {
+            let world = ctx.get_world()?;
+            let mut world = world.write();
+            let mut system_state: SystemState<Query<&Sprite>> =
+                SystemState::new(&mut world);
+            let query = system_state.get(&mut world);
+            let item = query.get(this.entity).map_err(|_| LuaError::RuntimeError("No sprite to get image".into()))?;
+            Ok(N9Image {
+                handle: item.image.clone(),
+                layout: None,
+            }) //.ok_or(LuaError::RuntimeError("No such image".into()))
+        });
+
         // fields.add_field_method_get("sprite", |ctx, this| {
         //     let world = ctx.get_world()?;
         //     let world = ScriptWorld::new(world);

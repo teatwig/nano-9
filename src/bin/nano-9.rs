@@ -4,6 +4,7 @@ use nano_9::*;
 use std::env;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_minibuffer::prelude::*;
+use bevy_minibuffer_inspector as inspector;
 
 fn main() -> std::io::Result<()> {
     let args = env::args();
@@ -18,8 +19,10 @@ fn main() -> std::io::Result<()> {
         .add_plugins(nano9_plugin)
         .add_plugins(MinibufferPlugins)
         .add_acts((BasicActs::default(),
-                   // acts::universal::UniversalActs::default(),
-                   // acts::tape::TapeActs::default()
+                   acts::universal::UniversalArgActs::default(),
+                   acts::tape::TapeActs::default(),
+                   inspector::WorldActs::default(),
+                   inspector::AssetActs::default().add::<Image>(),
         ))
         .add_systems(
             Startup,
@@ -32,7 +35,7 @@ fn main() -> std::io::Result<()> {
                 });
             },
         )
-        .add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new())
+        // .add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new())
         .run();
     Ok(())
 }

@@ -144,6 +144,7 @@ fn spawn_camera(
     camera_bundle.transform = Transform::from_xyz(64.0, 64.0, 0.0);
     // camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(512.0);
     camera_bundle.projection.scaling_mode = ScalingMode::WindowSize;//(settings.pixel_scale);
+    camera_bundle.projection.scale = 1.0 / settings.pixel_scale;
 
     commands
         .spawn((
@@ -157,8 +158,8 @@ fn spawn_camera(
             parent.spawn((
                 Sprite::from_image(screen.0.clone()),
                     // transform: Transform::from_xyz(64.0, 64.0, -1.0),
-                    Transform::from_xyz(0.0, 0.0, -100.0)
-                        .with_scale(Vec3::splat(1.0/settings.pixel_scale)),
+                Transform::from_xyz(0.0, 0.0, -100.0),
+                        //.with_scale(Vec3::splat(settings.pixel_scale)),
                 Nano9Sprite,
                 N9Var::new("background"),
                 Name::new("background"),
@@ -215,7 +216,8 @@ pub fn sync_window_size(
         // info!("new_scale {new_scale}");
         settings.pixel_scale = new_scale;
         // orthographic.scaling_mode = ScalingMode::WindowSize(new_scale);
-        transform.scale = Vec3::splat(1.0 / new_scale);
+        orthographic.scale = 1.0 / new_scale;
+        // transform.scale = Vec3::splat(new_scale);
 
         // let scale = if settings.canvas_size.x > settings.canvas_size.y
         // {
@@ -350,12 +352,12 @@ impl Plugin for Nano9Plugin {
         // .add_systems(PreUpdate, send_init.run_if(on_asset_modified::<LuaFile>()))
         .add_systems(
             PreUpdate,
-            send_init)
+            send_init.run_if(on_event::<ScriptLoaded>))
         // .add_systems(
         //     PreUpdate,
         //     (set_background, set_camera)
         //         .chain()
-        //         .run_if(on_event::<ScriptLoaded>()),
+        //         ),
         // )
         // .add_systems(PreUpdate, (send_init).chain().run_if(on_event::<ScriptLoaded>()))
         .add_systems(
