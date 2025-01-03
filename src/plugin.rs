@@ -361,7 +361,7 @@ impl Plugin for Nano9Plugin {
         // )
         // .add_systems(PreUpdate, (send_init).chain().run_if(on_event::<ScriptLoaded>()))
         .add_systems(
-            FixedUpdate,
+            Update,
             (send_update, send_draw)
                 .chain()
                 .run_if(in_state(screens::Screen::Playing)

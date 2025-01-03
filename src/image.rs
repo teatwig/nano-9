@@ -99,7 +99,7 @@ impl UserData for N9Image {
             let x = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
             let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
             // eprintln!("x {x} y {y}");
-            Ok(Arc::new(if let Some(n) = n {
+            Ok(Arc::new(Mutex::new(if let Some(n) = n {
                 let atlas = TextureAtlas {
                                 layout: this.layout.clone().unwrap(),
                                 index: n,
@@ -123,7 +123,7 @@ impl UserData for N9Image {
                         .id(),
                     drop: DropPolicy::Despawn,
                 }
-            }))
+            })))
         });
 
         methods.add_method_mut("spr", |ctx, this, mut args: LuaMultiValue| {

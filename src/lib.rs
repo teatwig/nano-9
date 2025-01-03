@@ -33,6 +33,15 @@ pub use level::*;
 pub use entity::*;
 pub use var::*;
 
+#[derive(Component)]
+pub struct OneFrame;
+
+fn one_frame(query: Query<Entity, With<OneFrame>>, mut commands: Commands) {
+    for id in &query {
+        commands.entity(id).despawn_recursive();
+    }
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum N9Error {
     #[error("palette unavailable")]
@@ -54,7 +63,8 @@ pub(crate) fn plugin(app: &mut App) {
         var::plugin,
         // audio::plugin,
         // level::plugin,
-    ));
+    ))
+        .add_systems(First, one_frame);
     if app.is_plugin_added::<WindowPlugin>() {
         #[cfg(feature = "level")]
         app.add_plugins(level::plugin);

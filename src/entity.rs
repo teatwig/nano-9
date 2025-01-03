@@ -15,7 +15,7 @@ use bevy_mod_scripting::api::{
 };
 use bevy_mod_scripting::prelude::*;
 // use bevy_pixel_buffer::prelude::*;
-use crate::{palette::Nano9Palette, N9Color, N9Image, DropPolicy, despawn_list};
+use crate::{palette::Nano9Palette, N9Color, N9Image, DropPolicy, despawn_list, OneFrame};
 use std::sync::OnceLock;
 
 #[derive(Clone)]
@@ -38,9 +38,6 @@ impl Drop for N9Entity {
 
 impl UserData for N9Entity {
     fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
-        // Transform::add_fields::<'lua, Self, _>(fields);
-        //
-        //
         fields.add_field_method_get("name", |ctx, this| {
             let world = ctx.get_world()?;
             let mut world = world.write();
@@ -63,11 +60,31 @@ impl UserData for N9Entity {
                 SystemState::new(&mut world);
             let query = system_state.get(&mut world);
             let item = query.get(this.entity).map_err(|_| LuaError::RuntimeError("No sprite to get image".into()))?;
+            // XXX: Is layout actually none?
             Ok(N9Image {
                 handle: item.image.clone(),
                 layout: None,
             }) //.ok_or(LuaError::RuntimeError("No such image".into()))
         });
+
+        fields.add_field_method_set("one_frame", |ctx, this, value: bool| {
+            let world = ctx.get_world()?;
+            let mut world = world.write();
+            let mut commands = world.commands();
+            if value {
+                commands.entity(this.entity).insert(OneFrame);
+            } else {
+                commands.entity(this.entity).remove::<OneFrame>();
+            }
+            Ok(())
+        });
+
+        fields.add_field_method_get("one_frame", |ctx, this| {
+            let world = ctx.get_world()?;
+            let mut world = world.write();
+            Ok(world.entity(this.entity).contains::<OneFrame>())
+        });
+
 
         // fields.add_field_method_get("sprite", |ctx, this| {
         //     let world = ctx.get_world()?;
