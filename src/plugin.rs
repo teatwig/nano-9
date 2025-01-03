@@ -1,5 +1,4 @@
 #![allow(deprecated)]
-use std::sync::{Mutex, Arc};
 use bevy::{
     ecs::prelude::Condition,
     prelude::*,
@@ -12,12 +11,18 @@ use bevy::{
     utils::Duration,
     window::{PresentMode, PrimaryWindow, WindowMode, WindowResized, WindowResolution},
 };
+use std::sync::{Arc, Mutex};
 
 use bevy_mod_scripting::{core::event::ScriptLoaded, prelude::*};
 
-use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{Variadic};
+use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::Variadic;
 // use bevy_pixel_buffer::prelude::*;
-use crate::{api::{N9Arg, N9Args}, N9Var, assets::ImageHandles, screens, DropPolicy, N9Camera, N9Sprite, error::ErrorState};
+use crate::{
+    api::{N9Arg, N9Args},
+    assets::ImageHandles,
+    error::ErrorState,
+    screens, DropPolicy, N9Camera, N9Sprite, N9Var,
+};
 
 #[derive(Resource)]
 struct ImageAssets {
@@ -97,7 +102,7 @@ pub fn set_background(
                     args.push(N9Arg::String("background".into()));
                     args.push(N9Arg::Sprite(Arc::new(Mutex::new(N9Sprite {
                         entity: id,
-                        drop: DropPolicy::Nothing
+                        drop: DropPolicy::Nothing,
                     }))));
                     // args.push(N9Arg::DropPolicy(DropPolicy::Nothing));
                     // N9Arg::SetSprite {
@@ -135,15 +140,11 @@ pub fn set_camera(
     }
 }
 
-fn spawn_camera(
-    mut commands: Commands,
-    settings: Res<N9Settings>,
-    screen: Res<Nano9Screen>,
-) {
+fn spawn_camera(mut commands: Commands, settings: Res<N9Settings>, screen: Res<Nano9Screen>) {
     let mut camera_bundle = Camera2dBundle::default();
     camera_bundle.transform = Transform::from_xyz(64.0, 64.0, 0.0);
     // camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(512.0);
-    camera_bundle.projection.scaling_mode = ScalingMode::WindowSize;//(settings.pixel_scale);
+    camera_bundle.projection.scaling_mode = ScalingMode::WindowSize; //(settings.pixel_scale);
     camera_bundle.projection.scale = 1.0 / settings.pixel_scale;
 
     commands
@@ -157,9 +158,9 @@ fn spawn_camera(
         .with_children(|parent| {
             parent.spawn((
                 Sprite::from_image(screen.0.clone()),
-                    // transform: Transform::from_xyz(64.0, 64.0, -1.0),
+                // transform: Transform::from_xyz(64.0, 64.0, -1.0),
                 Transform::from_xyz(0.0, 0.0, -100.0),
-                        //.with_scale(Vec3::splat(settings.pixel_scale)),
+                //.with_scale(Vec3::splat(settings.pixel_scale)),
                 Nano9Sprite,
                 N9Var::new("background"),
                 Name::new("background"),
@@ -252,8 +253,8 @@ pub fn send_update(mut events: PriorityEventWriter<LuaEvent<N9Args>>) {
 /// Sends initialization event
 pub fn send_init(
     mut loaded: EventReader<ScriptLoaded>,
-    mut events: PriorityEventWriter<LuaEvent<N9Args>>) {
-
+    mut events: PriorityEventWriter<LuaEvent<N9Args>>,
+) {
     for e in loaded.read() {
         eprintln!("init {}", e.sid);
         events.send(
@@ -302,7 +303,6 @@ impl Default for N9Settings {
 }
 
 impl Nano9Plugin {
-
     pub fn default_plugins(&self) -> bevy::app::PluginGroupBuilder {
         let settings = &self.settings;
         let resolution = settings.canvas_size.as_vec2() * settings.pixel_scale;
@@ -344,15 +344,10 @@ impl Plugin for Nano9Plugin {
         .init_resource::<DrawState>()
         .add_plugins(crate::plugin)
         // .add_systems(OnExit(screens::Screen::Loading), setup_image)
-        .add_systems(
-            Startup,
-            (setup_image, spawn_camera, set_camera).chain(),
-        )
+        .add_systems(Startup, (setup_image, spawn_camera, set_camera).chain())
         // .add_systems(OnEnter(screens::Screen::Playing), send_init)
         // .add_systems(PreUpdate, send_init.run_if(on_asset_modified::<LuaFile>()))
-        .add_systems(
-            PreUpdate,
-            send_init.run_if(on_event::<ScriptLoaded>))
+        .add_systems(PreUpdate, send_init.run_if(on_event::<ScriptLoaded>))
         // .add_systems(
         //     PreUpdate,
         //     (set_background, set_camera)
@@ -364,14 +359,12 @@ impl Plugin for Nano9Plugin {
             Update,
             (send_update, send_draw)
                 .chain()
-                .run_if(in_state(screens::Screen::Playing)
-                        .and_then(in_state(ErrorState::None))),
+                .run_if(in_state(screens::Screen::Playing).and_then(in_state(ErrorState::None))),
         );
 
         if app.is_plugin_added::<WindowPlugin>() {
-            app
-            .add_systems(Update, sync_window_size)
-            .add_systems(Update, fullscreen_key);
+            app.add_systems(Update, sync_window_size)
+                .add_systems(Update, fullscreen_key);
         }
     }
 }

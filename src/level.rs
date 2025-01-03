@@ -1,19 +1,19 @@
 use bevy::prelude::*;
 
-use bevy::{
-    ecs::{
-        system::SystemState,
-    }
+use crate::{
+    api::{N9Arg, N9Args},
+    DropPolicy, EntityRep, UserDataComponent,
 };
+use bevy::ecs::system::SystemState;
 use bevy_ecs_ldtk::prelude::*;
-use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{UserData, UserDataMethods, UserDataFields, Function, Table};
+use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{
+    Function, Table, UserData, UserDataFields, UserDataMethods,
+};
 use bevy_mod_scripting::prelude::*;
-use crate::{DropPolicy, EntityRep, UserDataComponent, api::{N9Arg, N9Args}};
 use std::collections::HashMap;
 
 pub(crate) fn plugin(app: &mut App) {
-    app
-        .add_plugins(LdtkPlugin)
+    app.add_plugins(LdtkPlugin)
         // .register_ldtk_entity::<Slime>("Slime")
         .insert_resource(LevelSelection::index(0))
         .add_systems(PostUpdate, process_entities);
@@ -22,8 +22,8 @@ pub(crate) fn plugin(app: &mut App) {
 #[derive(Clone)]
 pub struct N9LevelLoader;
 
-#[derive( Default, Bundle, LdtkEntity)]
-pub struct Slime { }
+#[derive(Default, Bundle, LdtkEntity)]
+pub struct Slime {}
 
 #[derive(Clone, Component)]
 pub struct N9LevelProcessor(HashMap<String, String>);
@@ -38,30 +38,35 @@ impl FromLua<'_> for N9LevelLoader {
 }
 
 impl UserData for N9LevelLoader {
-
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method_mut("load", |ctx, this, (path, table): (String, Option<Table>)| {
-            let world = ctx.get_world()?;
-            let mut world = world.write();
-            let mut system_state: SystemState<(Res<AssetServer>,)> = SystemState::new(&mut world);
-            let (server,) = system_state.get(&world);
-            let level: Handle<LdtkProject> = server.load(path);
-            let mut l = world.spawn((LdtkWorldBundle {
-                ldtk_handle: level,
-                ..default()
-            },
-            Name::new("level")));
-            if let Some(table) = table {
-                let mut map = HashMap::new();
-                for pair in table.pairs::<String, String>() {
-                    let (key, value) = pair?;
-                    map.insert(key, value);
+        methods.add_method_mut(
+            "load",
+            |ctx, this, (path, table): (String, Option<Table>)| {
+                let world = ctx.get_world()?;
+                let mut world = world.write();
+                let mut system_state: SystemState<(Res<AssetServer>,)> =
+                    SystemState::new(&mut world);
+                let (server,) = system_state.get(&world);
+                let level: Handle<LdtkProject> = server.load(path);
+                let mut l = world.spawn((
+                    LdtkWorldBundle {
+                        ldtk_handle: level,
+                        ..default()
+                    },
+                    Name::new("level"),
+                ));
+                if let Some(table) = table {
+                    let mut map = HashMap::new();
+                    for pair in table.pairs::<String, String>() {
+                        let (key, value) = pair?;
+                        map.insert(key, value);
+                    }
+                    info!("Add table {:?}", &map);
+                    l.insert(N9LevelProcessor(map));
                 }
-                info!("Add table {:?}", &map);
-                l.insert(N9LevelProcessor(map));
-            }
-            Ok(N9Level(l.id()))
-        });
+                Ok(N9Level(l.id()))
+            },
+        );
     }
 }
 
@@ -71,8 +76,7 @@ fn process_entities(
     // processor: Query<&N9LevelProcessor>,
     assets: Res<AssetServer>,
     mut events: PriorityEventWriter<LuaEvent<N9Args>>,
-)
-{
+) {
     // let Ok(processor) = processor.get_single() else { return; };
 
     // info!("process entities");
@@ -101,7 +105,6 @@ fn process_entities(
         // }
     }
 }
-
 
 #[derive(Clone)]
 pub struct N9Level(Entity);

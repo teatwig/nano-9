@@ -6,16 +6,13 @@ use bevy::{
 };
 
 use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{
-    UserData, UserDataFields, UserDataMethods, MetaMethod
+    MetaMethod, UserData, UserDataFields, UserDataMethods,
 };
 
-use bevy_mod_scripting::api::{
-    providers::bevy_ecs::LuaEntity,
-    common::bevy::ScriptWorld,
-};
+use bevy_mod_scripting::api::{common::bevy::ScriptWorld, providers::bevy_ecs::LuaEntity};
 use bevy_mod_scripting::prelude::*;
 // use bevy_pixel_buffer::prelude::*;
-use crate::{palette::Nano9Palette, N9Color, N9Image, DropPolicy, despawn_list, OneFrame};
+use crate::{despawn_list, palette::Nano9Palette, DropPolicy, N9Color, N9Image, OneFrame};
 use std::sync::OnceLock;
 
 #[derive(Clone)]
@@ -43,7 +40,10 @@ impl UserData for N9Entity {
             let mut world = world.write();
             let mut system_state: SystemState<Query<&Name>> = SystemState::new(&mut world);
             let items = system_state.get(&mut world);
-            Ok(items.get(this.entity).map(|name| name.as_str().to_owned()).ok())
+            Ok(items
+                .get(this.entity)
+                .map(|name| name.as_str().to_owned())
+                .ok())
         });
         fields.add_field_method_set("name", |ctx, this, value: String| {
             let world = ctx.get_world()?;
@@ -56,10 +56,11 @@ impl UserData for N9Entity {
         fields.add_field_method_get("image", |ctx, this| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let mut system_state: SystemState<Query<&Sprite>> =
-                SystemState::new(&mut world);
+            let mut system_state: SystemState<Query<&Sprite>> = SystemState::new(&mut world);
             let query = system_state.get(&mut world);
-            let item = query.get(this.entity).map_err(|_| LuaError::RuntimeError("No sprite to get image".into()))?;
+            let item = query
+                .get(this.entity)
+                .map_err(|_| LuaError::RuntimeError("No sprite to get image".into()))?;
             // XXX: Is layout actually none?
             Ok(N9Image {
                 handle: item.image.clone(),
@@ -85,7 +86,6 @@ impl UserData for N9Entity {
             Ok(world.entity(this.entity).contains::<OneFrame>())
         });
 
-
         // fields.add_field_method_get("sprite", |ctx, this| {
         //     let world = ctx.get_world()?;
         //     let world = ScriptWorld::new(world);
@@ -107,12 +107,14 @@ impl UserData for N9Entity {
 
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
         methods.add_meta_method(MetaMethod::Index, |ctx, this, index: String| {
-
             let world = ctx.get_world()?;
             let world = ScriptWorld::new(world);
             // let mut world = world.write();
-            let t = world.get_type_by_name(&index).ok_or_else(|| LuaError::RuntimeError(format!("No such type {:?}", &index)))?;
-            world.get_component(this.entity, t)
+            let t = world
+                .get_type_by_name(&index)
+                .ok_or_else(|| LuaError::RuntimeError(format!("No such type {:?}", &index)))?;
+            world
+                .get_component(this.entity, t)
                 .map_err(|e| LuaError::RuntimeError(e.to_string()))
         });
 

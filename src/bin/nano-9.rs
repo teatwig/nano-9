@@ -1,9 +1,9 @@
 use bevy::prelude::*;
+use bevy_minibuffer::prelude::*;
+use bevy_minibuffer_inspector as inspector;
 use bevy_mod_scripting::prelude::*;
 use nano_9::*;
 use std::env;
-use bevy_minibuffer::prelude::*;
-use bevy_minibuffer_inspector as inspector;
 
 fn main() -> std::io::Result<()> {
     let args = env::args();
@@ -16,12 +16,14 @@ fn main() -> std::io::Result<()> {
     App::new()
         .add_plugins(nano9_plugin.default_plugins())
         .add_plugins(nano9_plugin)
+        .add_plugins(nano_9::pico8::plugin)
         .add_plugins(MinibufferPlugins)
-        .add_acts((BasicActs::default(),
-                   acts::universal::UniversalArgActs::default(),
-                   acts::tape::TapeActs::default(),
-                   inspector::WorldActs::default(),
-                   // inspector::AssetActs::default().add::<Image>(),
+        .add_acts((
+            BasicActs::default(),
+            acts::universal::UniversalArgActs::default(),
+            acts::tape::TapeActs::default(),
+            inspector::WorldActs::default(),
+            // inspector::AssetActs::default().add::<Image>(),
         ))
         .add_systems(
             Startup,

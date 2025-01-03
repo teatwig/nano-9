@@ -8,8 +8,7 @@ pub(crate) fn plugin(app: &mut App) {
         .add_systems(Update, clear_messages);
 
     if app.is_plugin_added::<WindowPlugin>() {
-        app
-            .add_systems(OnEnter(ErrorState::None), hide::<ErrorMessages>)
+        app.add_systems(OnEnter(ErrorState::None), hide::<ErrorMessages>)
             .add_systems(OnExit(ErrorState::None), show::<ErrorMessages>);
     }
 }
@@ -55,34 +54,35 @@ pub fn hide<T: Component>(
 fn spawn_error_message_layout(mut commands: Commands) {
     commands
         .spawn((Node {
-                position_type: PositionType::Absolute,
-                // top: Val::Px(0.0),
-                bottom: Val::Px(0.0),
-                right: Val::Px(0.0),
-                left: Val::Px(0.0),
-                flex_direction: FlexDirection::Column,
+            position_type: PositionType::Absolute,
+            // top: Val::Px(0.0),
+            bottom: Val::Px(0.0),
+            right: Val::Px(0.0),
+            left: Val::Px(0.0),
+            flex_direction: FlexDirection::Column,
 
-                // align_items: AlignItems::FlexEnd,
-                // justify_content:
-                ..Default::default()
-            },
-        ))
+            // align_items: AlignItems::FlexEnd,
+            // justify_content:
+            ..Default::default()
+        },))
         .with_children(|parent| {
-            parent.spawn((Visibility::Hidden,
-                          Node {
-                        flex_direction: FlexDirection::Column,
-                        // flex_grow: 1.,
-                        padding: UiRect {
-                            top: PADDING,
-                            left: LEFT_PADDING,
-                            right: PADDING,
-                            bottom: PADDING,
-                        },
-                        ..Default::default()
+            parent.spawn((
+                Visibility::Hidden,
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    // flex_grow: 1.,
+                    padding: UiRect {
+                        top: PADDING,
+                        left: LEFT_PADDING,
+                        right: PADDING,
+                        bottom: PADDING,
                     },
-                    BackgroundColor(css::RED.into()),
-                          ErrorMessages));
-                // .with_children(|parent| {
+                    ..Default::default()
+                },
+                BackgroundColor(css::RED.into()),
+                ErrorMessages,
+            ));
+            // .with_children(|parent| {
 
                 //     let error_style: TextStyle = TextStyle {
                 //         font_size: FONT_SIZE,
@@ -92,8 +92,6 @@ fn spawn_error_message_layout(mut commands: Commands) {
                 //         TextBundle::from_section("Test", error_style),
                 //         ErrorMessages));
                 // })
-
-                ;
             // .with_background_color(Color::RED));
         });
 }
@@ -113,8 +111,7 @@ pub fn add_messages(
         for e in r.read() {
             // eprintln!("XXXX\n\n err {}", e.error);
 
-            let error_style = TextFont::default()
-                .with_font_size(FONT_SIZE);
+            let error_style = TextFont::default().with_font_size(FONT_SIZE);
             let msg = match &e.error {
                 ScriptError::FailedToLoad { script, msg } => msg.clone(),
                 x => format!("{}", x),

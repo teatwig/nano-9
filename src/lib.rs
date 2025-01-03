@@ -10,27 +10,31 @@ mod ext;
 mod image;
 mod palette;
 // mod pixel;
+mod entity;
+#[cfg(feature = "level")]
+mod level;
+pub(crate) mod macros;
+mod nano9;
+pub mod pico8;
 mod plugin;
 pub mod screens;
 mod sprite;
 mod text;
-#[cfg(feature = "level")]
-mod level;
-mod entity;
 mod var;
 
 pub use audio::*;
 pub use camera::*;
 pub use color::*;
+pub use entity::*;
 pub use ext::*;
 pub use image::*;
+#[cfg(feature = "level")]
+pub use level::*;
+pub use nano9::*;
 pub use palette::*;
 pub use plugin::*;
 pub use sprite::*;
 pub use text::*;
-#[cfg(feature = "level")]
-pub use level::*;
-pub use entity::*;
 pub use var::*;
 
 #[derive(Component)]
@@ -64,12 +68,11 @@ pub(crate) fn plugin(app: &mut App) {
         // audio::plugin,
         // level::plugin,
     ))
-        .add_systems(First, one_frame);
+    .add_systems(First, one_frame);
     if app.is_plugin_added::<WindowPlugin>() {
         #[cfg(feature = "level")]
         app.add_plugins(level::plugin);
     }
-
 
     // Enable dev tools for dev builds.
     // #[cfg(feature = "dev")]

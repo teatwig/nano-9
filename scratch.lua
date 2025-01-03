@@ -4,7 +4,7 @@ c = {r = 0, g = 0, b = 1}
 function _init()
     cls({r = 0, g = 0, b = 0})
     background.image:set_pixel(16,32, c)
-    pixie = image:load("images/pixie.png")
+    pixie = nano9.image:load("images/pixie.png")
     -- jar = pixie:spr(64,64)
     jar = pixie:sprite()
     jar.one_frame = false

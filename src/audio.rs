@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use bevy::{audio::PlaybackMode, ecs::system::SystemState, prelude::*};
+use std::sync::Arc;
 
 use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{
     UserData, UserDataFields, UserDataMethods,
@@ -58,7 +58,8 @@ impl UserData for N9Audio {
             let world = ctx.get_world()?;
             let mut world = world.write();
             let id = world
-                .spawn((AudioPlayer::new(this.handle.clone_weak()),
+                .spawn((
+                    AudioPlayer::new(this.handle.clone_weak()),
                     PlaybackSettings {
                         mode: PlaybackMode::Despawn,
                         ..default()
@@ -71,7 +72,8 @@ impl UserData for N9Audio {
             let world = ctx.get_world()?;
             let mut world = world.write();
             let id = world
-                .spawn((AudioPlayer::new(this.handle.clone_weak()),
+                .spawn((
+                    AudioPlayer::new(this.handle.clone_weak()),
                     PlaybackSettings {
                         mode: PlaybackMode::Loop,
                         ..default()

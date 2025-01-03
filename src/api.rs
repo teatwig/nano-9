@@ -2,17 +2,17 @@
 use std::sync::{Arc, Mutex};
 
 use bevy::{ecs::system::SystemState, prelude::*, reflect::Reflect};
-use bevy_mod_scripting::prelude::*;
 use bevy_mod_scripting::api::providers::bevy_ecs::LuaEntity;
+use bevy_mod_scripting::prelude::*;
 
 use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{self, UserData, Variadic};
 // use bevy_pixel_buffer::prelude::*;
-use crate::{
-    DropPolicy, N9AudioLoader, N9Camera, N9Image, N9ImageLoader, N9Sprite,
-    N9TextLoader, Nano9Palette, Nano9Screen, N9Sound, N9Var, N9Entity, N9Color,
-};
 #[cfg(feature = "level")]
 use crate::N9LevelLoader;
+use crate::{
+    DropPolicy, N9AudioLoader, N9Camera, N9Color, N9Entity, N9Image, N9ImageLoader, N9Sound,
+    N9Sprite, N9TextLoader, N9Var, Nano9, Nano9Palette, Nano9Screen,
+};
 
 #[derive(Clone)]
 pub struct MyHandle<T: Asset + Clone>(pub Handle<T>);
@@ -68,7 +68,6 @@ impl FromLua<'_> for N9Arg {
     }
 }
 
-
 pub fn plugin(app: &mut App) {
     app.add_plugins(ScriptingPlugin)
         .add_systems(
@@ -94,175 +93,113 @@ impl APIProvider for Nano9API {
         // callbacks can receive any `ToLuaMulti` arguments, here '()' and
         // return any `FromLuaMulti` arguments, here a `usize`
         // check the Rlua documentation for more details
-
         let ctx = ctx.get_mut().unwrap();
-        #[cfg(feature = "level")]
+        macro_rules! define_global {
+            (fn $name:ident($($arg_name:ident : $arg_type:ty),*) $body:block) => {
+                fn $name($($arg_name: $arg_type),*) {
+                    println!("Executing function: {}", stringify!($name));
+                    $body
+                }
+            };
+        }
+        macro_rules! define_function {
+            ($ctx:ident, $name:ident, $body:expr) => {
+                $ctx.globals()
+                    .set(
+                        stringify!($name),
+                        $ctx.create_function($body)
+                            .map_err(ScriptError::new_other)?,
+                    )
+                    .map_err(ScriptError::new_other)?;
+            };
+        }
         ctx.globals()
-            .set("level", N9LevelLoader)
+            .set("nano9", Nano9)
             .map_err(ScriptError::new_other)?;
 
-        ctx.globals()
-            .set("audio", N9AudioLoader)
-            .map_err(ScriptError::new_other)?;
+        crate::macros::define_globals! {
 
-        ctx.globals()
-            .set("image", N9ImageLoader)
-            .map_err(ScriptError::new_other)?;
-
-        ctx.globals()
-            .set("text", N9TextLoader)
-            .map_err(ScriptError::new_other)?;
-
-        ctx.globals()
-            .set(
-                "_set_global",
-                ctx.create_function(|ctx, (name, value): (String, Value)| {
+            fn _set_global(ctx, (name, value): (String, Value)) {
                     ctx.globals().set(name, value)
-                })
-                .map_err(ScriptError::new_other)?,
-            )
-            .map_err(ScriptError::new_other)?;
+            }
 
-        ctx.globals()
-            .set(
-                "_set_sprite",
-                ctx.create_function(|ctx, (name, id, drop): (String, LuaEntity, DropPolicy)| {
+            fn _set_sprite(ctx, (name, id, drop): (String, LuaEntity, DropPolicy)) {
                     let sprite = N9Sprite {
                         entity: id.inner()?,
                         drop,
                     };
                     ctx.globals().set(name, sprite)
-                })
-                .map_err(ScriptError::new_other)?,
-            )
-            .map_err(ScriptError::new_other)?;
+            }
+        }
 
-        ctx.globals()
-            .set(
-                "pset",
-                ctx.create_function(|ctx, (x, y, c): (f32, f32, N9Color)| {
-                    let world = ctx.get_world()?;
-                    let mut world = world.write();
-                    let color = Nano9Palette::get_color_or_pen(c, &mut world);
-                    let mut system_state: SystemState<(Res<Nano9Screen>, ResMut<Assets<Image>>)> =
-                        SystemState::new(&mut world);
-                    let (screen, mut images) = system_state.get_mut(&mut world);
-                    let image = images.get_mut(&screen.0).unwrap();
-                    let _ = image.set_color_at(x as u32, y as u32, color);
-                    system_state.apply(&mut world);
-                    Ok(())
-                })
-                .map_err(ScriptError::new_other)?,
-            )
-            .map_err(ScriptError::new_other)?;
+        // define_function!(ctx, _set_global, |ctx, (name, value): (String, Value)| {
+        //             ctx.globals().set(name, value)
+        //         });
 
-        ctx.globals()
-            .set(
-                "time",
-                ctx.create_function(|ctx, _: ()| {
-                    let world = ctx.get_world()?;
-                    let mut world = world.write();
-                    let mut system_state: SystemState<Res<Time>> = SystemState::new(&mut world);
-                    let time = system_state.get(&world);
-                    Ok(time.elapsed_secs())
-                })
-                .map_err(ScriptError::new_other)?,
-            )
-            .map_err(ScriptError::new_other)?;
+        // define_function!(ctx, _set_sprite, |ctx, (name, id, drop): (String, LuaEntity, DropPolicy)| {
+        //             let sprite = N9Sprite {
+        //                 entity: id.inner()?,
+        //                 drop,
+        //             };
+        //             ctx.globals().set(name, sprite)
+        //         });
 
-        ctx.globals()
-            .set(
-                "delta_time",
-                ctx.create_function(|ctx, _: ()| {
-                    let world = ctx.get_world()?;
-                    let mut world = world.write();
-                    let mut system_state: SystemState<Res<Time>> = SystemState::new(&mut world);
-                    let time = system_state.get(&world);
-                    Ok(time.delta_secs())
-                })
-                .map_err(ScriptError::new_other)?,
-            )
-            .map_err(ScriptError::new_other)?;
-        ctx.globals()
-            .set(
-                "btn",
-                ctx.create_function(|ctx, b: u8| {
-                    let world = ctx.get_world()?;
-                    let mut world = world.write();
-                    let mut system_state: SystemState<Res<ButtonInput<KeyCode>>> =
-                        SystemState::new(&mut world);
-                    let input = system_state.get(&world);
-                    Ok(input.pressed(match b {
-                        0 => KeyCode::ArrowLeft,
-                        1 => KeyCode::ArrowRight,
-                        2 => KeyCode::ArrowUp,
-                        3 => KeyCode::ArrowDown,
-                        4 => KeyCode::KeyZ,
-                        5 => KeyCode::KeyX,
-                        x => todo!("key {x:?}"),
-                    }))
-                })
-                .map_err(ScriptError::new_other)?,
-            )
-            .map_err(ScriptError::new_other)?;
-        ctx.globals()
-            .set(
-                "btnp",
-                ctx.create_function(|ctx, b: u8| {
-                    let world = ctx.get_world()?;
-                    let mut world = world.write();
-                    let mut system_state: SystemState<Res<ButtonInput<KeyCode>>> =
-                        SystemState::new(&mut world);
-                    let input = system_state.get(&world);
-                    Ok(input.just_pressed(match b {
-                        0 => KeyCode::ArrowLeft,
-                        1 => KeyCode::ArrowRight,
-                        2 => KeyCode::ArrowUp,
-                        3 => KeyCode::ArrowDown,
-                        4 => KeyCode::KeyZ,
-                        5 => KeyCode::KeyX,
-                        x => todo!("key {x:?}"),
-                    }))
-                })
-                .map_err(ScriptError::new_other)?,
-            )
-            .map_err(ScriptError::new_other)?;
+        // ctx.globals()
+        //     .set(
+        //         "_set_global",
+        //         ctx.create_function(|ctx, (name, value): (String, Value)| {
+        //             ctx.globals().set(name, value)
+        //         })
+        //         .map_err(ScriptError::new_other)?,
+        //     )
+        //     .map_err(ScriptError::new_other)?;
 
-        ctx.globals()
-            .set(
-                "cls",
-                ctx.create_function(|ctx, value| {
-                    let world = ctx.get_world()?;
-                    let mut world = world.write();
-                    let c = Nano9Palette::get_color_or_pen(value, &mut world);
-                    let mut system_state: SystemState<(Res<Nano9Screen>, ResMut<Assets<Image>>)> =
-                        SystemState::new(&mut world);
-                    let (screen, mut images) = system_state.get_mut(&mut world);
-                    let image = images.get_mut(&screen.0).unwrap();
-                    for i in 0..image.width() {
-                        for j in 0..image.height() {
-                            image.set_color_at(i, j, c);
-                        }
-                    }
-                    system_state.apply(&mut world);
-                    Ok(())
-                })
-                .map_err(ScriptError::new_other)?,
-            )
-            .map_err(ScriptError::new_other)?;
+        // ctx.globals()
+        //     .set(
+        //         "_set_sprite",
+        //         ctx.create_function(|ctx, (name, id, drop): (String, LuaEntity, DropPolicy)| {
+        //             let sprite = N9Sprite {
+        //                 entity: id.inner()?,
+        //                 drop,
+        //             };
+        //             ctx.globals().set(name, sprite)
+        //         })
+        //         .map_err(ScriptError::new_other)?,
+        //     )
+        //     .map_err(ScriptError::new_other)?;
 
-        ctx.globals()
-            .set(
-                "setpal",
-                ctx.create_function(|ctx, img: N9Image| {
-                    let world = ctx.get_world()?;
-                    let mut world = world.write();
-                    world.insert_resource(Nano9Palette(img.handle.clone()));
-                    Ok(())
-                })
-                .map_err(ScriptError::new_other)?,
-            )
-            .map_err(ScriptError::new_other)?;
+        // // A Lua binding for a set palette function.
+        // ctx.globals()
+        //     .set(
+        //         "setpal",
+        //         ctx.create_function(|ctx, img: N9Image| {
+        //             let world = ctx.get_world()?;
+        //             let mut world = world.write();
+        //             world.insert_resource(Nano9Palette(img.handle.clone()));
+        //             Ok(())
+        //         })
+        //         .map_err(ScriptError::new_other)?,
+        //     )
+        //     .map_err(ScriptError::new_other)?;
+
+        // // Macro #1, better.
+        // define_function!(ctx, setpal, |ctx, img: N9Image| {
+        //     let world = ctx.get_world()?;
+        //     let mut world = world.write();
+        //     world.insert_resource(Nano9Palette(img.handle.clone()));
+        //     Ok(())
+        // });
+
+        // Macro #2, best!
+        crate::macros::define_globals! {
+            fn setpal(ctx, img: N9Image) {
+                let world = ctx.get_world()?;
+                let mut world = world.write();
+                world.insert_resource(Nano9Palette(img.handle.clone()));
+                Ok(())
+            }
+            // ...
+        }
 
         Ok(())
     }

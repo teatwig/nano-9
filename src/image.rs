@@ -1,7 +1,7 @@
-use std::sync::{Mutex, Arc};
 use bevy::{ecs::system::SystemState, prelude::*};
+use std::sync::{Arc, Mutex};
 
-use crate::{palette::Nano9Palette, DropPolicy, N9Color, N9Sprite, ValueExt, N9Entity};
+use crate::{palette::Nano9Palette, DropPolicy, N9Color, N9Entity, N9Sprite, ValueExt};
 use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{UserData, UserDataMethods};
 use bevy_mod_scripting::prelude::*;
 
@@ -101,9 +101,9 @@ impl UserData for N9Image {
             // eprintln!("x {x} y {y}");
             Ok(Arc::new(Mutex::new(if let Some(n) = n {
                 let atlas = TextureAtlas {
-                                layout: this.layout.clone().unwrap(),
-                                index: n,
-                            };
+                    layout: this.layout.clone().unwrap(),
+                    index: n,
+                };
                 N9Entity {
                     entity: world
                         .spawn((
@@ -140,9 +140,9 @@ impl UserData for N9Image {
             // eprintln!("x {x} y {y}");
             Ok(Arc::new(Mutex::new(if let Some(n) = n {
                 let atlas = TextureAtlas {
-                                layout: this.layout.clone().unwrap(),
-                                index: n,
-                            };
+                    layout: this.layout.clone().unwrap(),
+                    index: n,
+                };
                 N9Sprite {
                     entity: world
                         .spawn((

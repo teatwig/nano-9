@@ -43,7 +43,7 @@ pub enum DropPolicy {
     Despawn,
 }
 
-impl UserData for DropPolicy { }
+impl UserData for DropPolicy {}
 
 impl FromLua<'_> for DropPolicy {
     fn from_lua(value: Value, _: &Lua) -> mlua::Result<Self> {
@@ -97,7 +97,6 @@ impl<T: EntityRep> UserDataComponent for T {
             let mut system_state: SystemState<Query<&Parent>> = SystemState::new(&mut world);
             let parents = system_state.get(&world);
             if let Ok(p) = parents.get(this.entity()) {
-
                 LuaEntity::new(p.get()).into_lua(ctx)
             } else {
                 Ok(Value::Nil)
@@ -187,9 +186,12 @@ impl UserDataComponent for Transform {
             Ok(())
         });
 
-        fields.add_field_method_get("global", |ctx, this| Ok(N9GlobalTransform { entity: this.entity() }));
+        fields.add_field_method_get("global", |ctx, this| {
+            Ok(N9GlobalTransform {
+                entity: this.entity(),
+            })
+        });
         fields.add_field_method_get("entity", |ctx, this| Ok(LuaEntity::new(this.entity())));
-
     }
 }
 
@@ -198,7 +200,8 @@ impl UserDataComponent for GlobalTransform {
         fields.add_field_method_get("x", |ctx, this| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let mut system_state: SystemState<Query<&GlobalTransform>> = SystemState::new(&mut world);
+            let mut system_state: SystemState<Query<&GlobalTransform>> =
+                SystemState::new(&mut world);
             let transforms = system_state.get(&world);
             let transform = transforms.get(this.entity()).unwrap();
             Ok(transform.translation().x)
@@ -207,7 +210,8 @@ impl UserDataComponent for GlobalTransform {
         fields.add_field_method_set("x", |ctx, this, value: f32| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let mut system_state: SystemState<Query<(&mut Transform, &GlobalTransform)>> = SystemState::new(&mut world);
+            let mut system_state: SystemState<Query<(&mut Transform, &GlobalTransform)>> =
+                SystemState::new(&mut world);
             let mut transforms = system_state.get_mut(&mut world);
             let (mut transform, global) = transforms.get_mut(this.entity()).unwrap();
             let m = global.compute_matrix().inverse();
@@ -220,7 +224,8 @@ impl UserDataComponent for GlobalTransform {
         fields.add_field_method_get("y", |ctx, this| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let mut system_state: SystemState<Query<&GlobalTransform>> = SystemState::new(&mut world);
+            let mut system_state: SystemState<Query<&GlobalTransform>> =
+                SystemState::new(&mut world);
             let mut transforms = system_state.get(&mut world);
             let transform = transforms.get(this.entity()).unwrap();
             Ok(transform.translation().y)
@@ -229,7 +234,8 @@ impl UserDataComponent for GlobalTransform {
         fields.add_field_method_set("y", |ctx, this, value: f32| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let mut system_state: SystemState<Query<(&mut Transform, &GlobalTransform)>> = SystemState::new(&mut world);
+            let mut system_state: SystemState<Query<(&mut Transform, &GlobalTransform)>> =
+                SystemState::new(&mut world);
             let mut transforms = system_state.get_mut(&mut world);
             let (mut transform, global) = transforms.get_mut(this.entity()).unwrap();
             let m = global.compute_matrix().inverse();
@@ -243,7 +249,8 @@ impl UserDataComponent for GlobalTransform {
         fields.add_field_method_get("z", |ctx, this| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let mut system_state: SystemState<Query<&GlobalTransform>> = SystemState::new(&mut world);
+            let mut system_state: SystemState<Query<&GlobalTransform>> =
+                SystemState::new(&mut world);
             let transforms = system_state.get(&world);
             let transform = transforms.get(this.entity()).unwrap();
             Ok(transform.translation().z)
@@ -252,7 +259,8 @@ impl UserDataComponent for GlobalTransform {
         fields.add_field_method_set("z", |ctx, this, value: f32| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let mut system_state: SystemState<Query<(&mut Transform, &GlobalTransform)>> = SystemState::new(&mut world);
+            let mut system_state: SystemState<Query<(&mut Transform, &GlobalTransform)>> =
+                SystemState::new(&mut world);
             let mut transforms = system_state.get_mut(&mut world);
             let (mut transform, global) = transforms.get_mut(this.entity()).unwrap();
             let m = global.compute_matrix().inverse();
@@ -275,7 +283,11 @@ impl UserDataComponent for GlobalTransform {
         });
 
         fields.add_field_method_get("entity", |ctx, this| Ok(LuaEntity::new(this.entity())));
-        fields.add_field_method_get("loc", |ctx, this| Ok(N9LocalTransform { entity: this.entity() }));
+        fields.add_field_method_get("loc", |ctx, this| {
+            Ok(N9LocalTransform {
+                entity: this.entity(),
+            })
+        });
     }
 }
 
@@ -391,8 +403,7 @@ impl UserData for N9Sprite {
         fields.add_field_method_set("index", |ctx, this, value| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let mut system_state: SystemState<Query<&mut Sprite>> =
-                SystemState::new(&mut world);
+            let mut system_state: SystemState<Query<&mut Sprite>> = SystemState::new(&mut world);
             let mut query = system_state.get_mut(&mut world);
             let mut item = query.get_mut(this.entity).unwrap();
             if let Some(ref mut atlas) = item.texture_atlas {
@@ -431,8 +442,7 @@ impl UserData for N9Sprite {
         fields.add_field_method_get("image", |ctx, this| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let mut system_state: SystemState<(Query<&Sprite>,)> =
-                SystemState::new(&mut world);
+            let mut system_state: SystemState<(Query<&Sprite>,)> = SystemState::new(&mut world);
             let (query,) = system_state.get_mut(&mut world);
             let item = query.get(this.entity).unwrap();
             Ok(N9Image {

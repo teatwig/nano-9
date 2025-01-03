@@ -4,8 +4,8 @@
 //! loaded assets.
 
 use bevy::{
-    prelude::*,
     image::{ImageLoaderSettings, ImageSampler},
+    prelude::*,
     utils::HashMap,
 };
 
