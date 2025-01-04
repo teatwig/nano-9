@@ -39,11 +39,21 @@ pub struct Nano9SpriteSheet(pub Handle<Image>, pub Handle<TextureAtlasLayout>);
 #[derive(Resource)]
 pub struct Nano9Screen(pub Handle<Image>);
 
-#[derive(Resource, Default)]
+#[derive(Resource, Clone)]
 pub struct DrawState {
     pub pen: Color,
     pub camera_position: Vec2,
     pub print_cursor: Vec2,
+}
+
+impl Default for DrawState {
+    fn default() -> Self {
+        DrawState {
+            pen: Srgba::rgb(0.761, 0.765, 0.780).into(), // color 6, palette
+            camera_position: Vec2::ZERO,
+            print_cursor: Vec2::ZERO,
+        }
+    }
 }
 
 #[derive(Reflect, Resource)]
@@ -297,7 +307,7 @@ impl Default for N9Settings {
     fn default() -> Self {
         Self {
             canvas_size: UVec2::splat(128),
-            pixel_scale: 3.0,
+            pixel_scale: 4.0,
         }
     }
 }

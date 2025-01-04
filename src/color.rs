@@ -9,8 +9,18 @@ use bevy_mod_scripting::prelude::*;
 
 #[derive(Debug, Clone)]
 pub enum N9Color {
+    Pen,
     Palette(usize),
     Color(LinearRgba),
+}
+
+impl From<Option<usize>> for N9Color {
+    fn from(c: Option<usize>) -> Self {
+        match c {
+            Some(index) => N9Color::Palette(index),
+            None => N9Color::Pen,
+        }
+    }
 }
 
 impl FromLua<'_> for N9Color {
@@ -23,6 +33,7 @@ impl FromLua<'_> for N9Color {
         }
         match value {
             Value::UserData(ud) => Ok(ud.borrow::<Self>()?.clone()),
+            Value::Nil => Ok(N9Color::Pen),
             Value::Integer(n) => Ok(N9Color::Palette(n as usize)),
             Value::Number(n) => Ok(N9Color::Palette(n as usize)),
             Value::Table(t) => {
@@ -60,25 +71,25 @@ impl UserData for N9Color {
     fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
         fields.add_field_method_get("i", |ctx, this| match this {
             Self::Palette(i) => Ok(Value::Integer(*i as i64)),
-            Self::Color(_) => Ok(Value::Nil),
+            Self::Color(_) | Self::Pen => Ok(Value::Nil),
         });
         fields.add_field_method_set("i", |ctx, this, value: usize| match this {
             Self::Palette(ref mut i) => {
                 *i = value;
                 Ok(())
             }
-            Self::Color(_) => Err(LuaError::SyntaxError {
+            Self::Color(_) | Self::Pen => Err(LuaError::SyntaxError {
                 message: "Cannot set index of RGBA color".into(),
                 incomplete_input: false,
             }),
         });
         fields.add_field_method_get("r", |ctx, this| match this {
-            Self::Palette(_) => Ok(Value::Nil),
+            Self::Palette(_) | Self::Pen => Ok(Value::Nil),
             Self::Color(c) => Ok(Value::Number(c.red as f64)),
         });
 
         fields.add_field_method_set("r", |ctx, this, value: f32| match this {
-            Self::Palette(_) => Err(LuaError::RuntimeError(
+            Self::Pen | Self::Palette(_) => Err(LuaError::RuntimeError(
                 "Cannot set red channel of palette color".into(),
             )),
             Self::Color(c) => {

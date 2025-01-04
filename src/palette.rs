@@ -21,15 +21,16 @@ fn setup(mut commands: Commands, image_handles: Res<ImageHandles>) {
 pub struct Nano9Palette(pub Handle<Image>);
 
 impl Nano9Palette {
-    pub fn get_color_or_pen(c: N9Color, world: &mut World) -> Color {
+    pub fn get_color_or_pen(c: impl Into<N9Color>, world: &mut World) -> Color {
         let mut system_state: SystemState<(Res<Nano9Palette>, Res<Assets<Image>>, Res<DrawState>)> =
             SystemState::new(world);
         let (palette, images, draw_state) = system_state.get(world);
-        match c {
+        match c.into() {
+            N9Color::Pen => draw_state.pen,
             N9Color::Palette(n) => images
                 .get(&palette.0)
                 .and_then(|pal| pal.get_color_at_1d(n as u32).ok())
-                .unwrap_or(draw_state.pen),
+                .unwrap(),
             N9Color::Color(c) => c.into(),
         }
     }

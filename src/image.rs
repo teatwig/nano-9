@@ -168,10 +168,7 @@ impl UserData for N9Image {
         methods.add_method_mut("set_pixel", |ctx, this, (x, y, c): (f32, f32, N9Color)| {
             let world = ctx.get_world()?;
             let mut world = world.write();
-            let color = match c {
-                N9Color::Palette(c) => Nano9Palette::get_color(c, &mut world)?,
-                N9Color::Color(rgb) => rgb.into(),
-            };
+            let color = Nano9Palette::get_color_or_pen(c, &mut world);
             let mut system_state: SystemState<(ResMut<Assets<Image>>,)> =
                 SystemState::new(&mut world);
             let (mut images,) = system_state.get_mut(&mut world);

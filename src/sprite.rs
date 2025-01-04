@@ -330,11 +330,8 @@ impl UserData for N9Sprite {
             let mut world = world.write();
 
             let c = value
-                .map(|v| match v {
-                    N9Color::Palette(c) => Nano9Palette::get_color(c, &mut world),
-                    N9Color::Color(rgb) => Ok(rgb.into()),
-                })
-                .unwrap_or(Ok(Color::WHITE))?;
+                .map(|v| Nano9Palette::get_color_or_pen(v, &mut world))
+                .unwrap_or(Color::WHITE);
             let mut system_state: SystemState<Query<&mut Sprite>> = SystemState::new(&mut world);
             let mut query = system_state.get_mut(&mut world);
             let mut item = query.get_mut(this.entity).unwrap();

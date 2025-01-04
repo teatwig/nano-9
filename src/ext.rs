@@ -10,6 +10,6 @@ pub trait ValueExt {
 
 impl ValueExt for Value<'_> {
     fn to_f32(&self) -> Option<f32> {
-        self.as_f32().or(self.as_integer().map(|x| x as f32))
+        self.as_f32().or_else(|| self.as_integer().map(|x| x as f32))
     }
 }

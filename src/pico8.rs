@@ -15,23 +15,35 @@ use bevy_mod_scripting::prelude::*;
 // use bevy_pixel_buffer::prelude::*;
 use crate::{
     api::N9Args, despawn_list, palette::Nano9Palette, DropPolicy, N9AudioLoader, N9Color, N9Image,
-    N9ImageLoader, N9TextLoader, Nano9Screen, OneFrame,
+    N9ImageLoader, N9TextLoader, Nano9Screen, OneFrame, ValueExt, DrawState,
 };
 
 use std::sync::{Mutex, OnceLock};
 
 pub const PICO8_PALETTE: &'static str = "images/pico-8-palette.png";
 pub const PICO8_SPRITES: &'static str = "images/kenney-pico-8-city.png";
+pub const PICO8_FONT: &'static str = "fonts/pico-8.ttf";
 
 /// Pico8's state.
-#[derive(Clone)]
+#[derive(Resource, Clone)]
 pub struct Pico8 {
     palette: Handle<Image>,
     sprites: Handle<Image>,
+    layout: Handle<TextureAtlasLayout>,
+    font: Handle<Font>,
+    draw_state: DrawState,
 }
 
 impl FromWorld for Pico8 {
     fn from_world(world: &mut World) -> Self {
+        let layout = {
+            let mut layouts = world.resource_mut::<Assets<TextureAtlasLayout>>();
+            layouts.add(TextureAtlasLayout::from_grid(UVec2::new(8, 8),
+                                                      24,
+                                                      15,
+                                                      None,
+                                                      None))
+        };
         let asset_server = world.resource::<AssetServer>();
 
         let pixel_art_settings = |settings: &mut ImageLoaderSettings| {
@@ -42,29 +54,58 @@ impl FromWorld for Pico8 {
         Pico8 {
             palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
             sprites: asset_server.load_with_settings(PICO8_SPRITES, pixel_art_settings),
+            layout,
+            font: asset_server.load(PICO8_FONT),
+            draw_state: DrawState::default(),
         }
     }
 }
 
-impl UserData for Pico8 {
-    fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
-        // fields.add_field("audio", N9AudioLoader);
+impl Pico8 {
+    pub fn get_color_or_pen(&self, c: impl Into<N9Color>, world: &World) -> Color {
+        match c.into() {
+            N9Color::Pen => self.draw_state.pen,
+            N9Color::Palette(n) => {
+                let images = world.resource::<Assets<Image>>();
+                images
+                .get(&self.palette)
+                .and_then(|pal| {
+                    // Strangely. It's not a 1d texture.
+                    match pal.get_color_at(n as u32, 0) {
+                        Ok(c) => Some(c),
+                        Err(e) => {
+                            warn!("Could not look up color in palette at {n}: {e}");
+                            None
+                        }
+                    }
+                })
+                .unwrap_or(Srgba::rgb(1.0, 0.0, 1.0).into())
+            }
+            N9Color::Color(c) => c.into(),
+        }
     }
 
-    fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {}
+    // pub fn get_color(index: usize, world: &mut World) -> Result<Color, LuaError> {
+    //     let mut system_state: SystemState<(Res<Nano9Palette>, Res<Assets<Image>>, Res<DrawState>)> =
+    //         SystemState::new(world);
+    //     let (palette, images, draw_state) = system_state.get(world);
+
+    //     images
+    //         .get(&palette.0)
+    //         .ok_or_else(|| LuaError::RuntimeError(format!("no such palette {:?}", &palette.0)))
+    //         .and_then(|pal| {
+    //             pal.get_color_at_1d(index as u32)
+    //                 .map_err(|_| LuaError::RuntimeError(format!("no such pixel index {:?}", index)))
+    //         })
+    // }
 }
 
-pub struct Pico8API(Option<Pico8>);
-
-impl FromWorld for Pico8API {
-    fn from_world(world: &mut World) -> Self {
-        Pico8API(Some(Pico8::from_world(world)))
-    }
-}
+pub struct Pico8API;
 
 pub fn plugin(app: &mut App) {
-    let pico8_api = Pico8API::from_world(app.world_mut());
-    app.add_api_provider::<LuaScriptHost<N9Args>>(Box::new(pico8_api));
+    app
+        .init_resource::<Pico8>()
+        .add_api_provider::<LuaScriptHost<N9Args>>(Box::new(Pico8API));
 }
 
 impl APIProvider for Pico8API {
@@ -78,75 +119,157 @@ impl APIProvider for Pico8API {
         // check the Rlua documentation for more details
 
         let ctx = ctx.get_mut().unwrap();
-        ctx.globals()
-            .set("pico8", self.0.take().unwrap())
-            .map_err(ScriptError::new_other)?;
-
         crate::macros::define_globals! {
-        // XXX: This should be demoted in favor of a general `input` solution.
-        fn btnp(ctx, b: u8) {
-            let world = ctx.get_world()?;
-            let mut world = world.write();
-            let mut system_state: SystemState<Res<ButtonInput<KeyCode>>> =
-                SystemState::new(&mut world);
-            let input = system_state.get(&world);
-            Ok(input.just_pressed(match b {
-                0 => KeyCode::ArrowLeft,
-                1 => KeyCode::ArrowRight,
-                2 => KeyCode::ArrowUp,
-                3 => KeyCode::ArrowDown,
-                4 => KeyCode::KeyZ,
-                5 => KeyCode::KeyX,
-                x => todo!("key {x:?}"),
-            }))
-        }
-
-        fn btn(ctx, b: u8) {
-            let world = ctx.get_world()?;
-            let mut world = world.write();
-            let mut system_state: SystemState<Res<ButtonInput<KeyCode>>> =
-                SystemState::new(&mut world);
-            let input = system_state.get(&world);
-            Ok(input.pressed(match b {
-                0 => KeyCode::ArrowLeft,
-                1 => KeyCode::ArrowRight,
-                2 => KeyCode::ArrowUp,
-                3 => KeyCode::ArrowDown,
-                4 => KeyCode::KeyZ,
-                5 => KeyCode::KeyX,
-                x => todo!("key {x:?}"),
-            }))
-        }
-
-        fn cls(ctx, value: N9Color) {
-            let world = ctx.get_world()?;
-            let mut world = world.write();
-            let c = Nano9Palette::get_color_or_pen(value, &mut world);
-            let mut system_state: SystemState<(Res<Nano9Screen>, ResMut<Assets<Image>>)> =
-                SystemState::new(&mut world);
-            let (screen, mut images) = system_state.get_mut(&mut world);
-            let image = images.get_mut(&screen.0).unwrap();
-            for i in 0..image.width() {
-                for j in 0..image.height() {
-                    image.set_color_at(i, j, c).map_err(|_| LuaError::RuntimeError("Could not set pixel color".into()))?;
-                }
+            // XXX: This should be demoted in favor of a general `input` solution.
+            fn btnp(ctx, b: u8) {
+                let world = ctx.get_world()?;
+                let mut world = world.write();
+                let mut system_state: SystemState<Res<ButtonInput<KeyCode>>> =
+                    SystemState::new(&mut world);
+                let input = system_state.get(&world);
+                Ok(input.just_pressed(match b {
+                    0 => KeyCode::ArrowLeft,
+                    1 => KeyCode::ArrowRight,
+                    2 => KeyCode::ArrowUp,
+                    3 => KeyCode::ArrowDown,
+                    4 => KeyCode::KeyZ,
+                    5 => KeyCode::KeyX,
+                    x => todo!("key {x:?}"),
+                }))
             }
-            system_state.apply(&mut world);
-            Ok(())
-        }
 
-        fn pset(ctx, (x, y, c): (f32, f32, N9Color)) {
-            let world = ctx.get_world()?;
-            let mut world = world.write();
-            let color = Nano9Palette::get_color_or_pen(c, &mut world);
-            let mut system_state: SystemState<(Res<Nano9Screen>, ResMut<Assets<Image>>)> =
-                SystemState::new(&mut world);
-            let (screen, mut images) = system_state.get_mut(&mut world);
-            let image = images.get_mut(&screen.0).unwrap();
-            let _ = image.set_color_at(x as u32, y as u32, color);
-            system_state.apply(&mut world);
-            Ok(())
-        }
+            fn btn(ctx, b: u8) {
+                let world = ctx.get_world()?;
+                let mut world = world.write();
+                let mut system_state: SystemState<Res<ButtonInput<KeyCode>>> =
+                    SystemState::new(&mut world);
+                let input = system_state.get(&world);
+                Ok(input.pressed(match b {
+                    0 => KeyCode::ArrowLeft,
+                    1 => KeyCode::ArrowRight,
+                    2 => KeyCode::ArrowUp,
+                    3 => KeyCode::ArrowDown,
+                    4 => KeyCode::KeyZ,
+                    5 => KeyCode::KeyX,
+                    x => todo!("key {x:?}"),
+                }))
+            }
+
+            fn cls(ctx, value: (Option<N9Color>)) {
+                let world = ctx.get_world()?;
+                let c = value.map(|value| {
+                    let world = world.read();
+                    let pico8 = world.resource::<Pico8>();
+                    pico8.get_color_or_pen(value, &world)
+                }).unwrap_or(Color::BLACK);
+                let mut world = world.write();
+                let mut system_state: SystemState<(Res<Nano9Screen>, ResMut<Assets<Image>>)> =
+                    SystemState::new(&mut world);
+                let (screen, mut images) = system_state.get_mut(&mut world);
+                let image = images.get_mut(&screen.0).unwrap();
+                for i in 0..image.width() {
+                    for j in 0..image.height() {
+                        image.set_color_at(i, j, c).map_err(|_| LuaError::RuntimeError("Could not set pixel color".into()))?;
+                    }
+                }
+                system_state.apply(&mut world);
+                Ok(())
+            }
+
+            fn pset(ctx, (x, y, c): (f32, f32, N9Color)) {
+                let world = ctx.get_world()?;
+                let mut world = world.write();
+                let color = Nano9Palette::get_color_or_pen(c, &mut world);
+                let mut system_state: SystemState<(Res<Nano9Screen>, ResMut<Assets<Image>>)> =
+                    SystemState::new(&mut world);
+                let (screen, mut images) = system_state.get_mut(&mut world);
+                let image = images.get_mut(&screen.0).unwrap();
+                let _ = image.set_color_at(x as u32, y as u32, color);
+                system_state.apply(&mut world);
+                Ok(())
+            }
+
+            // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
+            // XXX: What's the difference between sprite and spr?
+            //
+            // Sprite uses N9Entity, which is perhaps more general and dynamic.
+            fn spr(ctx, (mut args): LuaMultiValue) {
+                let world = ctx.get_world()?;
+                let draw_state = {
+                    let world = world.read();
+                    let pico8 = world.resource::<Pico8>();
+                    pico8.draw_state.clone()
+                };
+                let n = args.pop_front().and_then(|v| v.as_usize()).expect("sprite id");
+                let x = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
+                let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
+                let w = args.pop_front().and_then(|v| v.to_f32());
+                let h = args.pop_front().and_then(|v| v.to_f32());
+                let flip_x = args.pop_front().and_then(|v| v.as_boolean()).unwrap_or(false);
+                let flip_y = args.pop_front().and_then(|v| v.as_boolean()).unwrap_or(false);
+                // info!("n {n} x {x} y {y} w {w:?} h {h:?}");
+                let sprite = {
+                    let world = world.read();
+                    let pico8 = world.resource::<Pico8>();
+                    let atlas = TextureAtlas {
+                        layout: pico8.layout.clone(),
+                        index: n,
+                    };
+                    Sprite {
+                        image: pico8.sprites.clone(),
+                        texture_atlas: Some(atlas),
+                        rect: w.or(h).is_some().then(||
+                                                     Rect { min: Vec2::ZERO,
+                                                            max: Vec2::new(w.unwrap_or(1.0) * 8.0, h.unwrap_or(1.0) * 8.0) }),
+                        flip_x,
+                        flip_y,
+                        ..default()
+                    }
+                };
+                let mut world = world.write();
+                world.spawn((sprite,
+                             Transform::from_xyz(x, y, 0.0),
+                             OneFrame,
+                ));
+                Ok(())
+            }
+
+            // print(text, [x,] [y,] [color])
+            fn print(ctx, (mut args): LuaMultiValue) {
+                let world = ctx.get_world()?;
+                let draw_state = {
+                    let world = world.read();
+                    let pico8 = world.resource::<Pico8>();
+                    pico8.draw_state.clone()
+                };
+                let font = {
+                    let world = world.read();
+                    let pico8 = world.resource::<Pico8>();
+                    pico8.font.clone()
+                };
+                let mut world = world.write();
+                let text = args.pop_front().map(|v| v.to_string().expect("text")).expect("text");
+                let x = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(draw_state.print_cursor.x);
+                let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(draw_state.print_cursor.y);
+                let c = args.pop_front().and_then(|v| v.as_usize());
+                let color = Nano9Palette::get_color_or_pen(c, &mut world);
+                world.spawn((Text2d::new(text),
+                             Transform::from_xyz(x, y, 0.0),
+                             TextColor(color),
+                             TextFont {
+                                 font,
+                                 font_smoothing: bevy::text::FontSmoothing::None,
+                                 font_size: 6.0,
+                             },
+                             OneFrame,
+                             // Anchor::TopLeft is (-0.5, 0.5).
+                             Anchor::Custom(Vec2::new(-0.5, 0.3)),
+                             ));
+                let mut pico8 = world.resource_mut::<Pico8>();
+                pico8.draw_state.print_cursor.x = x;
+                pico8.draw_state.print_cursor.y = y - 6.0;
+                Ok(())
+            }
         }
 
         Ok(())
