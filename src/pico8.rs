@@ -176,10 +176,14 @@ impl APIProvider for Pico8API {
                 Ok(())
             }
 
-            fn pset(ctx, (x, y, c): (f32, f32, N9Color)) {
+            fn pset(ctx, (x, y, color): (f32, f32, Option<N9Color>)) {
                 let world = ctx.get_world()?;
+                let color = color.map(|value| {
+                    let world = world.read();
+                    let pico8 = world.resource::<Pico8>();
+                    pico8.get_color_or_pen(value, &world)
+                }).unwrap_or(Color::BLACK);
                 let mut world = world.write();
-                let color = Nano9Palette::get_color_or_pen(c, &mut world);
                 let mut system_state: SystemState<(Res<Nano9Screen>, ResMut<Assets<Image>>)> =
                     SystemState::new(&mut world);
                 let (screen, mut images) = system_state.get_mut(&mut world);
@@ -228,7 +232,7 @@ impl APIProvider for Pico8API {
                 };
                 let mut world = world.write();
                 world.spawn((sprite,
-                             Transform::from_xyz(x, y, 0.0),
+                             Transform::from_xyz(x, -y, 0.0),
                              OneFrame::default(),
                 ));
                 Ok(())
@@ -259,7 +263,7 @@ impl APIProvider for Pico8API {
                 let c = args.pop_front().and_then(|v| v.as_usize());
                 let color = Nano9Palette::get_color_or_pen(c, &mut world);
                 world.spawn((Text2d::new(text),
-                             Transform::from_xyz(x, y, 0.0),
+                             Transform::from_xyz(x, -y, 0.0),
                              TextColor(color),
                              TextFont {
                                  font,
@@ -272,7 +276,7 @@ impl APIProvider for Pico8API {
                              ));
                 let mut pico8 = world.resource_mut::<Pico8>();
                 pico8.draw_state.print_cursor.x = x;
-                pico8.draw_state.print_cursor.y = y - 6.0;
+                pico8.draw_state.print_cursor.y = y + 6.0;
                 Ok(())
             }
         }

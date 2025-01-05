@@ -151,15 +151,18 @@ pub fn set_camera(
 }
 
 fn spawn_camera(mut commands: Commands, settings: Res<N9Settings>, screen: Res<Nano9Screen>) {
-    let mut camera_bundle = Camera2dBundle::default();
-    camera_bundle.transform = Transform::from_xyz(64.0, 64.0, 0.0);
+    let mut projection = OrthographicProjection::default_2d();
+    // camera_bundle.transform = Transform::from_xyz(64.0, 64.0, 0.0);
     // camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(512.0);
-    camera_bundle.projection.scaling_mode = ScalingMode::WindowSize; //(settings.pixel_scale);
-    camera_bundle.projection.scale = 1.0 / settings.pixel_scale;
+    projection.scaling_mode = ScalingMode::WindowSize; //(settings.pixel_scale);
+    projection.scale = 1.0 / settings.pixel_scale;
+
 
     commands
         .spawn((
-            camera_bundle,
+            Camera2d,
+            Transform::from_xyz(64.0, -64.0, 0.0),//.looking_to(Dir3::Z, Dir3::NEG_Y),
+            Projection::from(projection),
             IsDefaultUiCamera,
             InheritedVisibility::default(),
             N9Var::new("camera"),
