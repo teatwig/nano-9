@@ -7,7 +7,7 @@ use bevy::{
 };
 
 use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{
-    MetaMethod, UserData, UserDataFields, UserDataMethods,
+    MetaMethod, UserData, UserDataFields, UserDataMethods, Function
 };
 
 use bevy_mod_scripting::api::{common::bevy::ScriptWorld, providers::bevy_ecs::LuaEntity};
@@ -21,7 +21,7 @@ use crate::{
 use std::sync::{Mutex, OnceLock};
 
 pub const PICO8_PALETTE: &'static str = "images/pico-8-palette.png";
-pub const PICO8_SPRITES: &'static str = "images/kenney-pico-8-city.png";
+pub const PICO8_SPRITES: &'static str = "images/pooh-book-sprites.png";
 pub const PICO8_FONT: &'static str = "fonts/pico-8.ttf";
 
 /// Pico8's state.
@@ -39,8 +39,8 @@ impl FromWorld for Pico8 {
         let layout = {
             let mut layouts = world.resource_mut::<Assets<TextureAtlasLayout>>();
             layouts.add(TextureAtlasLayout::from_grid(UVec2::new(8, 8),
-                                                      24,
-                                                      15,
+                                                      16,
+                                                      16,
                                                       None,
                                                       None))
         };
@@ -229,9 +229,14 @@ impl APIProvider for Pico8API {
                 let mut world = world.write();
                 world.spawn((sprite,
                              Transform::from_xyz(x, y, 0.0),
-                             OneFrame,
+                             OneFrame::default(),
                 ));
                 Ok(())
+            }
+
+            fn tostr(ctx, v: Value) {
+                let tostring: Function = ctx.globals().get("tostring")?;
+                tostring.call::<Value,LuaString>(v)
             }
 
             // print(text, [x,] [y,] [color])
@@ -261,7 +266,7 @@ impl APIProvider for Pico8API {
                                  font_smoothing: bevy::text::FontSmoothing::None,
                                  font_size: 6.0,
                              },
-                             OneFrame,
+                             OneFrame::default(),
                              // Anchor::TopLeft is (-0.5, 0.5).
                              Anchor::Custom(Vec2::new(-0.5, 0.3)),
                              ));

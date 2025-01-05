@@ -73,7 +73,7 @@ impl UserData for N9Entity {
             let mut world = world.write();
             let mut commands = world.commands();
             if value {
-                commands.entity(this.entity).insert(OneFrame);
+                commands.entity(this.entity).insert(OneFrame::default());
             } else {
                 commands.entity(this.entity).remove::<OneFrame>();
             }
