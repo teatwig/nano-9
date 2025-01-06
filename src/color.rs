@@ -7,7 +7,7 @@ use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{
 };
 use bevy_mod_scripting::prelude::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum N9Color {
     Pen,
     Palette(usize),

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_minibuffer::prelude::*;
-use bevy_minibuffer_inspector as inspector;
+// use bevy_minibuffer_inspector as inspector;
 use bevy_mod_scripting::prelude::*;
 use nano_9::*;
 use std::env;
@@ -22,7 +22,7 @@ fn main() -> std::io::Result<()> {
             BasicActs::default(),
             acts::universal::UniversalArgActs::default(),
             acts::tape::TapeActs::default(),
-            inspector::WorldActs::default(),
+            // bevy_minibuffer_inspector::WorldActs::default(),
             // inspector::AssetActs::default().add::<Image>(),
         ))
         .add_systems(

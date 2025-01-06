@@ -35,6 +35,7 @@ pub struct Pico8State {
     layout: Handle<TextureAtlasLayout>,
     font: Handle<Font>,
     draw_state: DrawState,
+    sprite_size: UVec2,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -43,7 +44,8 @@ pub enum Error {
     NoAsset(Cow<'static, str>),
     #[error("texture access error: {0}")]
     TextureAccess(#[from] TextureAccessError),
-
+    #[error("no such button: {0}")]
+    NoSuchButton(u8),
 }
 
 impl From<Error> for LuaError {
@@ -58,9 +60,63 @@ pub struct Pico8<'w, 's> {
     state: ResMut<'w, Pico8State>,
     commands: Commands<'w, 's>,
     background: Res<'w, Nano9Screen>,
+    keys: Res<'w, ButtonInput<KeyCode>>,
 }
 
+#[derive(Default, Clone, Copy)]
+pub struct SprArgs {
+    // index: usize,
+    pos: Vec2,
+    size: Option<Vec2>,
+    flip_x: bool,
+    flip_y: bool,
+}
+
+// impl Default for SprArgs {
+//     fn default() -> Self {
+//         SprArgs {
+//             // index: 0,
+//             pos: Vec2::ZERO,
+//             size:
+//             flip_x: false,
+//             flip_y: false,
+//         }
+//     }
+// }
+
 impl<'w, 's> Pico8<'w, 's> {
+
+    // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
+
+    // XXX: Reconsider using args struct.
+    // fn spr(&mut self, index: usize, pos: Option<Vec2>, size: Option<Vec2>, flip: Option<BVec2>) -> Result<Entity, Error> {
+    fn spr(&mut self, index: usize, args: Option<SprArgs>) -> Result<Entity, Error> {
+        let args = args.unwrap_or_default();
+        let x = args.pos.x;
+        let y = args.pos.y;
+        let flip_x = args.flip_x;
+        let flip_y = args.flip_y;
+        let sprite = {
+            let atlas = TextureAtlas {
+                layout: self.state.layout.clone(),
+                index,
+            };
+            Sprite {
+                image: self.state.sprites.clone(),
+                texture_atlas: Some(atlas),
+                rect: args.size.map(|v|
+                                    Rect { min: Vec2::ZERO,
+                                           max: self.state.sprite_size.as_vec2() * v }),
+                flip_x,
+                flip_y,
+                ..default()
+            }
+        };
+        Ok(self.commands.spawn((sprite,
+                        Transform::from_xyz(x, -y, 0.0),
+                        OneFrame::default(),
+        )).id())
+    }
 
     pub fn get_color(&self, c: impl Into<N9Color>) -> Result<Color, Error> {
         match c.into() {
@@ -93,6 +149,48 @@ impl<'w, 's> Pico8<'w, 's> {
         }
         Ok(())
     }
+
+    fn pset(&mut self, x: u32, y: u32, color: Option<N9Color>) -> Result<(), Error> {
+        let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
+        let image = self.images.get_mut(&self.background.0).ok_or(Error::NoAsset("background".into()))?;
+        image.set_color_at(x, y, c)?;
+        Ok(())
+    }
+
+    fn btnp(&self, b: Option<u8>) -> Result<bool, Error> {
+        match b {
+            Some(b) => Ok(self.keys.just_pressed(match b {
+                0 => Ok(KeyCode::ArrowLeft),
+                1 => Ok(KeyCode::ArrowRight),
+                2 => Ok(KeyCode::ArrowUp),
+                3 => Ok(KeyCode::ArrowDown),
+                4 => Ok(KeyCode::KeyZ),
+                5 => Ok(KeyCode::KeyX),
+                x => Err(Error::NoSuchButton(x)),
+            }?)),
+            // None => Ok(!self.keys.get_just_pressed().is_empty())
+            None => Ok(self.keys.get_just_pressed().len() != 0)
+        }
+    }
+
+    fn btn(&self, b: Option<u8>) -> Result<bool, Error> {
+        match b {
+            Some(b) => Ok(self.keys.pressed(match b {
+                0 => Ok(KeyCode::ArrowLeft),
+                1 => Ok(KeyCode::ArrowRight),
+                2 => Ok(KeyCode::ArrowUp),
+                3 => Ok(KeyCode::ArrowDown),
+                4 => Ok(KeyCode::KeyZ),
+                5 => Ok(KeyCode::KeyX),
+                x => Err(Error::NoSuchButton(x)),
+            }?)),
+            // None => Ok(!self.keys.get_just_pressed().is_empty())
+            None => Ok(self.keys.get_pressed().len() != 0)
+        }
+    }
+
+
+
 }
 
 impl FromWorld for Pico8State {
@@ -115,6 +213,7 @@ impl FromWorld for Pico8State {
         Pico8State {
             palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
             sprites: asset_server.load_with_settings(PICO8_SPRITES, pixel_art_settings),
+            sprite_size: UVec2::splat(8),
             layout,
             font: asset_server.load(PICO8_FONT),
             draw_state: DrawState::default(),
@@ -169,6 +268,15 @@ pub fn plugin(app: &mut App) {
         .add_api_provider::<LuaScriptHost<N9Args>>(Box::new(Pico8API));
 }
 
+fn with_pico8<X>(ctx: &Lua, f: impl Fn(&mut Pico8) -> Result<X, Error>) -> Result<X, LuaError> {
+    let world = ctx.get_world()?;
+    let mut world = world.write();
+    let mut system_state: SystemState<Pico8> =
+        SystemState::new(&mut world);
+    let mut pico8 = system_state.get_mut(&mut world);
+    Ok(f(&mut pico8)?)
+}
+
 impl APIProvider for Pico8API {
     type APITarget = Mutex<Lua>;
     type ScriptContext = Mutex<Lua>;
@@ -182,43 +290,42 @@ impl APIProvider for Pico8API {
         let ctx = ctx.get_mut().unwrap();
         crate::macros::define_globals! {
             // XXX: This should be demoted in favor of a general `input` solution.
-            fn btnp(ctx, b: u8) {
-                let world = ctx.get_world()?;
-                let mut world = world.write();
-                let mut system_state: SystemState<Res<ButtonInput<KeyCode>>> =
-                    SystemState::new(&mut world);
-                let input = system_state.get(&world);
-                Ok(input.just_pressed(match b {
-                    0 => KeyCode::ArrowLeft,
-                    1 => KeyCode::ArrowRight,
-                    2 => KeyCode::ArrowUp,
-                    3 => KeyCode::ArrowDown,
-                    4 => KeyCode::KeyZ,
-                    5 => KeyCode::KeyX,
-                    x => todo!("key {x:?}"),
-                }))
+            fn btnp(ctx, b: (Option<u8>)) {
+
+                with_pico8(ctx, |pico8| Ok(pico8.btnp(b)?))
+                // let world = ctx.get_world()?;
+                // let mut world = world.write();
+                // let mut system_state: SystemState<Res<ButtonInput<KeyCode>>> =
+                //     SystemState::new(&mut world);
+                // let input = system_state.get(&world);
+                // Ok(input.just_pressed(match b {
+                //     0 => KeyCode::ArrowLeft,
+                //     1 => KeyCode::ArrowRight,
+                //     2 => KeyCode::ArrowUp,
+                //     3 => KeyCode::ArrowDown,
+                //     4 => KeyCode::KeyZ,
+                //     5 => KeyCode::KeyX,
+                //     x => todo!("key {x:?}"),
+                // }))
             }
 
-            fn btn(ctx, b: u8) {
-                let world = ctx.get_world()?;
-                let mut world = world.write();
-                let mut system_state: SystemState<Res<ButtonInput<KeyCode>>> =
-                    SystemState::new(&mut world);
-                let input = system_state.get(&world);
-                Ok(input.pressed(match b {
-                    0 => KeyCode::ArrowLeft,
-                    1 => KeyCode::ArrowRight,
-                    2 => KeyCode::ArrowUp,
-                    3 => KeyCode::ArrowDown,
-                    4 => KeyCode::KeyZ,
-                    5 => KeyCode::KeyX,
-                    x => todo!("key {x:?}"),
-                }))
+            fn btn(ctx, b: (Option<u8>)) {
+                with_pico8(ctx, |pico8| Ok(pico8.btnp(b)?))
             }
 
             fn cls(ctx, value: (Option<N9Color>)) {
                 // let world = ctx.get_world()?;
-                // let c = value.map(|value| {
+                // let mut world = world.write();
+                // let mut system_state: SystemState<Pico8> =
+                //     SystemState::new(&mut world);
+                // let mut pico8 = system_state.get_mut(&mut world);
+                //
+                with_pico8(ctx, |pico8| Ok(pico8.cls(value)?))
+            }
+
+            fn pset(ctx, (x, y, color): (u32, u32, Option<N9Color>)) {
+                // let world = ctx.get_world()?;
+                // let color = color.map(|value| {
                 //     let world = world.read();
                 //     let pico8 = world.resource::<Pico8State>();
                 //     pico8.get_color_or_pen(value, &world)
@@ -228,36 +335,10 @@ impl APIProvider for Pico8API {
                 //     SystemState::new(&mut world);
                 // let (screen, mut images) = system_state.get_mut(&mut world);
                 // let image = images.get_mut(&screen.0).unwrap();
-                // for i in 0..image.width() {
-                //     for j in 0..image.height() {
-                //         image.set_color_at(i, j, c).map_err(|_| LuaError::RuntimeError("Could not set pixel color".into()))?;
-                //     }
-                // }
+                // let _ = image.set_color_at(x as u32, y as u32, color);
                 // system_state.apply(&mut world);
-                // Ok(())
-                let world = ctx.get_world()?;
-                let mut world = world.write();
-                let mut system_state: SystemState<Pico8> =
-                    SystemState::new(&mut world);
-                let mut pico8 = system_state.get_mut(&mut world);
-                Ok(pico8.cls(value)?)
-            }
 
-            fn pset(ctx, (x, y, color): (f32, f32, Option<N9Color>)) {
-                let world = ctx.get_world()?;
-                let color = color.map(|value| {
-                    let world = world.read();
-                    let pico8 = world.resource::<Pico8State>();
-                    pico8.get_color_or_pen(value, &world)
-                }).unwrap_or(Color::BLACK);
-                let mut world = world.write();
-                let mut system_state: SystemState<(Res<Nano9Screen>, ResMut<Assets<Image>>)> =
-                    SystemState::new(&mut world);
-                let (screen, mut images) = system_state.get_mut(&mut world);
-                let image = images.get_mut(&screen.0).unwrap();
-                let _ = image.set_color_at(x as u32, y as u32, color);
-                system_state.apply(&mut world);
-                Ok(())
+                with_pico8(ctx, |pico8| Ok(pico8.pset(x, y, color)?))
             }
 
             // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
@@ -265,43 +346,26 @@ impl APIProvider for Pico8API {
             //
             // Sprite uses N9Entity, which is perhaps more general and dynamic.
             fn spr(ctx, (mut args): LuaMultiValue) {
-                let world = ctx.get_world()?;
-                let draw_state = {
-                    let world = world.read();
-                    let pico8 = world.resource::<Pico8State>();
-                    pico8.draw_state.clone()
-                };
                 let n = args.pop_front().and_then(|v| v.as_usize()).expect("sprite id");
-                let x = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
-                let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
-                let w = args.pop_front().and_then(|v| v.to_f32());
-                let h = args.pop_front().and_then(|v| v.to_f32());
-                let flip_x = args.pop_front().and_then(|v| v.as_boolean()).unwrap_or(false);
-                let flip_y = args.pop_front().and_then(|v| v.as_boolean()).unwrap_or(false);
-                // info!("n {n} x {x} y {y} w {w:?} h {h:?}");
-                let sprite = {
-                    let world = world.read();
-                    let pico8 = world.resource::<Pico8State>();
-                    let atlas = TextureAtlas {
-                        layout: pico8.layout.clone(),
-                        index: n,
-                    };
-                    Sprite {
-                        image: pico8.sprites.clone(),
-                        texture_atlas: Some(atlas),
-                        rect: w.or(h).is_some().then(||
-                                                     Rect { min: Vec2::ZERO,
-                                                            max: Vec2::new(w.unwrap_or(1.0) * 8.0, h.unwrap_or(1.0) * 8.0) }),
+                let spr_args_maybe = if !args.is_empty() {
+                    let x = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
+                    let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
+                    let w = args.pop_front().and_then(|v| v.to_f32());
+                    let h = args.pop_front().and_then(|v| v.to_f32());
+                    let flip_x = args.pop_front().and_then(|v| v.as_boolean()).unwrap_or(false);
+                    let flip_y = args.pop_front().and_then(|v| v.as_boolean()).unwrap_or(false);
+                    Some(SprArgs {
+                        pos: Vec2::new(x, y),
                         flip_x,
                         flip_y,
-                        ..default()
-                    }
+                        size: w.or(h).is_some().then(|| Vec2::new(w.unwrap_or(1.0), h.unwrap_or(1.0))),
+                    })
+                } else {
+                    None
                 };
-                let mut world = world.write();
-                world.spawn((sprite,
-                             Transform::from_xyz(x, -y, 0.0),
-                             OneFrame::default(),
-                ));
+
+                // We get back an entity. Not doing anything with it here yet.
+                let _id = with_pico8(ctx, move |pico8| Ok(pico8.spr(n, spr_args_maybe)?))?;
                 Ok(())
             }
 
