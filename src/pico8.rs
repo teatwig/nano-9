@@ -1,6 +1,6 @@
 use bevy::{
-    ecs::{system::SystemState, world::Command},
-    image::{ImageLoaderSettings, ImageSampler},
+    ecs::{system::{SystemState, SystemParam}, world::Command},
+    image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
     prelude::*,
     sprite::Anchor,
     transform::commands::AddChildInPlace,
@@ -18,15 +18,18 @@ use crate::{
     N9ImageLoader, N9TextLoader, Nano9Screen, OneFrame, ValueExt, DrawState,
 };
 
-use std::sync::{Mutex, OnceLock};
+use std::{
+    sync::{Mutex, OnceLock},
+    borrow::Cow,
+};
 
 pub const PICO8_PALETTE: &'static str = "images/pico-8-palette.png";
 pub const PICO8_SPRITES: &'static str = "images/pooh-book-sprites.png";
 pub const PICO8_FONT: &'static str = "fonts/pico-8.ttf";
 
-/// Pico8's state.
+/// Pico8State's state.
 #[derive(Resource, Clone)]
-pub struct Pico8 {
+pub struct Pico8State {
     palette: Handle<Image>,
     sprites: Handle<Image>,
     layout: Handle<TextureAtlasLayout>,
@@ -34,7 +37,65 @@ pub struct Pico8 {
     draw_state: DrawState,
 }
 
-impl FromWorld for Pico8 {
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("No asset {0:?} loaded")]
+    NoAsset(Cow<'static, str>),
+    #[error("texture access error: {0}")]
+    TextureAccess(#[from] TextureAccessError),
+
+}
+
+impl From<Error> for LuaError {
+    fn from(e: Error) -> Self {
+        LuaError::RuntimeError(format!("pico8 error: {e}"))
+    }
+}
+
+#[derive(SystemParam)]
+pub struct Pico8<'w, 's> {
+    images: ResMut<'w, Assets<Image>>,
+    state: ResMut<'w, Pico8State>,
+    commands: Commands<'w, 's>,
+    background: Res<'w, Nano9Screen>,
+}
+
+impl<'w, 's> Pico8<'w, 's> {
+
+    pub fn get_color(&self, c: impl Into<N9Color>) -> Result<Color, Error> {
+        match c.into() {
+            N9Color::Pen => Ok(self.state.draw_state.pen),
+            N9Color::Palette(n) => {
+                let pal = self.images.get(&self.state.palette).ok_or(Error::NoAsset("palette".into()))?;
+
+                    // Strangely. It's not a 1d texture.
+                Ok(pal.get_color_at(n as u32, 0)?)
+                //         Ok(c) => Some(c),
+                //         Err(e) => {
+                //             warn!("Could not look up color in palette at {n}: {e}");
+                //             None
+                //         }
+                //     }
+                // })
+                // .unwrap_or(Srgba::rgb(1.0, 0.0, 1.0).into())
+            }
+            N9Color::Color(c) => Ok(c.into()),
+        }
+    }
+
+    fn cls(&mut self, color: Option<N9Color>) -> Result<(), Error> {
+        let c = self.get_color(color.unwrap_or(Color::BLACK.into()))?;
+        let image = self.images.get_mut(&self.background.0).ok_or(Error::NoAsset("background".into()))?;
+        for i in 0..image.width() {
+            for j in 0..image.height() {
+                image.set_color_at(i, j, c)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl FromWorld for Pico8State {
     fn from_world(world: &mut World) -> Self {
         let layout = {
             let mut layouts = world.resource_mut::<Assets<TextureAtlasLayout>>();
@@ -51,7 +112,7 @@ impl FromWorld for Pico8 {
             settings.sampler = ImageSampler::nearest();
         };
 
-        Pico8 {
+        Pico8State {
             palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
             sprites: asset_server.load_with_settings(PICO8_SPRITES, pixel_art_settings),
             layout,
@@ -61,7 +122,7 @@ impl FromWorld for Pico8 {
     }
 }
 
-impl Pico8 {
+impl Pico8State {
     pub fn get_color_or_pen(&self, c: impl Into<N9Color>, world: &World) -> Color {
         match c.into() {
             N9Color::Pen => self.draw_state.pen,
@@ -104,7 +165,7 @@ pub struct Pico8API;
 
 pub fn plugin(app: &mut App) {
     app
-        .init_resource::<Pico8>()
+        .init_resource::<Pico8State>()
         .add_api_provider::<LuaScriptHost<N9Args>>(Box::new(Pico8API));
 }
 
@@ -156,31 +217,37 @@ impl APIProvider for Pico8API {
             }
 
             fn cls(ctx, value: (Option<N9Color>)) {
+                // let world = ctx.get_world()?;
+                // let c = value.map(|value| {
+                //     let world = world.read();
+                //     let pico8 = world.resource::<Pico8State>();
+                //     pico8.get_color_or_pen(value, &world)
+                // }).unwrap_or(Color::BLACK);
+                // let mut world = world.write();
+                // let mut system_state: SystemState<(Res<Nano9Screen>, ResMut<Assets<Image>>)> =
+                //     SystemState::new(&mut world);
+                // let (screen, mut images) = system_state.get_mut(&mut world);
+                // let image = images.get_mut(&screen.0).unwrap();
+                // for i in 0..image.width() {
+                //     for j in 0..image.height() {
+                //         image.set_color_at(i, j, c).map_err(|_| LuaError::RuntimeError("Could not set pixel color".into()))?;
+                //     }
+                // }
+                // system_state.apply(&mut world);
+                // Ok(())
                 let world = ctx.get_world()?;
-                let c = value.map(|value| {
-                    let world = world.read();
-                    let pico8 = world.resource::<Pico8>();
-                    pico8.get_color_or_pen(value, &world)
-                }).unwrap_or(Color::BLACK);
                 let mut world = world.write();
-                let mut system_state: SystemState<(Res<Nano9Screen>, ResMut<Assets<Image>>)> =
+                let mut system_state: SystemState<Pico8> =
                     SystemState::new(&mut world);
-                let (screen, mut images) = system_state.get_mut(&mut world);
-                let image = images.get_mut(&screen.0).unwrap();
-                for i in 0..image.width() {
-                    for j in 0..image.height() {
-                        image.set_color_at(i, j, c).map_err(|_| LuaError::RuntimeError("Could not set pixel color".into()))?;
-                    }
-                }
-                system_state.apply(&mut world);
-                Ok(())
+                let mut pico8 = system_state.get_mut(&mut world);
+                Ok(pico8.cls(value)?)
             }
 
             fn pset(ctx, (x, y, color): (f32, f32, Option<N9Color>)) {
                 let world = ctx.get_world()?;
                 let color = color.map(|value| {
                     let world = world.read();
-                    let pico8 = world.resource::<Pico8>();
+                    let pico8 = world.resource::<Pico8State>();
                     pico8.get_color_or_pen(value, &world)
                 }).unwrap_or(Color::BLACK);
                 let mut world = world.write();
@@ -201,7 +268,7 @@ impl APIProvider for Pico8API {
                 let world = ctx.get_world()?;
                 let draw_state = {
                     let world = world.read();
-                    let pico8 = world.resource::<Pico8>();
+                    let pico8 = world.resource::<Pico8State>();
                     pico8.draw_state.clone()
                 };
                 let n = args.pop_front().and_then(|v| v.as_usize()).expect("sprite id");
@@ -214,7 +281,7 @@ impl APIProvider for Pico8API {
                 // info!("n {n} x {x} y {y} w {w:?} h {h:?}");
                 let sprite = {
                     let world = world.read();
-                    let pico8 = world.resource::<Pico8>();
+                    let pico8 = world.resource::<Pico8State>();
                     let atlas = TextureAtlas {
                         layout: pico8.layout.clone(),
                         index: n,
@@ -248,12 +315,12 @@ impl APIProvider for Pico8API {
                 let world = ctx.get_world()?;
                 let draw_state = {
                     let world = world.read();
-                    let pico8 = world.resource::<Pico8>();
+                    let pico8 = world.resource::<Pico8State>();
                     pico8.draw_state.clone()
                 };
                 let font = {
                     let world = world.read();
-                    let pico8 = world.resource::<Pico8>();
+                    let pico8 = world.resource::<Pico8State>();
                     pico8.font.clone()
                 };
                 let mut world = world.write();
@@ -274,7 +341,7 @@ impl APIProvider for Pico8API {
                              // Anchor::TopLeft is (-0.5, 0.5).
                              Anchor::Custom(Vec2::new(-0.5, 0.3)),
                              ));
-                let mut pico8 = world.resource_mut::<Pico8>();
+                let mut pico8 = world.resource_mut::<Pico8State>();
                 pico8.draw_state.print_cursor.x = x;
                 pico8.draw_state.print_cursor.y = y + 6.0;
                 Ok(())

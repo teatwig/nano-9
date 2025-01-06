@@ -23,6 +23,12 @@ impl From<Option<usize>> for N9Color {
     }
 }
 
+impl From<Color> for N9Color {
+    fn from(c: Color) -> Self {
+        N9Color::Color(c.into())
+    }
+}
+
 impl FromLua<'_> for N9Color {
     fn from_lua(value: Value, _: &Lua) -> mlua::Result<Self> {
         fn bad_arg(s: &str) -> LuaError {
