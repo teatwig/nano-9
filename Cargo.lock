@@ -3705,7 +3705,6 @@ dependencies = [
  "bevy_minibuffer_inspector",
  "bevy_mod_scripting",
  "bytemuck",
- "regex",
  "thiserror",
 ]
 
