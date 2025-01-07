@@ -340,7 +340,12 @@ impl APIProvider for Pico8API {
                 // let _ = image.set_color_at(x as u32, y as u32, color);
                 // system_state.apply(&mut world);
 
-                with_pico8(ctx, |pico8| Ok(pico8.pset(x, y, color)?))
+                with_pico8(ctx, |pico8| {
+                    // We want to ignore out of bounds errors specifically.
+                    // Ok(pico8.pset(x, y, color)?)
+                    let _ = pico8.pset(x, y, color);
+                    Ok(())
+                })
             }
 
             // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
