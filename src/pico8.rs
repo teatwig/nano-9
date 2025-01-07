@@ -274,7 +274,9 @@ fn with_pico8<X>(ctx: &Lua, f: impl Fn(&mut Pico8) -> Result<X, Error>) -> Resul
     let mut system_state: SystemState<Pico8> =
         SystemState::new(&mut world);
     let mut pico8 = system_state.get_mut(&mut world);
-    Ok(f(&mut pico8)?)
+    let r = f(&mut pico8);
+    system_state.apply(&mut world);
+    r.map_err(|e| LuaError::from(e))
 }
 
 impl APIProvider for Pico8API {
