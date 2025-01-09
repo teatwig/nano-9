@@ -242,10 +242,24 @@ pub fn sync_window_size(
 }
 
 /// Sends events allowing scripts to drive update logic
-pub fn send_update(mut events: PriorityEventWriter<LuaEvent<N9Args>>) {
+pub fn send_update(mut events: PriorityEventWriter<LuaEvent<N9Args>>,
+                   frame_count: Res<bevy::core::FrameCount>) {
+    if frame_count.0 % 2 == 0 {
     events.send(
         LuaEvent {
             hook_name: "_update".to_owned(),
+            args: N9Args::new(),
+            recipients: Recipients::All,
+        },
+        1,
+    )
+    }
+}
+
+pub fn send_update60(mut events: PriorityEventWriter<LuaEvent<N9Args>>) {
+    events.send(
+        LuaEvent {
+            hook_name: "_update60".to_owned(),
             args: N9Args::new(),
             recipients: Recipients::All,
         },
@@ -345,7 +359,6 @@ impl Plugin for Nano9Plugin {
         .insert_resource(Time::<Fixed>::from_seconds(UPDATE_FREQUENCY.into()))
         .init_resource::<N9Settings>()
         .init_resource::<DrawState>()
-        .add_plugins(PxPlugin::<Layer>::new(UVec2::splat(128), "images/pico-8-palette.png"))
         .add_plugins(crate::plugin)
         // .add_systems(OnExit(screens::Screen::Loading), setup_image)
         .add_systems(Startup, (setup_image, spawn_camera, set_camera).chain())
@@ -361,7 +374,7 @@ impl Plugin for Nano9Plugin {
         // .add_systems(PreUpdate, (send_init).chain().run_if(on_event::<ScriptLoaded>()))
         .add_systems(
             Update,
-            (send_update, send_draw)
+            ((send_update, send_update60), send_draw)
                 .chain()
                 .run_if(in_state(screens::Screen::Playing).and_then(in_state(ErrorState::None))),
         );
@@ -383,6 +396,3 @@ pub fn on_asset_modified<T: Asset>() -> impl FnMut(EventReader<AssetEvent<T>>) -
             .any(|e| matches!(e, AssetEvent::Modified { .. }))
     }
 }
-
-#[px_layer]
-struct Layer;
