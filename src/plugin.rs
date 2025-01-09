@@ -322,7 +322,7 @@ impl Nano9Plugin {
         DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window {
-                    resolution: WindowResolution::new(resolution.x, resolution.y),
+                    resolution: resolution.into(),//WindowResolution::new(resolution.x, resolution.y),
                     // Turn off vsync to maximize CPU/GPU usage
                     present_mode: PresentMode::AutoVsync,
                     // Let's not allow resizing.
@@ -355,6 +355,7 @@ impl Plugin for Nano9Plugin {
         .insert_resource(Time::<Fixed>::from_seconds(UPDATE_FREQUENCY.into()))
         .init_resource::<N9Settings>()
         .init_resource::<DrawState>()
+        .add_plugins(PxPlugin::<Layer>::new(UVec2::splat(128), "images/pico-8-palette.png"))
         .add_plugins(crate::plugin)
         // .add_systems(OnExit(screens::Screen::Loading), setup_image)
         .add_systems(Startup, (setup_image, spawn_camera, set_camera).chain())
@@ -392,3 +393,6 @@ pub fn on_asset_modified<T: Asset>() -> impl FnMut(EventReader<AssetEvent<T>>) -
             .any(|e| matches!(e, AssetEvent::Modified { .. }))
     }
 }
+
+#[px_layer]
+struct Layer;
