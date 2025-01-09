@@ -8,6 +8,7 @@ use bevy::{
     reflect::TypePath,
 };
 use bevy_mod_scripting::prelude::*;
+use serde::{Deserialize, Serialize};
 use crate::{DrawState, pico8::*};
 
 pub(crate) fn plugin(app: &mut App) {
@@ -104,8 +105,8 @@ fn load_cart(query: Query<(Entity, &LoadCart)>,
     }
 }
 
-impl Cart {
-    fn parts_from_str(content: &str) -> Result<CartParts, CartLoaderError> {
+impl CartParts {
+    fn from_str(content: &str, settings: &CartLoaderSettings) -> Result<CartParts, CartLoaderError> {
         let headers = ["lua", "gfx", "gff", "label", "map", "sfx", "music"];
         let mut sections = [(None,None); 7];
         let mut even_match: Option<usize> = None;
@@ -135,7 +136,6 @@ impl Cart {
             i.zip(*j).map(|(i,j)| &content[i..j])
         };
 
-
         // lua
         let lua: String = get_segment(&sections[0]).unwrap_or("").into();
         let mut sprites = None;
@@ -143,14 +143,20 @@ impl Cart {
             let mut lines = content.lines();
             let columns = lines.next().map(|l| l.len());
             if let Some(columns) = columns {
-                let rows = lines.count() + 1;
+                let mut rows = lines.count() + 1;
+                // rows needs to be a multiple of 8.
+                let partial_rows = rows % 8;
+                if partial_rows != 0 {
+                    rows = (rows / 8 + 1) * 8;
+                }
                 let mut bytes = vec![0x00; columns * rows * 4];
                 let mut set_color = |pixel_index: usize, palette_index: u8| {
+                    let pi = palette_index as usize;
                     // PERF: We should just set the 24 or 32 bits in one go, right?
-                    bytes[pixel_index * 4 + 0] = PALETTE[palette_index as usize][0];
-                    bytes[pixel_index * 4 + 1] = PALETTE[palette_index as usize][1];
-                    bytes[pixel_index * 4 + 2] = PALETTE[palette_index as usize][2];
-                    bytes[pixel_index * 4 + 3] = 0xff;
+                    bytes[pixel_index * 4 + 0] = PALETTE[pi][0];
+                    bytes[pixel_index * 4 + 1] = PALETTE[pi][1];
+                    bytes[pixel_index * 4 + 2] = PALETTE[pi][2];
+                    bytes[pixel_index * 4 + 3] = if settings.is_transparent(pi) { 0x00 } else { 0xff };
                 };
                 let mut i = 0;
                 for line in content.lines() {
@@ -158,16 +164,20 @@ impl Cart {
                     for c in line.as_bytes() {
                         let c = *c as char;
                         let digit: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
-                        // let left = digit >> 4;
-                        // let right = digit & 0x0f;
-                        // set_color(i, left);
-                        // set_color(i + 1, left);
-                        // i += 2;
                         set_color(i, digit);
                         i += 1;
                     }
                 }
-                assert_eq!(i, columns * rows);
+
+                // if partial_rows != 0 {
+                //     let missing_rows = 8 - partial_rows;
+                //     for j in 0..missing_rows {
+                //         for k in 0..columns {
+
+                //         }
+                //     }
+                // }
+                // assert_eq!(i, columns * rows);
                 sprites = Some(Image::new(Extent3d {
                     width: columns as u32,
                     height: rows as u32,
@@ -190,23 +200,43 @@ impl Cart {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+struct CartLoaderSettings {
+    // Which color indices are transparent?
+    palette_transparency: u16,
+}
+
+impl CartLoaderSettings {
+    fn is_transparent(&self, palette_index: usize) -> bool {
+        ((0b1 << palette_index) & self.palette_transparency) != 0
+    }
+}
+
+impl Default for CartLoaderSettings {
+    fn default() -> Self {
+        CartLoaderSettings {
+            palette_transparency: 0b0000_0000_0000_0001, // black is transparent by default.
+        }
+    }
+}
+
 #[derive(Default)]
 struct CartLoader;
 
 impl AssetLoader for CartLoader {
     type Asset = Cart;
-    type Settings = ();
+    type Settings = CartLoaderSettings;
     type Error = CartLoaderError;
     async fn load(
         &self,
         reader: &mut dyn Reader,
-        _settings: &(),
+        settings: &CartLoaderSettings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let content = String::from_utf8(bytes)?;
-        let mut parts = Cart::parts_from_str(&content)?;
+        let mut parts = CartParts::from_str(&content, settings)?;
         let code = parts.lua;
         // cart.lua = Some(load_context.add_labeled_asset("lua".into(), LuaFile { bytes: code.into_bytes() }));
         Ok(Cart {
@@ -242,6 +272,22 @@ __gfx__
 00000000888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 "#;
+
+    const cart_black_row: &str = r#"pico-8 cartridge // http://www.pico-8.com
+version 41
+__lua__
+function _draw()
+ cls()
+	spr(1, 0, 0)
+end
+__gfx__
+00000000888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+"#;
     #[test]
     fn test_string_find() {
         let s = String::from("Hello World");
@@ -251,13 +297,36 @@ __gfx__
 
     #[test]
     fn test_cart_from() {
-        let cart = Cart::parts_from_str(sample_cart).unwrap();
+        let settings = CartLoaderSettings::default();
+        let cart = CartParts::from_str(sample_cart, &settings).unwrap();
         assert_eq!(cart.lua, r#"function _draw()
  cls()
 	spr(1, 0, 0)
 end"#);
         assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), Some(128));
         assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), Some(8));
+    }
+
+    #[test]
+    fn test_cart_black_row() {
+        let settings = CartLoaderSettings::default();
+        let cart = CartParts::from_str(cart_black_row, &settings).unwrap();
+        assert_eq!(cart.lua, r#"function _draw()
+ cls()
+	spr(1, 0, 0)
+end"#);
+        assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), Some(128));
+        assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), Some(8));
+    }
+
+    #[test]
+    fn palette_transparency() {
+        let settings = CartLoaderSettings::default();
+        assert!(settings.is_transparent(0));
+        for i in 1..15 {
+            assert!(!settings.is_transparent(i));
+        }
+
     }
 
 
