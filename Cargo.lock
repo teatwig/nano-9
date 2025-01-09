@@ -3464,6 +3464,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "line_drawing"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d1478a313008a3e6c8149995e90a99ee9094034b5c5c3da1eeb81183cb61d1d"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3705,6 +3714,7 @@ dependencies = [
  "bevy_minibuffer_inspector",
  "bevy_mod_scripting",
  "bytemuck",
+ "seldom_pixel",
  "thiserror",
 ]
 
@@ -4814,6 +4824,41 @@ dependencies = [
  "memmap2",
  "smithay-client-toolkit",
  "tiny-skia",
+]
+
+[[package]]
+name = "seldom_pixel"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc863dfe8e99fb8c72891366cc04fa1fc5a44d6b474f44d5244028c08e9e2003"
+dependencies = [
+ "anyhow",
+ "bevy",
+ "bevy_internal",
+ "event-listener 5.3.1",
+ "line_drawing",
+ "seldom_pixel_macros",
+ "seldom_singleton",
+ "serde",
+]
+
+[[package]]
+name = "seldom_pixel_macros"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48463e3f0355414108d45b11af4ab0e32b08dbf3142c7807c226417be8c32f44"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "seldom_singleton"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9af1bc6437e9554e75aacf2b43ffc08b59055751f6cf838f7ddb454383d2b909"
+dependencies = [
+ "bevy",
 ]
 
 [[package]]
