@@ -53,19 +53,15 @@ impl Default for DrawState {
 #[derive(Reflect, Resource)]
 #[reflect(Resource)]
 pub struct Settings {
-    // TODO: Change to UVec2
-    physical_grid_dimensions: (u32, u32),
-    display_grid_dimensions: (u32, u32),
+    pixel_dimensions: UVec2,
+    resolution: Vec2,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            // physical_grid_dimensions: (64, 64),
-            // physical_grid_dimensions: (32, 32),
-            // physical_grid_dimensions: (12, 12),
-            physical_grid_dimensions: (128, 128),
-            display_grid_dimensions: (512, 512),
+            pixel_dimensions: UVec2::splat(128),
+            resolution: Vec2::splat(512.0),
         }
     }
 }
@@ -230,11 +226,11 @@ pub fn sync_window_size(
         // let scale = if settings.canvas_size.x > settings.canvas_size.y
         // {
         //     // horizontal is longer
-        //     settings.display_grid_dimensions.1 as f32
+        //     settings.resolution.1 as f32
         //         / settings.canvas_size.y as f32
         // } else {
         //     // vertical is longer
-        //     settings.display_grid_dimensions.0 as f32
+        //     settings.resolution.0 as f32
         //         / settings.canvas_size.x as f32
         // };
 

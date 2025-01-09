@@ -12,7 +12,7 @@ use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{
 
 use bevy_mod_scripting::api::{common::bevy::ScriptWorld, providers::bevy_ecs::LuaEntity};
 use bevy_mod_scripting::prelude::*;
-// use bevy_pixel_buffer::prelude::*;
+
 use crate::{
     pico8::{LoadCart, Cart},
     api::N9Args, despawn_list, palette::Nano9Palette, DropPolicy, N9AudioLoader, N9Color, N9Image,
@@ -66,51 +66,11 @@ pub struct Pico8<'w, 's> {
 
 #[derive(Default, Clone, Copy)]
 pub struct SprArgs {
-    // index: usize,
     pos: Vec2,
     size: Option<Vec2>,
     flip_x: bool,
     flip_y: bool,
 }
-
-// impl Default for SprArgs {
-//     fn default() -> Self {
-//         SprArgs {
-//             // index: 0,
-//             pos: Vec2::ZERO,
-//             size:
-//             flip_x: false,
-//             flip_y: false,
-//         }
-//     }
-// }
-
-// #[derive(Clone, PartialEq, Eq, Hash, Debug, Default, States)]
-// pub enum CartState {
-//     #[default]
-//     Empty,
-//     Loading(Handle<Cart>),
-//     Loaded,
-// }
-
-// fn check_cart(
-//     mut state: ResMut<State<CartState>>,
-//     mut next_state: ResMut<NextState<CartState>>,
-//     mut events: EventReader<AssetEvent<Cart>>,
-//     mut assets: Assets<Cart>,
-// ) {
-//     match **state {
-//         CartState::Loading(ref handle) => {
-
-//             // for event in events.read() {
-//             //     if event.is_loaded_with_dependencies(handle) {
-//             //         next_state.set(CartState::Loaded);
-//             //     }
-//             // }
-//         }
-//         _ => (),
-//     }
-// }
 
 impl<'w, 's> Pico8<'w, 's> {
     fn load_cart(&mut self, cart: Handle<Cart>) {
@@ -216,13 +176,10 @@ impl<'w, 's> Pico8<'w, 's> {
                 5 => Ok(KeyCode::KeyX),
                 x => Err(Error::NoSuchButton(x)),
             }?)),
-            // None => Ok(!self.keys.get_just_pressed().is_empty())
+            // None => Ok(!self.keys.get_pressed().is_empty())
             None => Ok(self.keys.get_pressed().len() != 0)
         }
     }
-
-
-
 }
 
 impl FromWorld for Pico8State {
@@ -308,7 +265,7 @@ fn with_pico8<X>(ctx: &Lua, f: impl Fn(&mut Pico8) -> Result<X, Error>) -> Resul
     let mut pico8 = system_state.get_mut(&mut world);
     let r = f(&mut pico8);
     system_state.apply(&mut world);
-    r.map_err(|e| LuaError::from(e))
+    r.map_err(LuaError::from)
 }
 
 impl APIProvider for Pico8API {
@@ -325,22 +282,7 @@ impl APIProvider for Pico8API {
         crate::macros::define_globals! {
             // XXX: This should be demoted in favor of a general `input` solution.
             fn btnp(ctx, b: (Option<u8>)) {
-
                 with_pico8(ctx, |pico8| Ok(pico8.btnp(b)?))
-                // let world = ctx.get_world()?;
-                // let mut world = world.write();
-                // let mut system_state: SystemState<Res<ButtonInput<KeyCode>>> =
-                //     SystemState::new(&mut world);
-                // let input = system_state.get(&world);
-                // Ok(input.just_pressed(match b {
-                //     0 => KeyCode::ArrowLeft,
-                //     1 => KeyCode::ArrowRight,
-                //     2 => KeyCode::ArrowUp,
-                //     3 => KeyCode::ArrowDown,
-                //     4 => KeyCode::KeyZ,
-                //     5 => KeyCode::KeyX,
-                //     x => todo!("key {x:?}"),
-                // }))
             }
 
             fn btn(ctx, b: (Option<u8>)) {
@@ -348,30 +290,10 @@ impl APIProvider for Pico8API {
             }
 
             fn cls(ctx, value: (Option<N9Color>)) {
-                // let world = ctx.get_world()?;
-                // let mut world = world.write();
-                // let mut system_state: SystemState<Pico8> =
-                //     SystemState::new(&mut world);
-                // let mut pico8 = system_state.get_mut(&mut world);
-                //
                 with_pico8(ctx, |pico8| Ok(pico8.cls(value)?))
             }
 
             fn pset(ctx, (x, y, color): (u32, u32, Option<N9Color>)) {
-                // let world = ctx.get_world()?;
-                // let color = color.map(|value| {
-                //     let world = world.read();
-                //     let pico8 = world.resource::<Pico8State>();
-                //     pico8.get_color_or_pen(value, &world)
-                // }).unwrap_or(Color::BLACK);
-                // let mut world = world.write();
-                // let mut system_state: SystemState<(Res<Nano9Screen>, ResMut<Assets<Image>>)> =
-                //     SystemState::new(&mut world);
-                // let (screen, mut images) = system_state.get_mut(&mut world);
-                // let image = images.get_mut(&screen.0).unwrap();
-                // let _ = image.set_color_at(x as u32, y as u32, color);
-                // system_state.apply(&mut world);
-
                 with_pico8(ctx, |pico8| {
                     // We want to ignore out of bounds errors specifically.
                     // Ok(pico8.pset(x, y, color)?)
