@@ -43,7 +43,7 @@ pub struct CartParts {
 #[derive(Asset, TypePath, Debug)]
 pub struct Cart {
     pub lua: Handle<LuaFile>,
-    pub sprites: Option<Handle<Image>>,
+    pub sprites: Handle<Image>,
     pub map: Vec<u8>,
     pub flags: Vec<u8>,
 }
@@ -86,7 +86,8 @@ fn load_cart(query: Query<(Entity, &LoadCart)>,
             };
             commands.insert_resource(Pico8State {
                 palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
-                sprites: cart.sprites.clone().expect("sprites"),
+                sprites: cart.sprites.clone(),
+                cart: Some(load_cart.0.clone()),
                 layout: layouts.add(TextureAtlasLayout::from_grid(UVec2::new(8, 8),
                                                                   16, 16,
                                                                   None, None)),
@@ -107,6 +108,9 @@ fn load_cart(query: Query<(Entity, &LoadCart)>,
 
 impl CartParts {
     fn from_str(content: &str, settings: &CartLoaderSettings) -> Result<CartParts, CartLoaderError> {
+        const LUA: usize = 0;
+        const GFX: usize = 1;
+        const MAP: usize = 4;
         let headers = ["lua", "gfx", "gff", "label", "map", "sfx", "music"];
         let mut sections = [(None,None); 7];
         let mut even_match: Option<usize> = None;
@@ -115,8 +119,8 @@ impl CartParts {
                 let header = &content[begin + 2..index];
                 if let Some(h) = headers.iter().position(|word| *word == header) {
                     sections[h].0 = Some(index + 3);
-                    if let Some(h) = h.checked_sub(1) {
-                        sections[h].1 = Some(begin - 1);
+                    if let Some(last_section) = sections[0..h].iter_mut().rev().find(|(start, end)| start.is_some() && end.is_none()) {
+                        last_section.1 = Some(begin - 1);
                     }
                 } else {
                     Err(CartLoaderError::UnexpectedHeader(String::from(header)))?;
@@ -127,19 +131,20 @@ impl CartParts {
             }
         }
         // Close the last segment.
-        for segment in &mut sections {
-            if segment.0.is_some() && segment.1.is_none() {
-                segment.1 = Some(content.len());
-            }
+        //
+        if let Some(last_section) = sections.iter_mut().rev().find(|(start, end)| start.is_some() && end.is_none()) {
+            last_section.1 = Some(content.len());
         }
+        dbg!(sections);
         let get_segment = |(i, j): &(Option<usize>, Option<usize>)| -> Option<&str> {
             i.zip(*j).map(|(i,j)| &content[i..j])
         };
 
         // lua
-        let lua: String = get_segment(&sections[0]).unwrap_or("").into();
+        let lua: String = get_segment(&sections[LUA]).unwrap_or("").into();
+        // gfx
         let mut sprites = None;
-        if let Some(content) = get_segment(&sections[1]) {
+        if let Some(content) = get_segment(&sections[GFX]) {
             let mut lines = content.lines();
             let columns = lines.next().map(|l| l.len());
             if let Some(columns) = columns {
@@ -160,7 +165,7 @@ impl CartParts {
                 };
                 let mut i = 0;
                 for line in content.lines() {
-                    assert_eq!(columns, line.len());
+                    assert_eq!(columns, line.len(), "line: {}", &line);
                     for c in line.as_bytes() {
                         let c = *c as char;
                         let digit: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
@@ -191,10 +196,30 @@ impl CartParts {
                 ));
             }
         }
+        let mut map = Vec::new();
+        if let Some(content) = get_segment(&sections[MAP]) {
+            let mut lines = content.lines();
+            let columns = lines.next().map(|l| l.len());
+            if let Some(columns) = columns {
+                let rows = lines.count() + 1;
+                let mut bytes = vec![0x00; columns * rows * 4];
+                let mut i = 0;
+                for line in content.lines() {
+                    assert_eq!(columns, line.len());
+                    for c in line.as_bytes() {
+                        let c = *c as char;
+                        let digit: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                        bytes[i] = digit;
+                        i += 1;
+                    }
+                }
+                map = bytes;
+            }
+        }
         Ok(CartParts {
             lua: lua,
             sprites,
-            map: Vec::new(),
+            map,
             flags: Vec::new(),
         })
     }
@@ -239,9 +264,10 @@ impl AssetLoader for CartLoader {
         let mut parts = CartParts::from_str(&content, settings)?;
         let code = parts.lua;
         // cart.lua = Some(load_context.add_labeled_asset("lua".into(), LuaFile { bytes: code.into_bytes() }));
+        let sprites = parts.sprites.unwrap_or_else(|| Image::default());
         Ok(Cart {
             lua: load_context.labeled_asset_scope("lua".into(), move |_load_context| LuaFile { bytes: code.into_bytes() }),
-            sprites: parts.sprites.map(|images| load_context.labeled_asset_scope("sprites".into(), move |_load_context| images)),
+            sprites: load_context.labeled_asset_scope("sprites".into(), move |_load_context| sprites),
             map: parts.map,
             flags: parts.flags,
         })
@@ -273,7 +299,7 @@ __gfx__
 00000000888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 "#;
 
-    const cart_black_row: &str = r#"pico-8 cartridge // http://www.pico-8.com
+    const black_row_cart: &str = r#"pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
 function _draw()
@@ -287,6 +313,46 @@ __gfx__
 00077000888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00077000888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00700700888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+"#;
+
+    const map_cart: &str = r#"pico-8 cartridge // http://www.pico-8.com
+version 41
+__lua__
+function _draw()
+ cls()
+	spr(1, 0, 0)
+end
+__map__
+00000000888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+"#;
+
+    const test_map_cart: &str = r#"pico-8 cartridge // http://www.pico-8.com
+version 41
+__lua__
+function _draw()
+cls()
+map(0, 0, 10, 10)
+end
+__gfx__
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700006006600000000000880800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000006600600000000000808800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000006066000000000000888000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700006660000000000000088000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+__map__
+0000010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000010001010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0001000303030100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0101030300000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0001030303000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0001010303010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000010101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 "#;
     #[test]
     fn test_string_find() {
@@ -310,7 +376,7 @@ end"#);
     #[test]
     fn test_cart_black_row() {
         let settings = CartLoaderSettings::default();
-        let cart = CartParts::from_str(cart_black_row, &settings).unwrap();
+        let cart = CartParts::from_str(black_row_cart, &settings).unwrap();
         assert_eq!(cart.lua, r#"function _draw()
  cls()
 	spr(1, 0, 0)
@@ -326,7 +392,25 @@ end"#);
         for i in 1..15 {
             assert!(!settings.is_transparent(i));
         }
+    }
 
+    #[test]
+    fn map() {
+        let settings = CartLoaderSettings::default();
+        let cart = CartParts::from_str(map_cart, &settings).unwrap();
+        assert_eq!(cart.map[8], 8);
+    }
+
+    #[test]
+    fn test_cart_map() {
+        let settings = CartLoaderSettings::default();
+        let cart = CartParts::from_str(test_map_cart, &settings).unwrap();
+        assert_eq!(cart.lua, r#"function _draw()
+cls()
+map(0, 0, 10, 10)
+end"#);
+        assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), Some(128));
+        assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), Some(8));
     }
 
 

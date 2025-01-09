@@ -17,6 +17,7 @@ bevy_minibuffer = "0.3.0"
 bevy_minibuffer_inspector = "0.1.0"
 seldom_pixel = { version = "0.8.0", features = ["line"] }
 serde = "1.0.217"
+bevy_ecs_tilemap = "0.15.0"
 # regex = "1.11.1"
 
 [features]

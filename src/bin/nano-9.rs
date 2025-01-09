@@ -23,7 +23,7 @@ fn main() -> std::io::Result<()> {
             BasicActs::default(),
             acts::universal::UniversalArgActs::default(),
             acts::tape::TapeActs::default(),
-            // bevy_minibuffer_inspector::WorldActs::default(),
+            bevy_minibuffer_inspector::WorldActs::default(),
             // inspector::AssetActs::default().add::<Image>(),
         ));
     if script_path.ends_with(".p8") {

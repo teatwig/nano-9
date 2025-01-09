@@ -12,6 +12,7 @@ use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{
 
 use bevy_mod_scripting::api::{common::bevy::ScriptWorld, providers::bevy_ecs::LuaEntity};
 use bevy_mod_scripting::prelude::*;
+use bevy_ecs_tilemap::prelude::*;
 
 use crate::{
     pico8::{LoadCart, Cart},
@@ -33,6 +34,7 @@ pub const PICO8_FONT: &'static str = "fonts/pico-8.ttf";
 pub struct Pico8State {
     pub(crate) palette: Handle<Image>,
     pub(crate) sprites: Handle<Image>,
+    pub(crate) cart: Option<Handle<Cart>>,
     pub(crate) layout: Handle<TextureAtlasLayout>,
     pub(crate) font: Handle<Font>,
     pub(crate) draw_state: DrawState,
@@ -58,6 +60,7 @@ impl From<Error> for LuaError {
 #[derive(SystemParam)]
 pub struct Pico8<'w, 's> {
     images: ResMut<'w, Assets<Image>>,
+    carts: ResMut<'w, Assets<Cart>>,
     state: ResMut<'w, Pico8State>,
     commands: Commands<'w, 's>,
     background: Res<'w, Nano9Screen>,
@@ -149,6 +152,60 @@ impl<'w, 's> Pico8<'w, 's> {
         Ok(())
     }
 
+    fn map(&mut self, map_pos: UVec2, screen_start: Vec2, size: UVec2, mask: u8) -> Result<Entity, Error> {
+
+        let map_size = TilemapSize { x: size.x, y: size.y };
+
+        // Create a tilemap entity a little early.
+        // We want this entity early because we need to tell each tile which tilemap entity
+        // it is associated with. This is done with the TilemapId component on each tile.
+        // Eventually, we will insert the `TilemapBundle` bundle on the entity, which
+        // will contain various necessary components, such as `TileStorage`.
+        let tilemap_entity = self.commands.spawn_empty().id();
+
+        // To begin creating the map we will need a `TileStorage` component.
+        // This component is a grid of tile entities and is used to help keep track of individual
+        // tiles in the world. If you have multiple layers of tiles you would have a tilemap entity
+        // per layer, each with their own `TileStorage` component.
+        let mut tile_storage = TileStorage::empty(map_size);
+
+        let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get(cart));
+
+        // Spawn the elements of the tilemap.
+        // Alternatively, you can use helpers::filling::fill_tilemap.
+        for x in 0..map_size.x {
+            for y in 0..map_size.y {
+                let texture_index = cart.map(|cart| cart.map[(map_pos.x + x + (map_pos.y + y) * 128) as usize]).unwrap_or(0);
+                let tile_pos = TilePos { x, y };
+                let tile_entity = self.commands
+                                      .spawn(TileBundle {
+                                          position: tile_pos,
+                                          tilemap_id: TilemapId(tilemap_entity),
+                                          texture_index: TileTextureIndex(texture_index as u32),
+                                          ..Default::default()
+                                      })
+                                      .id();
+                tile_storage.set(&tile_pos, tile_entity);
+            }
+        }
+
+        let tile_size = TilemapTileSize { x: 16.0, y: 16.0 };
+        let grid_size = tile_size.into();
+        let map_type = TilemapType::default();
+
+        self.commands.entity(tilemap_entity).insert(TilemapBundle {
+            grid_size,
+            map_type,
+            size: map_size,
+            storage: tile_storage,
+            texture: TilemapTexture::Single(self.state.sprites.clone()),
+            tile_size,
+            transform: Transform::from_xyz(screen_start.x, screen_start.y, 0.0),//get_tilemap_center_transform(&map_size, &grid_size, &map_type, 0.0),
+            ..Default::default()
+        });
+        Ok(tilemap_entity)
+    }
+
     fn btnp(&self, b: Option<u8>) -> Result<bool, Error> {
         match b {
             Some(b) => Ok(self.keys.just_pressed(match b {
@@ -203,6 +260,7 @@ impl FromWorld for Pico8State {
             palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
             sprites: asset_server.load_with_settings(PICO8_SPRITES, pixel_art_settings),
             sprite_size: UVec2::splat(8),
+            cart: None,
             layout,
             font: asset_server.load(PICO8_FONT),
             draw_state: DrawState::default(),
@@ -327,6 +385,21 @@ impl APIProvider for Pico8API {
 
                 // We get back an entity. Not doing anything with it here yet.
                 let _id = with_pico8(ctx, move |pico8| Ok(pico8.spr(n, spr_args_maybe)?))?;
+                Ok(())
+            }
+
+            // map( celx, cely, sx, sy, celw, celh, [layer] )
+            fn map(ctx, (mut args): LuaMultiValue) {
+                let celx = args.pop_front().and_then(|v| v.as_u32()).expect("celx");
+                let cely = args.pop_front().and_then(|v| v.as_u32()).expect("cely");
+                let sx = args.pop_front().and_then(|v| v.to_f32()).expect("sx");
+                let sy = args.pop_front().and_then(|v| v.to_f32()).expect("sy");
+                let celw = args.pop_front().and_then(|v| v.as_u32()).expect("celw");
+                let celh = args.pop_front().and_then(|v| v.as_u32()).expect("celh");
+                let layer = args.pop_front().and_then(|v| v.as_u32().map(|v| v as u8)).unwrap_or(0);
+
+                // We get back an entity. Not doing anything with it here yet.
+                let _id = with_pico8(ctx, move |pico8| Ok(pico8.map(UVec2::new(celx, cely), Vec2::new(sx, sy), UVec2::new(celw, celh), layer)?))?;
                 Ok(())
             }
 

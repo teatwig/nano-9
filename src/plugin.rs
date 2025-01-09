@@ -360,6 +360,7 @@ impl Plugin for Nano9Plugin {
         .init_resource::<N9Settings>()
         .init_resource::<DrawState>()
         .add_plugins(crate::plugin)
+        .add_plugins(bevy_ecs_tilemap::TilemapPlugin)
         // .add_systems(OnExit(screens::Screen::Loading), setup_image)
         .add_systems(Startup, (setup_image, spawn_camera, set_camera).chain())
         // .add_systems(OnEnter(screens::Screen::Playing), send_init)
