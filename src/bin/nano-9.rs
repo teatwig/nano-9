@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_minibuffer::prelude::*;
 // use bevy_minibuffer_inspector as inspector;
 use bevy_mod_scripting::prelude::*;
-use nano_9::*;
+use nano_9::{*, pico8::*};
 use std::env;
 
 fn main() -> std::io::Result<()> {
@@ -13,7 +13,8 @@ fn main() -> std::io::Result<()> {
         .map(|s| format!("../{s}"))
         .unwrap_or("scripts/main.lua".into());
     let nano9_plugin = Nano9Plugin::default();
-    App::new()
+    let mut app = App::new();
+    app
         .add_plugins(nano9_plugin.default_plugins())
         .add_plugins(nano9_plugin)
         .add_plugins(nano_9::pico8::plugin)
@@ -24,8 +25,17 @@ fn main() -> std::io::Result<()> {
             acts::tape::TapeActs::default(),
             // bevy_minibuffer_inspector::WorldActs::default(),
             // inspector::AssetActs::default().add::<Image>(),
-        ))
-        .add_systems(
+        ));
+    if script_path.ends_with(".p8") {
+        app.add_systems(
+            Startup,
+            move |asset_server: Res<AssetServer>, mut commands: Commands| {
+                let cart: Handle<Cart> = asset_server.load(&script_path);
+                commands.spawn(LoadCart(cart));
+            },
+        );
+    } else {
+        app.add_systems(
             Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
                 commands.spawn(ScriptCollection::<LuaFile> {
@@ -35,7 +45,10 @@ fn main() -> std::io::Result<()> {
                     )],
                 });
             },
-        )
+        );
+    }
+
+    app
         .run();
     Ok(())
 }

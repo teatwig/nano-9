@@ -24,12 +24,6 @@ use crate::{
     screens, DropPolicy, N9Camera, N9Sprite, N9Var,
 };
 
-#[derive(Resource)]
-struct ImageAssets {
-    // #[asset(path = "images/pico-8-palette.png")]
-    palette: Handle<Image>,
-}
-
 #[derive(Component)]
 pub struct Nano9Sprite;
 

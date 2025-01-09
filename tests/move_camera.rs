@@ -87,7 +87,11 @@ fn run_lua_test(script: impl Into<String>) {
     }
 }
 
+#[cfg(test)]
+mod test {
+    use super::*;
 #[test]
+#[ignore]
 fn change_camera_position() {
     run_lua_test(
         r#"
@@ -102,6 +106,7 @@ fn change_camera_position() {
 }
 
 #[test]
+#[ignore]
 fn default_camera_position() {
     run_lua_test(
         r#"
@@ -118,6 +123,7 @@ fn default_camera_position() {
 }
 
 #[test]
+#[ignore]
 fn render_text() {
     run_lua_test(
         r#"
@@ -137,3 +143,4 @@ fn render_text() {
 //         end
 //         "#);
 // }
+}

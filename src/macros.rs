@@ -3,6 +3,7 @@ macro_rules! define_globals {
         $(fn $name:ident($ctx:ident, $arg_name:tt : $arg_type:tt) $body:block)+
     ) => {
         $(
+            #[allow(unused_parens)]
             $ctx.globals()
                 .set(stringify!($name),
                      $ctx.create_function(|$ctx, $arg_name: $arg_type| $body)

@@ -14,6 +14,7 @@ use bevy_mod_scripting::api::{common::bevy::ScriptWorld, providers::bevy_ecs::Lu
 use bevy_mod_scripting::prelude::*;
 // use bevy_pixel_buffer::prelude::*;
 use crate::{
+    pico8::{LoadCart, Cart},
     api::N9Args, despawn_list, palette::Nano9Palette, DropPolicy, N9AudioLoader, N9Color, N9Image,
     N9ImageLoader, N9TextLoader, Nano9Screen, OneFrame, ValueExt, DrawState,
 };
@@ -30,12 +31,12 @@ pub const PICO8_FONT: &'static str = "fonts/pico-8.ttf";
 /// Pico8State's state.
 #[derive(Resource, Clone)]
 pub struct Pico8State {
-    palette: Handle<Image>,
-    sprites: Handle<Image>,
-    layout: Handle<TextureAtlasLayout>,
-    font: Handle<Font>,
-    draw_state: DrawState,
-    sprite_size: UVec2,
+    pub(crate) palette: Handle<Image>,
+    pub(crate) sprites: Handle<Image>,
+    pub(crate) layout: Handle<TextureAtlasLayout>,
+    pub(crate) font: Handle<Font>,
+    pub(crate) draw_state: DrawState,
+    pub(crate) sprite_size: UVec2,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -84,7 +85,38 @@ pub struct SprArgs {
 //     }
 // }
 
+// #[derive(Clone, PartialEq, Eq, Hash, Debug, Default, States)]
+// pub enum CartState {
+//     #[default]
+//     Empty,
+//     Loading(Handle<Cart>),
+//     Loaded,
+// }
+
+// fn check_cart(
+//     mut state: ResMut<State<CartState>>,
+//     mut next_state: ResMut<NextState<CartState>>,
+//     mut events: EventReader<AssetEvent<Cart>>,
+//     mut assets: Assets<Cart>,
+// ) {
+//     match **state {
+//         CartState::Loading(ref handle) => {
+
+//             // for event in events.read() {
+//             //     if event.is_loaded_with_dependencies(handle) {
+//             //         next_state.set(CartState::Loaded);
+//             //     }
+//             // }
+//         }
+//         _ => (),
+//     }
+// }
+
 impl<'w, 's> Pico8<'w, 's> {
+    fn load_cart(&mut self, cart: Handle<Cart>) {
+        self.commands.spawn(LoadCart(cart));
+        // self.cart_state.set(CartState::Loading(cart));
+    }
 
     // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
 
@@ -262,7 +294,7 @@ impl Pico8State {
 
 pub struct Pico8API;
 
-pub fn plugin(app: &mut App) {
+pub(crate) fn plugin(app: &mut App) {
     app
         .init_resource::<Pico8State>()
         .add_api_provider::<LuaScriptHost<N9Args>>(Box::new(Pico8API));
