@@ -27,12 +27,14 @@ use std::{
 
 pub const PICO8_PALETTE: &'static str = "images/pico-8-palette.png";
 pub const PICO8_SPRITES: &'static str = "images/pooh-book-sprites.png";
+pub const PICO8_BORDER: &'static str = "images/rect-border.png";
 pub const PICO8_FONT: &'static str = "fonts/pico-8.ttf";
 
 /// Pico8State's state.
 #[derive(Resource, Clone)]
 pub struct Pico8State {
     pub(crate) palette: Handle<Image>,
+    pub(crate) border: Handle<Image>,
     pub(crate) sprites: Handle<Image>,
     pub(crate) cart: Option<Handle<Cart>>,
     pub(crate) layout: Handle<TextureAtlasLayout>,
@@ -152,9 +154,52 @@ impl<'w, 's> Pico8<'w, 's> {
         Ok(())
     }
 
+    fn rectfill(&mut self, upperLeft: UVec2, lowerRight: UVec2, color: Option<N9Color>) -> Result<Entity, Error> {
+        let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
+        let size = lowerRight - upperLeft;
+        let id = self.commands.spawn((
+            Sprite {
+                color: c,
+                anchor: Anchor::TopLeft,
+                custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
+                ..default()
+            },
+            Transform::from_xyz(upperLeft.x as f32, -(upperLeft.y as f32), 0.0),
+            OneFrame::default()
+            ))
+                     .id();
+        Ok(id)
+    }
+
+    fn rect(&mut self, upperLeft: UVec2, lowerRight: UVec2, color: Option<N9Color>) -> Result<Entity, Error> {
+        let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
+        let size = lowerRight - upperLeft;
+        let id = self.commands.spawn((
+            Sprite {
+                image: self.state.border.clone(),
+                color: c,
+                anchor: Anchor::TopLeft,
+                custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
+                image_mode: SpriteImageMode::Sliced(TextureSlicer {
+                    border: BorderRect::square(1.0),
+                    center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
+                    sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.3 },
+                    // sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
+                    ..default()
+                }),
+                ..default()
+            },
+            Transform::from_xyz(upperLeft.x as f32, -(upperLeft.y as f32), 0.0),
+            OneFrame::default()
+            ))
+                     .id();
+        Ok(id)
+    }
+
+
     fn map(&mut self, map_pos: UVec2, screen_start: Vec2, size: UVec2, mask: u8) -> Result<Entity, Error> {
 
-        let map_size = TilemapSize { x: size.x, y: size.y };
+        let map_size = TilemapSize::from(size);
 
         // Create a tilemap entity a little early.
         // We want this entity early because we need to tell each tile which tilemap entity
@@ -175,34 +220,38 @@ impl<'w, 's> Pico8<'w, 's> {
         // Alternatively, you can use helpers::filling::fill_tilemap.
         for x in 0..map_size.x {
             for y in 0..map_size.y {
-                let texture_index = cart.map(|cart| cart.map[(map_pos.x + x + (map_pos.y + y) * 128) as usize]).unwrap_or(0);
-                let tile_pos = TilePos { x, y };
-                let tile_entity = self.commands
-                                      .spawn(TileBundle {
-                                          position: tile_pos,
-                                          tilemap_id: TilemapId(tilemap_entity),
-                                          texture_index: TileTextureIndex(texture_index as u32),
-                                          ..Default::default()
-                                      })
-                                      .id();
-                tile_storage.set(&tile_pos, tile_entity);
+                let texture_index = cart.and_then(|cart| cart.map.get((map_pos.x + x + (map_pos.y + y) * 128) as usize)).copied().unwrap_or(0);
+                if texture_index != 0 {
+                    let tile_pos = TilePos { x, y: map_size.y - y - 1};
+                    let tile_entity = self.commands
+                                          .spawn(TileBundle {
+                                              position: tile_pos,
+                                              tilemap_id: TilemapId(tilemap_entity),
+                                              texture_index: TileTextureIndex(texture_index as u32),
+                                              ..Default::default()
+                                          })
+                                          .id();
+                    tile_storage.set(&tile_pos, tile_entity);
+                }
             }
         }
 
-        let tile_size = TilemapTileSize { x: 16.0, y: 16.0 };
+        let tile_size = TilemapTileSize { x: 8.0, y: 8.0 };
         let grid_size = tile_size.into();
         let map_type = TilemapType::default();
 
-        self.commands.entity(tilemap_entity).insert(TilemapBundle {
+        self.commands.entity(tilemap_entity).insert((TilemapBundle {
             grid_size,
             map_type,
             size: map_size,
             storage: tile_storage,
             texture: TilemapTexture::Single(self.state.sprites.clone()),
             tile_size,
-            transform: Transform::from_xyz(screen_start.x, screen_start.y, 0.0),//get_tilemap_center_transform(&map_size, &grid_size, &map_type, 0.0),
+            // transform: Transform::from_xyz(screen_start.x, -screen_start.y, 0.0),//get_tilemap_center_transform(&map_size, &grid_size, &map_type, 0.0),
+            transform: get_tilemap_top_left_transform(&map_size, &grid_size, &map_type, 0.0),
             ..Default::default()
-        });
+        },
+        OneFrame::default()));
         Ok(tilemap_entity)
     }
 
@@ -239,6 +288,19 @@ impl<'w, 's> Pico8<'w, 's> {
     }
 }
 
+/// Calculates a [`Transform`] for a tilemap that places it so that its center is at
+/// `(0.0, 0.0, 0.0)` in world space.
+fn get_tilemap_top_left_transform(
+    size: &TilemapSize,
+    grid_size: &TilemapGridSize,
+    map_type: &TilemapType,
+    z: f32,
+) -> Transform {
+    assert_eq!(map_type, &TilemapType::Square);
+    let y = size.y as f32 * grid_size.y;
+    Transform::from_xyz(grid_size.x / 2.0, -y + grid_size.y / 2.0, z)
+}
+
 impl FromWorld for Pico8State {
     fn from_world(world: &mut World) -> Self {
         let layout = {
@@ -259,6 +321,7 @@ impl FromWorld for Pico8State {
         Pico8State {
             palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
             sprites: asset_server.load_with_settings(PICO8_SPRITES, pixel_art_settings),
+            border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
             sprite_size: UVec2::splat(8),
             cart: None,
             layout,
@@ -356,6 +419,24 @@ impl APIProvider for Pico8API {
                     // We want to ignore out of bounds errors specifically.
                     // Ok(pico8.pset(x, y, color)?)
                     let _ = pico8.pset(x, y, color);
+                    Ok(())
+                })
+            }
+
+            fn rectfill(ctx, (x0, y0, x1, y1, color): (u32, u32, u32, u32, Option<N9Color>)) {
+                with_pico8(ctx, |pico8| {
+                    // We want to ignore out of bounds errors specifically.
+                    // Ok(pico8.pset(x, y, color)?)
+                    let _ = pico8.rectfill(UVec2::new(x0, y0), UVec2::new(x1, y1), color);
+                    Ok(())
+                })
+            }
+
+            fn rect(ctx, (x0, y0, x1, y1, color): (u32, u32, u32, u32, Option<N9Color>)) {
+                with_pico8(ctx, |pico8| {
+                    // We want to ignore out of bounds errors specifically.
+                    // Ok(pico8.pset(x, y, color)?)
+                    let _ = pico8.rect(UVec2::new(x0, y0), UVec2::new(x1, y1), color);
                     Ok(())
                 })
             }

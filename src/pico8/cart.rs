@@ -86,6 +86,7 @@ fn load_cart(query: Query<(Entity, &LoadCart)>,
             };
             commands.insert_resource(Pico8State {
                 palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
+                border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
                 sprites: cart.sprites.clone(),
                 cart: Some(load_cart.0.clone()),
                 layout: layouts.add(TextureAtlasLayout::from_grid(UVec2::new(8, 8),
@@ -135,7 +136,6 @@ impl CartParts {
         if let Some(last_section) = sections.iter_mut().rev().find(|(start, end)| start.is_some() && end.is_none()) {
             last_section.1 = Some(content.len());
         }
-        dbg!(sections);
         let get_segment = |(i, j): &(Option<usize>, Option<usize>)| -> Option<&str> {
             i.zip(*j).map(|(i,j)| &content[i..j])
         };
@@ -202,15 +202,20 @@ impl CartParts {
             let columns = lines.next().map(|l| l.len());
             if let Some(columns) = columns {
                 let rows = lines.count() + 1;
-                let mut bytes = vec![0x00; columns * rows * 4];
+                let mut bytes = vec![0x00; columns / 2 * rows];
                 let mut i = 0;
                 for line in content.lines() {
                     assert_eq!(columns, line.len());
-                    for c in line.as_bytes() {
-                        let c = *c as char;
-                        let digit: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
-                        bytes[i] = digit;
+                    let line_bytes = line.as_bytes();
+                    let mut j = 0;
+                    while j < line_bytes.len() {
+                        let c = line_bytes[j] as char;
+                        let high: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                        let c = line_bytes[j + 1] as char;
+                        let low: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                        bytes[i] = high << 4 | low;
                         i += 1;
+                        j += 2;
                     }
                 }
                 map = bytes;
@@ -411,6 +416,7 @@ map(0, 0, 10, 10)
 end"#);
         assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), Some(128));
         assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), Some(8));
+        assert_eq!(cart.map.len(), 128 * 7);
     }
 
 
