@@ -1,4 +1,7 @@
 # TODO
+## Pico-8
+- [ ] fix z-fighting, use frameCount + some increment
+- [ ] fix sub char splitting
 ## Nano-9
 - [x] add full screen key (alt-enter)
 - [x] scale image with window
@@ -6,7 +9,7 @@
 - [x] audio sfx
 - [x] audio music
 - [x] audio control
-- [ ] implement tile map
+- [x] implement tile map
 - [x] show errors
 - [ ] make work with local paths
 
