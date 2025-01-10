@@ -182,9 +182,8 @@ impl<'w, 's> Pico8<'w, 's> {
                 custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
                 image_mode: SpriteImageMode::Sliced(TextureSlicer {
                     border: BorderRect::square(1.0),
-                    center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
-                    sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.3 },
-                    // sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
+                    center_scale_mode: SliceScaleMode::Stretch,
+                    sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
                     ..default()
                 }),
                 ..default()
