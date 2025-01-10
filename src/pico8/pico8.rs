@@ -7,7 +7,7 @@ use bevy::{
 };
 
 use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{
-    MetaMethod, UserData, UserDataFields, UserDataMethods, Function
+    MetaMethod, UserData, UserDataFields, UserDataMethods, Function, Number
 };
 
 use bevy_mod_scripting::api::{common::bevy::ScriptWorld, providers::bevy_ecs::LuaEntity};
@@ -285,6 +285,32 @@ impl<'w, 's> Pico8<'w, 's> {
             None => Ok(self.keys.get_pressed().len() != 0)
         }
     }
+
+    // print(text, [x,] [y,] [color])
+    fn print(&mut self, text: impl Into<String>, pos: Option<UVec2>, color: Option<N9Color>) -> Result<u32, Error> {
+        let text = text.into();
+        let pos = pos.unwrap_or_else(|| UVec2::new(self.state.draw_state.print_cursor.x, self.state.draw_state.print_cursor.y));
+        let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
+        let len = text.len();
+        self.commands.spawn((Text2d::new(text),
+                     Transform::from_xyz(pos.x as f32, -(pos.y as f32), 0.0),
+                     TextColor(c),
+                     TextFont {
+                         font: self.state.font.clone(),
+                         font_smoothing: bevy::text::FontSmoothing::None,
+                         font_size: 6.0,
+                     },
+                     OneFrame::default(),
+                     // Anchor::TopLeft is (-0.5, 0.5).
+                     Anchor::Custom(Vec2::new(-0.5, 0.3)),
+        ));
+        self.state.draw_state.print_cursor.x = pos.x;
+        self.state.draw_state.print_cursor.y = pos.y + 6;
+        // XXX: Need the font width somewhere.
+        Ok(pos.x + len as u32 * 4)
+    }
+
+    // fn sfx(n,
 }
 
 /// Calculates a [`Transform`] for a tilemap that places it so that its center is at
@@ -377,7 +403,7 @@ pub(crate) fn plugin(app: &mut App) {
         .add_api_provider::<LuaScriptHost<N9Args>>(Box::new(Pico8API));
 }
 
-fn with_pico8<X>(ctx: &Lua, f: impl Fn(&mut Pico8) -> Result<X, Error>) -> Result<X, LuaError> {
+fn with_pico8<X>(ctx: &Lua, f: impl FnOnce(&mut Pico8) -> Result<X, Error>) -> Result<X, LuaError> {
     let world = ctx.get_world()?;
     let mut world = world.write();
     let mut system_state: SystemState<Pico8> =
@@ -496,33 +522,73 @@ impl APIProvider for Pico8API {
                     let pico8 = world.resource::<Pico8State>();
                     pico8.draw_state.clone()
                 };
-                let font = {
-                    let world = world.read();
-                    let pico8 = world.resource::<Pico8State>();
-                    pico8.font.clone()
-                };
-                let mut world = world.write();
-                let text = args.pop_front().map(|v| v.to_string().expect("text")).expect("text");
-                let x = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(draw_state.print_cursor.x);
-                let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(draw_state.print_cursor.y);
-                let c = args.pop_front().and_then(|v| v.as_usize());
-                let color = Nano9Palette::get_color_or_pen(c, &mut world);
-                world.spawn((Text2d::new(text),
-                             Transform::from_xyz(x, -y, 0.0),
-                             TextColor(color),
-                             TextFont {
-                                 font,
-                                 font_smoothing: bevy::text::FontSmoothing::None,
-                                 font_size: 6.0,
-                             },
-                             OneFrame::default(),
-                             // Anchor::TopLeft is (-0.5, 0.5).
-                             Anchor::Custom(Vec2::new(-0.5, 0.3)),
-                             ));
-                let mut pico8 = world.resource_mut::<Pico8State>();
-                pico8.draw_state.print_cursor.x = x;
-                pico8.draw_state.print_cursor.y = y + 6.0;
+                let text: String = args.pop_front().map(|v| v.to_string().expect("text")).expect("text");
+                // let x = args.pop_front().and_then(|v| v.to_f32());
+                // let y = args.pop_front().and_then(|v| v.to_f32());
+                let x = args.pop_front().and_then(|v| v.as_u32());
+                let y = args.pop_front().and_then(|v| v.as_u32());
+                let c = args.pop_front().and_then(|v| v.as_usize()).map(|p| N9Color::Palette(p));
+                let pos = x.map(|x| UVec2::new(x, y.unwrap_or(draw_state.print_cursor.y)));
+                with_pico8(ctx, move |pico8| Ok(pico8.print(text, pos, c)?))
+            }
+
+            fn sfx(ctx, (mut args): LuaMultiValue) {
+                // warn!("sfx not implemented");
                 Ok(())
+            }
+
+            fn flr(ctx, v: Number) {
+                Ok(v.floor() as u32)
+            }
+
+            fn sub(ctx, (string, mut start, end): (LuaString, usize, Option<usize>)) {
+                let string = string.to_str()?;
+                if start < 0 {
+                    start = string.len() - start;
+                }
+                start -= 1;
+                // end -= 1;
+                match end {
+                    Some(mut end) => {
+                        if end < 0 {
+                            end = string.len() - end;
+                        }
+                        if start <= end {
+                            // BUG: This cuts unicode boundaries.
+                            Ok(string[start..end].to_string())
+                        } else {
+                            Ok(String::new())
+                        }
+                    }
+                    None => Ok(string[start..].to_string()),
+                }
+            }
+
+            fn min(ctx, (x, y): (Value, Value)) {
+                Ok(if x.to_f32() < y.to_f32() {
+                    x
+                } else {
+                    y
+                })
+            }
+
+            fn max(ctx, (x, y): (Value, Value)) {
+                Ok(if x.to_f32() > y.to_f32() {
+                    x
+                } else {
+                    y
+                })
+            }
+
+            fn ord(ctx, (string, index, count): (LuaString, Option<usize>, Option<usize>)) {
+                let string = string.to_str()?;
+                let index = index.map(|i| i - 1).unwrap_or(0);
+                let count = count.unwrap_or(1);
+                let mut result: Vec<Value> = Vec::with_capacity(count);
+                for c in string.chars().skip(index).take(count) {
+                    result.push(Value::Integer(c as i64));
+                }
+                Ok(LuaMultiValue::from_vec(result))
             }
         }
 
