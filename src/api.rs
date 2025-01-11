@@ -70,14 +70,15 @@ impl FromLua<'_> for N9Arg {
 
 pub fn plugin(app: &mut App) {
     app.add_plugins(ScriptingPlugin)
-        .add_systems(
-            FixedUpdate,
-            script_event_handler::<LuaScriptHost<N9Args>, 0, 1>,
-        )
+        // .add_systems(
+        //     Update,
+        //     script_event_handler::<LuaScriptHost<N9Args>, 0, 1>,
+        // )
         // .register_foreign_lua_type::<Handle<Image>>()
         .add_script_host::<LuaScriptHost<N9Args>>(PostUpdate)
         .add_api_provider::<LuaScriptHost<N9Args>>(Box::new(LuaCoreBevyAPIProvider))
         .add_api_provider::<LuaScriptHost<N9Args>>(Box::new(Nano9API))
+        .add_script_handler::<LuaScriptHost<N9Args>, 0, 1>(FixedUpdate)
         .add_script_handler::<LuaScriptHost<N9Args>, 0, 0>(PostUpdate);
 }
 

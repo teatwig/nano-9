@@ -4,9 +4,12 @@ pub use pico8::*;
 // pub mod cartridge;
 mod cart;
 pub use cart::*;
+mod clear;
+pub use clear::*;
 
 pub fn plugin(app: &mut App) {
     app
         .add_plugins(pico8::plugin)
+        .add_plugins(clear::plugin)
         .add_plugins(cart::plugin);
 }

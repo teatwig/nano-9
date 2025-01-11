@@ -33,7 +33,7 @@ pub struct Nano9SpriteSheet(pub Handle<Image>, pub Handle<TextureAtlasLayout>);
 #[derive(Resource)]
 pub struct Nano9Screen(pub Handle<Image>);
 
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Debug)]
 pub struct DrawState {
     pub pen: Color,
     pub camera_position: UVec2,

@@ -15,9 +15,9 @@ use bevy_mod_scripting::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::{
-    pico8::{LoadCart, Cart},
+    pico8::{LoadCart, Cart, Clearable, ClearEvent},
     api::N9Args, despawn_list, palette::Nano9Palette, DropPolicy, N9AudioLoader, N9Color, N9Image,
-    N9ImageLoader, N9TextLoader, Nano9Screen, OneFrame, ValueExt, DrawState,
+    N9ImageLoader, N9TextLoader, Nano9Screen, ValueExt, DrawState,
 };
 
 use std::{
@@ -77,6 +77,8 @@ pub struct SprArgs {
     flip_y: bool,
 }
 
+
+
 impl<'w, 's> Pico8<'w, 's> {
     fn load_cart(&mut self, cart: Handle<Cart>) {
         self.commands.spawn(LoadCart(cart));
@@ -109,9 +111,10 @@ impl<'w, 's> Pico8<'w, 's> {
                 ..default()
             }
         };
+        let clearable = Clearable::default();
         Ok(self.commands.spawn((sprite,
-                        Transform::from_xyz(x, -y, 0.0),
-                        OneFrame::default(),
+                        Transform::from_xyz(x, -y, clearable.suggest_z()),
+            clearable,
         )).id())
     }
 
@@ -144,6 +147,7 @@ impl<'w, 's> Pico8<'w, 's> {
                 image.set_color_at(i, j, c)?;
             }
         }
+        self.commands.send_event(ClearEvent::default());
         Ok(())
     }
 
@@ -157,6 +161,7 @@ impl<'w, 's> Pico8<'w, 's> {
     fn rectfill(&mut self, upperLeft: UVec2, lowerRight: UVec2, color: Option<N9Color>) -> Result<Entity, Error> {
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let size = lowerRight - upperLeft;
+        let clearable = Clearable::default();
         let id = self.commands.spawn((
             Sprite {
                 color: c,
@@ -164,8 +169,8 @@ impl<'w, 's> Pico8<'w, 's> {
                 custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
                 ..default()
             },
-            Transform::from_xyz(upperLeft.x as f32, -(upperLeft.y as f32), 0.0),
-            OneFrame::default()
+            Transform::from_xyz(upperLeft.x as f32, -(upperLeft.y as f32), clearable.suggest_z()),
+            clearable,
             ))
                      .id();
         Ok(id)
@@ -174,6 +179,7 @@ impl<'w, 's> Pico8<'w, 's> {
     fn rect(&mut self, upperLeft: UVec2, lowerRight: UVec2, color: Option<N9Color>) -> Result<Entity, Error> {
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let size = lowerRight - upperLeft;
+        let clearable = Clearable::default();
         let id = self.commands.spawn((
             Sprite {
                 image: self.state.border.clone(),
@@ -188,8 +194,8 @@ impl<'w, 's> Pico8<'w, 's> {
                 }),
                 ..default()
             },
-            Transform::from_xyz(upperLeft.x as f32, -(upperLeft.y as f32), 0.0),
-            OneFrame::default()
+            Transform::from_xyz(upperLeft.x as f32, -(upperLeft.y as f32), clearable.suggest_z()),
+            clearable,
             ))
                      .id();
         Ok(id)
@@ -197,9 +203,7 @@ impl<'w, 's> Pico8<'w, 's> {
 
 
     fn map(&mut self, map_pos: UVec2, screen_start: Vec2, size: UVec2, mask: u8) -> Result<Entity, Error> {
-
         let map_size = TilemapSize::from(size);
-
         // Create a tilemap entity a little early.
         // We want this entity early because we need to tell each tile which tilemap entity
         // it is associated with. This is done with the TilemapId component on each tile.
@@ -238,6 +242,7 @@ impl<'w, 's> Pico8<'w, 's> {
         let tile_size = TilemapTileSize { x: 8.0, y: 8.0 };
         let grid_size = tile_size.into();
         let map_type = TilemapType::default();
+        let clearable = Clearable::default();
 
         self.commands.entity(tilemap_entity).insert((TilemapBundle {
             grid_size,
@@ -247,10 +252,11 @@ impl<'w, 's> Pico8<'w, 's> {
             texture: TilemapTexture::Single(self.state.sprites.clone()),
             tile_size,
             // transform: Transform::from_xyz(screen_start.x, -screen_start.y, 0.0),//get_tilemap_center_transform(&map_size, &grid_size, &map_type, 0.0),
-            transform: get_tilemap_top_left_transform(&map_size, &grid_size, &map_type, 0.0),
+            transform: get_tilemap_top_left_transform(&map_size, &grid_size, &map_type, clearable.suggest_z()),
             ..Default::default()
         },
-        OneFrame::default()));
+            clearable,
+        ));
         Ok(tilemap_entity)
     }
 
@@ -287,27 +293,54 @@ impl<'w, 's> Pico8<'w, 's> {
     }
 
     // print(text, [x,] [y,] [color])
-    fn print(&mut self, text: impl Into<String>, pos: Option<UVec2>, color: Option<N9Color>) -> Result<u32, Error> {
-        let text = text.into();
+    fn print(&mut self, text: impl AsRef<str>, pos: Option<UVec2>, color: Option<N9Color>) -> Result<u32, Error> {
+        const CHAR_WIDTH: u32 = 4;
+        const NEWLINE_HEIGHT: u32 = 6;
+        let mut text: &str = text.as_ref();
+        // info!("print {:?} start, {:?}", &text, &self.state.draw_state.print_cursor);
         let pos = pos.unwrap_or_else(|| UVec2::new(self.state.draw_state.print_cursor.x, self.state.draw_state.print_cursor.y));
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
-        let len = text.len();
-        self.commands.spawn((Text2d::new(text),
-                     Transform::from_xyz(pos.x as f32, -(pos.y as f32), 0.0),
-                     TextColor(c),
-                     TextFont {
-                         font: self.state.font.clone(),
-                         font_smoothing: bevy::text::FontSmoothing::None,
-                         font_size: 6.0,
-                     },
-                     OneFrame::default(),
-                     // Anchor::TopLeft is (-0.5, 0.5).
-                     Anchor::Custom(Vec2::new(-0.5, 0.3)),
-        ));
-        self.state.draw_state.print_cursor.x = pos.x;
-        self.state.draw_state.print_cursor.y = pos.y + 6;
+        let clearable = Clearable::default();
+        let add_newline = if text.ends_with('\0') {
+            text = &text[..text.len().saturating_sub(1)];
+            false
+        } else {
+            true
+        };
+        let len = text.len() as u32;
+        let z = clearable.suggest_z();
+        self.commands.spawn((Transform::from_xyz(pos.x as f32, -(pos.y as f32), z),
+                             Visibility::default(),
+                             clearable))
+            .with_children(|builder| {
+                let mut y = 0;
+                for line in text.lines() {
+                // Our font has a different height than we want. It's one pixel
+                // higher. So we can't let bevy render it one go. Bummer.
+                builder.spawn((Text2d::new(line),
+                               Transform::from_xyz(0.0, -(y as f32), z),
+
+                                    TextColor(c),
+                                    TextFont {
+                                        font: self.state.font.clone(),
+                                        font_smoothing: bevy::text::FontSmoothing::None,
+                                        font_size: 6.0,
+                                    },
+                                    // Anchor::TopLeft is (-0.5, 0.5).
+                                    Anchor::Custom(Vec2::new(-0.5, 0.3)),
+                               ));
+                               y += NEWLINE_HEIGHT;
+                }
+            });
+        if add_newline {
+            self.state.draw_state.print_cursor.x = pos.x;
+            self.state.draw_state.print_cursor.y = pos.y + NEWLINE_HEIGHT;
+        } else {
+            self.state.draw_state.print_cursor.x = pos.x + CHAR_WIDTH * len;
+        }
+        // info!("print end, {:?}", &self.state.draw_state.print_cursor);
         // XXX: Need the font width somewhere.
-        Ok(pos.x + len as u32 * 4)
+        Ok(pos.x + len * CHAR_WIDTH)
     }
 
     // fn sfx(n,
@@ -554,13 +587,14 @@ impl APIProvider for Pico8API {
                             end = string.len() - end;
                         }
                         if start <= end {
+                            Ok(string.chars().skip(start).take(end - start).collect())
                             // BUG: This cuts unicode boundaries.
-                            Ok(string[start..end].to_string())
+                            // Ok(string[start..end].to_string())
                         } else {
                             Ok(String::new())
                         }
                     }
-                    None => Ok(string[start..].to_string()),
+                    None => Ok(string.chars().skip(start).collect())
                 }
             }
 
@@ -597,5 +631,17 @@ impl APIProvider for Pico8API {
 
     fn register_with_app(&self, app: &mut App) {
         // app.register_type::<Settings>();
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+
+    #[test]
+    fn test_suffix_match() {
+        let s = "a\\0";
+        assert_eq!(s.len(), 3);
+        assert!(s.ends_with("\\0"));
     }
 }

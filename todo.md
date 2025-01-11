@@ -1,7 +1,9 @@
 # TODO
 ## Pico-8
 - [ ] fix z-fighting, use frameCount + some increment
-- [ ] fix sub char splitting
+- [x] fix sub char splitting
+- [ ] Add pause or other state to stop Lua evaluation
+      Can't use inspector while it's churning.
 ## Nano-9
 - [x] add full screen key (alt-enter)
 - [x] scale image with window

@@ -403,7 +403,7 @@ end"#);
     fn map() {
         let settings = CartLoaderSettings::default();
         let cart = CartParts::from_str(map_cart, &settings).unwrap();
-        assert_eq!(cart.map[8], 8);
+        assert_eq!(cart.map[5], 136);
     }
 
     #[test]
