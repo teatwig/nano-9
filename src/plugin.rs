@@ -373,11 +373,13 @@ impl Plugin for Nano9Plugin {
         //         ),
         // )
         // .add_systems(PreUpdate, (send_init).chain().run_if(on_event::<ScriptLoaded>()))
+        // .add_systems(Update, info_on_asset_event::<Image>())
         .add_systems(
             Update,
             ((send_update, send_update60), send_draw)
                 .chain()
-                .run_if(in_state(screens::Screen::Playing).and_then(in_state(ErrorState::None))),
+                .run_if(in_state(screens::Screen::Playing)
+                        .and_then(in_state(ErrorState::None))),
         );
 
         if app.is_plugin_added::<WindowPlugin>() {
@@ -386,6 +388,7 @@ impl Plugin for Nano9Plugin {
         }
     }
 }
+
 pub fn on_asset_modified<T: Asset>() -> impl FnMut(EventReader<AssetEvent<T>>) -> bool + Clone {
     // The events need to be consumed, so that there are no false positives on subsequent
     // calls of the run condition. Simply checking `is_empty` would not be enough.
@@ -395,5 +398,22 @@ pub fn on_asset_modified<T: Asset>() -> impl FnMut(EventReader<AssetEvent<T>>) -
         reader
             .read()
             .any(|e| matches!(e, AssetEvent::Modified { .. }))
+    }
+}
+
+pub fn info_on_asset_event<T: Asset>() -> impl FnMut(EventReader<AssetEvent<T>>) {
+    // The events need to be consumed, so that there are no false positives on subsequent
+    // calls of the run condition. Simply checking `is_empty` would not be enough.
+    // PERF: note that `count` is efficient (not actually looping/iterating),
+    // due to Bevy having a specialized implementation for events.
+    move |mut reader: EventReader<AssetEvent<T>>| {
+        for event in reader.read() {
+            match event {
+                AssetEvent::Modified { .. } => (),
+                _ => {
+                    info!("ASSET EVENT {:?}", &event);
+                }
+            }
+        }
     }
 }

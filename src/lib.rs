@@ -21,6 +21,7 @@ pub mod screens;
 mod sprite;
 mod text;
 mod var;
+pub mod minibuffer;
 
 pub use audio::*;
 pub use camera::*;

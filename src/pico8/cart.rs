@@ -84,7 +84,8 @@ fn load_cart(query: Query<(Entity, &LoadCart)>,
                 // Use `nearest` image sampling to preserve the pixel art style.
                 settings.sampler = ImageSampler::nearest();
             };
-            commands.insert_resource(Pico8State {
+            info!("Load cart {:?}", &cart);
+            let state = Pico8State {
                 palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
                 border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
                 sprites: cart.sprites.clone(),
@@ -95,7 +96,8 @@ fn load_cart(query: Query<(Entity, &LoadCart)>,
                 sprite_size: UVec2::splat(8),
                 draw_state: DrawState::default(),
                 font: asset_server.load(PICO8_FONT),
-            });
+            };
+            commands.insert_resource(state);
             commands.entity(id).insert(ScriptCollection::<LuaFile> {
                     scripts: vec![Script::new(
                         load_cart.0.path().map(|path| path.to_string()).unwrap_or_else(|| format!("cart {:?}", &load_cart.0)),

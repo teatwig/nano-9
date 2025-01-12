@@ -1038,8 +1038,6 @@ dependencies = [
 [[package]]
 name = "bevy_minibuffer"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3e720841498d27261b92839f13bcd06c494eb9b48cba76db3d5252c377f8248"
 dependencies = [
  "accesskit",
  "bevy",
@@ -3707,6 +3705,7 @@ dependencies = [
  "bevy_minibuffer_inspector",
  "bevy_mod_scripting",
  "bytemuck",
+ "keyseq",
  "serde",
  "thiserror",
 ]

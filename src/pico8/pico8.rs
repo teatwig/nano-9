@@ -209,40 +209,45 @@ impl<'w, 's> Pico8<'w, 's> {
         // it is associated with. This is done with the TilemapId component on each tile.
         // Eventually, we will insert the `TilemapBundle` bundle on the entity, which
         // will contain various necessary components, such as `TileStorage`.
-        let tilemap_entity = self.commands.spawn_empty().id();
 
         // To begin creating the map we will need a `TileStorage` component.
         // This component is a grid of tile entities and is used to help keep track of individual
         // tiles in the world. If you have multiple layers of tiles you would have a tilemap entity
         // per layer, each with their own `TileStorage` component.
-        let mut tile_storage = TileStorage::empty(map_size);
 
         let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get(cart));
 
         // Spawn the elements of the tilemap.
         // Alternatively, you can use helpers::filling::fill_tilemap.
+        let clearable = Clearable::default();
+        let mut tile_storage = TileStorage::empty(map_size);
+        let tilemap_entity = self.commands.spawn(Name::new("map")).id();
+        self.commands.entity(tilemap_entity)
+            .with_children(|builder| {
         for x in 0..map_size.x {
             for y in 0..map_size.y {
                 let texture_index = cart.and_then(|cart| cart.map.get((map_pos.x + x + (map_pos.y + y) * 128) as usize)).copied().unwrap_or(0);
                 if texture_index != 0 {
                     let tile_pos = TilePos { x, y: map_size.y - y - 1};
-                    let tile_entity = self.commands
-                                          .spawn(TileBundle {
+                    let tile_entity = builder
+                                          .spawn((TileBundle {
                                               position: tile_pos,
                                               tilemap_id: TilemapId(tilemap_entity),
                                               texture_index: TileTextureIndex(texture_index as u32),
                                               ..Default::default()
-                                          })
+                                          },
+                                                  // clearable.clone(),
+                                          ))
                                           .id();
                     tile_storage.set(&tile_pos, tile_entity);
                 }
             }
         }
+            });
 
         let tile_size = TilemapTileSize { x: 8.0, y: 8.0 };
         let grid_size = tile_size.into();
         let map_type = TilemapType::default();
-        let clearable = Clearable::default();
 
         self.commands.entity(tilemap_entity).insert((TilemapBundle {
             grid_size,

@@ -2,7 +2,8 @@ use bevy::prelude::*;
 use bevy_minibuffer::prelude::*;
 // use bevy_minibuffer_inspector as inspector;
 use bevy_mod_scripting::prelude::*;
-use nano_9::{*, pico8::*};
+use nano_9::{*, pico8::*, minibuffer::*};
+use bevy_ecs_tilemap::prelude::{TilePos, TilemapType};
 use std::env;
 
 fn main() -> std::io::Result<()> {
@@ -24,6 +25,13 @@ fn main() -> std::io::Result<()> {
             acts::universal::UniversalArgActs::default(),
             acts::tape::TapeActs::default(),
             bevy_minibuffer_inspector::WorldActs::default(),
+            crate::minibuffer::Nano9Acts::default(),
+            CountComponentsActs::default()
+                .add::<Text>("text")
+                .add::<TilemapType>("map")
+                .add::<TilePos>("tile")
+                .add::<Sprite>("sprite")
+                ,
             // inspector::AssetActs::default().add::<Image>(),
         ));
     if script_path.ends_with(".p8") {

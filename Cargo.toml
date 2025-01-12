@@ -17,6 +17,7 @@ bevy_minibuffer = "0.3.0"
 bevy_minibuffer_inspector = "0.1.0"
 serde = "1.0.217"
 bevy_ecs_tilemap = "0.15.0"
+keyseq = { version = "0.5.0", features = ["bevy"] }
 # regex = "1.11.1"
 
 [features]
@@ -31,6 +32,6 @@ test = false
 bench = false
 
 [patch.crates-io]
-# bevy_mod_scripting = { path = "../bevy_mod_scripting" }
+bevy_minibuffer = { path = "../bevy_minibuffer" }
 # bevy_mod_scripting = { git = "https://github.com/makspll/bevy_mod_scripting.git", branch = "main" }
 # bevy_pixel_buffer = { path = "../bevy_pixel_buffer" }
