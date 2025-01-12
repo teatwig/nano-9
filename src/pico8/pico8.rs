@@ -112,7 +112,9 @@ impl<'w, 's> Pico8<'w, 's> {
             }
         };
         let clearable = Clearable::default();
-        Ok(self.commands.spawn((sprite,
+        Ok(self.commands.spawn((
+            Name::new("sprite"),
+            sprite,
                         Transform::from_xyz(x, -y, clearable.suggest_z()),
             clearable,
         )).id())
@@ -163,6 +165,7 @@ impl<'w, 's> Pico8<'w, 's> {
         let size = lowerRight - upperLeft;
         let clearable = Clearable::default();
         let id = self.commands.spawn((
+            Name::new("rectfill"),
             Sprite {
                 color: c,
                 anchor: Anchor::TopLeft,
@@ -181,6 +184,7 @@ impl<'w, 's> Pico8<'w, 's> {
         let size = lowerRight - upperLeft;
         let clearable = Clearable::default();
         let id = self.commands.spawn((
+            Name::new("rect"),
             Sprite {
                 image: self.state.border.clone(),
                 color: c,
@@ -314,7 +318,8 @@ impl<'w, 's> Pico8<'w, 's> {
         };
         let len = text.len() as u32;
         let z = clearable.suggest_z();
-        self.commands.spawn((Transform::from_xyz(pos.x as f32, -(pos.y as f32), z),
+        self.commands.spawn((Name::new("print"),
+                             Transform::from_xyz(pos.x as f32, -(pos.y as f32), z),
                              Visibility::default(),
                              clearable))
             .with_children(|builder| {

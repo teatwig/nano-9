@@ -5,7 +5,7 @@ mod assets;
 mod audio;
 mod camera;
 mod color;
-mod error;
+pub mod error;
 mod ext;
 mod image;
 mod palette;

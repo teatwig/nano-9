@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_minibuffer::prelude::*;
 // use bevy_minibuffer_inspector as inspector;
 use bevy_mod_scripting::prelude::*;
-use nano_9::{*, pico8::*, minibuffer::*};
+use nano_9::{*, pico8::*, minibuffer::*, error::*};
 use bevy_ecs_tilemap::prelude::{TilePos, TilemapType};
 use std::env;
 
@@ -33,7 +33,13 @@ fn main() -> std::io::Result<()> {
                 .add::<Sprite>("sprite")
                 ,
             // inspector::AssetActs::default().add::<Image>(),
-        ));
+        ))
+        .add_systems(Startup,
+                     |mut state: ResMut<NextState<ErrorState>>| {
+                         state.set(ErrorState::Messages { frame: 1 });
+                     });
+        // .insert_state(ErrorState::Messages { frame: 0 })
+        ;
     if script_path.ends_with(".p8") {
         app.add_systems(
             Startup,

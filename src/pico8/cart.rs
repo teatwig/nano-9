@@ -84,7 +84,7 @@ fn load_cart(query: Query<(Entity, &LoadCart)>,
                 // Use `nearest` image sampling to preserve the pixel art style.
                 settings.sampler = ImageSampler::nearest();
             };
-            info!("Load cart {:?}", &cart);
+            // info!("Load cart {:?}", &cart);
             let state = Pico8State {
                 palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
                 border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),

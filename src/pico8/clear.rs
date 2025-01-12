@@ -2,6 +2,8 @@ use bevy::prelude::*;
 use std::{fmt, sync::atomic::{AtomicUsize, AtomicBool, Ordering}};
 
 static DRAW_COUNTER: DrawCounter = DrawCounter::new(1);
+///
+const MAX_EXPECTED_CLEARABLES: f32 = 1000.0;
 
 // Define a newtype around AtomicUsize
 struct DrawCounter {
@@ -81,7 +83,7 @@ impl Default for Clearable {
 impl Clearable {
     /// Suggest a z value based on the draw count.
     pub fn suggest_z(&self) -> f32 {
-        self.draw_count as f32
+        1.0 + self.draw_count as f32 / MAX_EXPECTED_CLEARABLES
     }
 }
 
@@ -101,14 +103,23 @@ fn handle_overflow(mut query: Query<&mut Clearable>) {
     }
 }
 
-fn handle_clear_event(mut events: EventReader<ClearEvent>, query: Query<(Entity, &Clearable)>, mut commands: Commands) {
-
+fn handle_clear_event(mut events: EventReader<ClearEvent>,
+                      mut query: Query<(Entity, &mut Clearable, &mut Transform)>,
+                      mut commands: Commands) {
     if let Some(ceiling) = events.read().map(|e| e.draw_ceiling).max() {
-        for (id, clearable) in &query {
-            if clearable.draw_count < ceiling {
-                commands.entity(id).despawn_recursive();
-            }
+        let (less_than, mut greater_than): (Vec<_>, Vec<_>) = query.iter_mut().partition(|(_, clearable, _)| clearable.draw_count < ceiling);
+        for (id, _, _) in less_than {
+            commands.entity(id).despawn_recursive();
         }
+
+        let mut i = 1;
+        greater_than.sort_by(|(_,_,a), (_, _, b)| a.translation.z.partial_cmp(&b.translation.z).unwrap_or(std::cmp::Ordering::Equal));
+        for (id, mut clearable, mut transform) in greater_than {
+            clearable.draw_count = 0;
+            transform.translation.z = i as f32 / MAX_EXPECTED_CLEARABLES;
+            i += 1;
+        }
+        DRAW_COUNTER.set(1);
     }
 }
 
@@ -119,7 +130,6 @@ mod test {
     #[test]
     fn test0() {
         static COUNTER: DrawCounter = DrawCounter::new(0);
-
         assert_eq!(COUNTER.increment(), 0);
         assert_eq!(COUNTER.increment(), 1);
         assert_eq!(COUNTER.get(), 2);
