@@ -7,13 +7,14 @@ use bevy::{
     reflect::TypePath,
     utils::Duration,
 };
-use dasp::{signal, Sample, Signal};
+use dasp::{signal::{self, Phase, Step}, Sample, Signal};
 use std::sync::Arc;
 use std::f32;
 
 const SAMPLE_RATE: u32 = 22_050;
 
-enum WaveForm {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WaveForm {
     Sine,
     Triangle,
     Sawtooth,
@@ -23,6 +24,24 @@ enum WaveForm {
     Noise,
     RingingSine,
     Custom(u8)
+}
+
+pub struct Triangle<S> {
+    phase: Phase<S>,
+}
+
+impl<S> Signal for Triangle<S>
+where
+    S: Step,
+{
+    type Frame = f64;
+
+    #[inline]
+    fn next(&mut self) -> Self::Frame {
+        let phase = self.phase.next_phase();
+        let a = 4.0 * phase;
+        (a - 1.0).min(-a + 3.0)
+    }
 }
 
 impl From<WaveForm> for u8 {
@@ -92,7 +111,8 @@ impl From<Effect> for u8 {
     }
 }
 
-enum Effect {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Effect {
     // 0 none, 1 slide, 2 vibrato, 3 drop, 4 fade_in, 5 fade_out, 6 arp fast, 7
  // arp slow; arpeggio commands loop over groups of four notes at speed 2 (fast)
  // and 4 (slow)
@@ -106,7 +126,7 @@ enum Effect {
     ArpSlow
 }
 
-trait Note {
+pub trait Note {
     /// This is the pitch in midi format [0, 127].
     fn pitch(&self) -> u8;
     fn wave(&self) -> WaveForm;
@@ -116,11 +136,11 @@ trait Note {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Pico8Note(u16);
+pub struct Pico8Note(pub u16);
 
 
 impl Pico8Note {
-    fn new(pitch: u8,
+    pub fn new(pitch: u8,
            volume: f32,
            wave: WaveForm,
            effect: Effect) -> Self {
@@ -179,28 +199,28 @@ impl Note for Pico8Note {
 // This struct usually contains the data for the audio being played.
 // This is where data read from an audio file would be stored, for example.
 // This allows the type to be registered as an asset.
-#[derive(Asset, TypePath, Clone, Default)]
-struct Sfx {
-    notes: Vec<Pico8Note>,
-    speed: u8,
+#[derive(Asset, TypePath, Clone, Default, Debug)]
+pub struct Sfx {
+    pub notes: Vec<Pico8Note>,
+    pub speed: u8,
 }
 
 impl Sfx {
-    fn new(notes: impl IntoIterator<Item = Pico8Note>) -> Self {
+    pub fn new(notes: impl IntoIterator<Item = Pico8Note>) -> Self {
         Sfx {
             notes: notes.into_iter().collect(),
             speed: 16
         }
     }
 
-    fn with_speed(mut self, speed: u8) -> Self {
+    pub fn with_speed(mut self, speed: u8) -> Self {
         self.speed = speed;
         self
     }
 }
 
 impl SfxDecoder {
-    fn new(sample_rate: u32, speed: u8, duration: Option<Duration>, notes: Vec<Pico8Note>) -> Self {
+    pub fn new(sample_rate: u32, speed: u8, duration: Option<Duration>, notes: Vec<Pico8Note>) -> Self {
         Self {
             sample_rate,
             speed,
@@ -211,7 +231,7 @@ impl SfxDecoder {
     }
 }
 
-struct SfxDecoder {
+pub struct SfxDecoder {
     sample_rate: u32,
     speed: u8,
     duration: Option<Duration>,
@@ -229,11 +249,48 @@ impl Iterator for SfxDecoder {
                 let freq = 440.0 * f32::exp2((note.pitch() as i8 - 69) as f32/12.0);
                 let hz = signal::rate(self.sample_rate as f64).const_hz(freq as f64);
                 let duration = (self.speed as f32 / 120.0) * self.sample_rate as f32;
-                let mut synth = hz
-                    .clone()
-                    .sine()
-                    .map(|x| x as f32);
-                Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                let volume: f32 = note.volume();
+                match note.wave() {
+
+                    WaveForm::Triangle | WaveForm::Sine /* HACK */ => {
+                        let mut synth = Triangle { phase: hz.phase() }
+                            .map(|x| x as f32)
+                            .scale_amp(volume);
+                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                    }
+                    WaveForm::Sine => {
+                        let mut synth = hz
+                            .sine()
+                            .map(|x| x as f32)
+                            .scale_amp(volume);
+                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                    }
+
+                    WaveForm::Sawtooth => {
+                        let mut synth = hz
+                            .saw()
+                            .map(|x| x as f32)
+                            .scale_amp(volume);
+                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                    }
+
+                    WaveForm::LongSquare | WaveForm::ShortSquare => {
+                        let mut synth = hz
+                            .square()
+                            .map(|x| x as f32)
+                            .scale_amp(volume);
+                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                    }
+
+                    WaveForm::Noise => {
+                        let mut synth = hz
+                            .noise_simplex()
+                            .map(|x| x as f32)
+                            .scale_amp(volume);
+                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                    }
+                    x => todo!("WaveForm {x:?} not supported yet"),
+                }
             });
 
         }
@@ -274,6 +331,11 @@ impl Decodable for Sfx {
             self.notes.clone(),
         )
     }
+}
+
+pub(crate) fn plugin(app: &mut App) {
+    app
+        .add_audio_source::<Sfx>();
 }
 
 // fn main() {

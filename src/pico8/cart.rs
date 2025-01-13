@@ -9,7 +9,7 @@ use bevy::{
 };
 use bevy_mod_scripting::prelude::*;
 use serde::{Deserialize, Serialize};
-use crate::{DrawState, pico8::*};
+use crate::{DrawState, pico8::{*, audio::*}};
 
 pub(crate) fn plugin(app: &mut App) {
     app
@@ -30,6 +30,8 @@ enum CartLoaderError {
     UnexpectedHeader(String),
     #[error("Unexpected hexadecimal: {0}")]
     UnexpectedHex(char),
+    #[error("Missing: {0}")]
+    Missing(String),
 }
 
 #[derive(Debug)]
@@ -38,6 +40,7 @@ pub struct CartParts {
     pub sprites: Option<Image>,
     pub map: Vec<u8>,
     pub flags: Vec<u8>,
+    pub sfx: Vec<Sfx>,
 }
 
 #[derive(Asset, TypePath, Debug)]
@@ -46,6 +49,7 @@ pub struct Cart {
     pub sprites: Handle<Image>,
     pub map: Vec<u8>,
     pub flags: Vec<u8>,
+    pub sfx: Vec<Handle<Sfx>>,
 }
 
 const PALETTE: [[u8; 3]; 16] = [
@@ -76,6 +80,7 @@ fn load_cart(query: Query<(Entity, &LoadCart)>,
              asset_server: Res<AssetServer>,
              palette: Local<Option<Handle<Image>>>,
              mut layouts: ResMut<Assets<TextureAtlasLayout>>,
+             mut assets: ResMut<Assets<Sfx>>,
 ) {
     for (id, load_cart) in &query {
         if let Some(cart) = carts.get(&load_cart.0) {
@@ -84,7 +89,6 @@ fn load_cart(query: Query<(Entity, &LoadCart)>,
                 // Use `nearest` image sampling to preserve the pixel art style.
                 settings.sampler = ImageSampler::nearest();
             };
-            // info!("Load cart {:?}", &cart);
             let state = Pico8State {
                 palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
                 border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
@@ -114,6 +118,7 @@ impl CartParts {
         const LUA: usize = 0;
         const GFX: usize = 1;
         const MAP: usize = 4;
+        const SFX: usize = 5;
         let headers = ["lua", "gfx", "gff", "label", "map", "sfx", "music"];
         let mut sections = [(None,None); 7];
         let mut even_match: Option<usize> = None;
@@ -223,13 +228,58 @@ impl CartParts {
                 map = bytes;
             }
         }
+
+        let sfx = if let Some(content) = get_segment(&sections[SFX]) {
+            let count = content.lines().count();
+            let mut sfxs = Vec::with_capacity(count);
+            for line in content.lines() {
+                let mut notes = Vec::with_capacity(32);
+                assert_eq!(168, line.len());
+                let line_bytes = line.as_bytes();
+                let mut iter = line_bytes
+                    // .map(|b| b as char)
+                    // .map(|c| c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c)))
+                    .chunks(2)
+                    .map(|v| to_byte(v[0], v[1]));
+
+                // Process the header first.
+                let editor_mode = iter.next().ok_or(CartLoaderError::Missing("editor_mode".into()))??;
+                let note_duration = iter.next().ok_or(CartLoaderError::Missing("note_duration".into()))??;
+                let loop_start = iter.next().ok_or(CartLoaderError::Missing("loop_start".into()))??;
+                let loop_end = iter.next().ok_or(CartLoaderError::Missing("loop_end".into()))??;
+
+                while let Some(a) = iter.next() {
+                    let b = iter.next().ok_or(CartLoaderError::Missing("pico8 note second byte".into()))?;
+                    let x = a? as u16;
+                    let y = b? as u16;
+                    let v: u16 = x << 8 | y;
+                    notes.push(Pico8Note::from(v));
+                }
+                sfxs.push(Sfx::new(notes).with_speed(note_duration));
+            }
+            sfxs
+        } else {
+            Vec::new()
+        };
         Ok(CartParts {
             lua: lua,
             sprites,
             map,
             flags: Vec::new(),
+            sfx,
         })
     }
+}
+
+fn to_nybble(a: u8) -> Result<u8, CartLoaderError> {
+    let b = a as char;
+    b.to_digit(16).map(|x| x as u8).ok_or(CartLoaderError::UnexpectedHex(b))
+}
+
+fn to_byte(a: u8, b: u8) -> Result<u8, CartLoaderError> {
+    let a = to_nybble(a)?;
+    let b = to_nybble(b)?;
+    Ok(a << 4 | b)
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -277,6 +327,7 @@ impl AssetLoader for CartLoader {
             sprites: load_context.labeled_asset_scope("sprites".into(), move |_load_context| sprites),
             map: parts.map,
             flags: parts.flags,
+            sfx: parts.sfx.into_iter().enumerate().map(|(n, sfx)| load_context.labeled_asset_scope(format!("sfx{n}"), move |_load_context| sfx)).collect(),
         })
     }
 
@@ -361,6 +412,24 @@ __map__
 0001010303010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000010101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 "#;
+    const test_sfx_cart: &str = r#"pico-8 cartridge // http://www.pico-8.com
+version 41
+__gfx__
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+__sfx__
+00010000020503f050200002107000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+"#;
+
+    const pooh_sfx_cart: &str = r#"pico-8 cartridge // http://www.pico-8.com
+version 41
+__sfx__
+000100001b02000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+"#;
     #[test]
     fn test_string_find() {
         let s = String::from("Hello World");
@@ -421,5 +490,42 @@ end"#);
         assert_eq!(cart.map.len(), 128 * 7);
     }
 
+    #[test]
+    fn test_cart_sfx() {
+        let settings = CartLoaderSettings::default();
+        let cart = CartParts::from_str(test_sfx_cart, &settings).unwrap();
+        assert_eq!(cart.lua, "");
+        assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), Some(128));
+        assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), Some(8));
+        assert_eq!(cart.map.len(), 0);
+        assert_eq!(cart.sfx.len(), 1);
+        let sfx = &cart.sfx[0];
+        let notes = &sfx.notes;
+        assert_eq!(sfx.speed, 1);
+        assert_eq!(notes[0].volume(), 0.14285715);
+        assert_eq!(notes[1].volume(), 0.14285715);
+        assert_eq!(notes[2].volume(), 0.0);
+        assert_eq!(notes[3].volume(), 0.0);
+        assert_eq!(notes[0].pitch(), 41);
+        assert_eq!(notes[1].pitch(), 84);
+        assert_eq!(notes[2].pitch(), 68);
+        assert_eq!(notes[3].pitch(), 38);
+    }
 
+    #[test]
+    fn test_pooh_sfx() {
+        let settings = CartLoaderSettings::default();
+        let cart = CartParts::from_str(test_sfx_cart, &settings).unwrap();
+        assert_eq!(cart.lua, "");
+        // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), None);
+        // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), None);
+        assert_eq!(cart.map.len(), 0);
+        assert_eq!(cart.sfx.len(), 1);
+        let sfx = &cart.sfx[0];
+        let notes = &sfx.notes;
+        assert_eq!(sfx.speed, 1);
+        assert_eq!(notes[0].volume(), 0.14285715);
+        assert_eq!(notes[0].pitch(), 41);
+        assert_eq!(notes[0].wave(), WaveForm::Sine);
+    }
 }

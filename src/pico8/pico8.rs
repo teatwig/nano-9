@@ -353,7 +353,14 @@ impl<'w, 's> Pico8<'w, 's> {
         Ok(pos.x + len * CHAR_WIDTH)
     }
 
-    // fn sfx(n,
+    // sfx( n, [channel,] [offset,] [length] )
+    fn sfx(&mut self, n: u8, channel: Option<u8>, offset: Option<u8>, length: Option<u8>) -> Result<(), Error> {
+        let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get(cart)).expect("cart");
+        let sfx = cart.sfx.get(n as usize).ok_or(Error::NoAsset(format!("sfx {n}").into()))?;
+
+        self.commands.spawn(AudioPlayer(sfx.clone()));
+        Ok(())
+    }
 }
 
 /// Calculates a [`Transform`] for a tilemap that places it so that its center is at
@@ -575,9 +582,13 @@ impl APIProvider for Pico8API {
                 with_pico8(ctx, move |pico8| Ok(pico8.print(text, pos, c)?))
             }
 
+            // sfx( n, [channel,] [offset,] [length] )
             fn sfx(ctx, (mut args): LuaMultiValue) {
-                // warn!("sfx not implemented");
-                Ok(())
+                let n: u8 = args.pop_front().and_then(|v| v.as_u32()).expect("n") as u8;
+                let channel: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
+                let offset: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
+                let length: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
+                with_pico8(ctx, move |pico8| Ok(pico8.sfx(n, channel, offset, length)?))
             }
 
             fn flr(ctx, v: Number) {

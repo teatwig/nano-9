@@ -1,5 +1,6 @@
 #![allow(deprecated)]
 use bevy::{
+    audio::AudioPlugin,
     ecs::prelude::Condition,
     prelude::*,
     reflect::Reflect,
@@ -324,6 +325,10 @@ impl Nano9Plugin {
         let settings = &self.settings;
         let resolution = settings.canvas_size.as_vec2() * settings.pixel_scale;
         DefaultPlugins
+            .set(AudioPlugin {
+                global_volume: GlobalVolume::new(0.2),
+                ..default()
+            })
             .set(WindowPlugin {
                 primary_window: Some(Window {
                     resolution: resolution.into(),//WindowResolution::new(resolution.x, resolution.y),
