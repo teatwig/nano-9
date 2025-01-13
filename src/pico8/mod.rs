@@ -6,6 +6,7 @@ mod cart;
 pub use cart::*;
 mod clear;
 pub use clear::*;
+pub mod audio;
 
 pub fn plugin(app: &mut App) {
     app

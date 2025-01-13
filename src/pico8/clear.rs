@@ -26,10 +26,8 @@ impl DrawCounter {
         if r == 0 {
             warn!("draw counter over flowed.");
             self.overflowed.store(true, Ordering::Relaxed);
-            r + 1
-        } else {
-            r
         }
+        r
     }
 
     fn overflowed(&self) -> bool {
