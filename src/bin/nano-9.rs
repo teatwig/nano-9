@@ -37,7 +37,7 @@ fn main() -> std::io::Result<()> {
         .add_systems(Startup,
                      |mut state: ResMut<NextState<ErrorState>>| {
                          state.set(ErrorState::Messages { frame: 1 });
-                     });
+                     })
         // .insert_state(ErrorState::Messages { frame: 0 })
         ;
     if script_path.ends_with(".p8") {

@@ -13,7 +13,6 @@ use bevy_mod_scripting::api::providers::bevy_ecs::LuaEntity;
 use bevy_mod_scripting::prelude::*;
 // use bevy_pixel_buffer::prelude::*;
 use crate::{palette::Nano9Palette, N9Color, N9Image};
-use std::sync::OnceLock;
 
 pub(crate) fn plugin(_app: &mut App) {
 }
@@ -63,6 +62,7 @@ pub(crate) trait EntityRep {
 pub(crate) trait UserDataComponent {
     fn add_fields<'lua, S: EntityRep, F: UserDataFields<'lua, S>>(_fields: &mut F) {}
 
+    #[allow(dead_code)]
     fn add_methods<'lua, S: EntityRep, M: UserDataMethods<'lua, S>>(_methods: &mut M) {}
 }
 

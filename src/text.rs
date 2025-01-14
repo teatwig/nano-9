@@ -1,7 +1,7 @@
 use bevy::{
     ecs::{
         system::SystemState,
-        world::{Command, CommandQueue},
+        world::{Command},
     },
     prelude::*,
 };
@@ -11,49 +11,7 @@ use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{
 };
 use bevy_mod_scripting::prelude::*;
 
-use std::sync::OnceLock;
-
-const RESERVE_ENTITY_COUNT: usize = 10;
-
-pub(crate) fn reserved_entities() -> Option<&'static mut Vec<Entity>> {
-    static mut MEM: OnceLock<Vec<Entity>> = OnceLock::new();
-    unsafe {
-        let _ = MEM.get_or_init(Vec::new);
-        MEM.get_mut()
-    }
-}
-
-pub(crate) fn plugin(app: &mut App) {
-    app.add_systems(Startup, reserve_entities);
-    app.add_systems(PreUpdate, reserve_entities);
-    app.add_systems(PostUpdate, run_deferred_commands);
-}
-
-pub fn reserve_entities(world: &mut World) {
-    let Some(entities) = reserved_entities() else {
-        return;
-    };
-    let delta = RESERVE_ENTITY_COUNT.saturating_sub(entities.len());
-    if delta > 0 {
-        for e in world.entities().reserve_entities(delta as u32) {
-            entities.push(e);
-        }
-    }
-}
-
-pub fn run_deferred_commands(world: &mut World) {
-    let Some(commands) = deferred_commands() else {
-        return;
-    };
-    commands.apply(world);
-}
-
-pub(crate) fn deferred_commands() -> Option<&'static mut CommandQueue> {
-    static mut MEM: OnceLock<CommandQueue> = OnceLock::new();
-    unsafe {
-        let _ = MEM.get_or_init(CommandQueue::default);
-        MEM.get_mut()
-    }
+pub(crate) fn plugin(_app: &mut App) {
 }
 
 #[derive(Clone)]
@@ -67,6 +25,7 @@ impl FromLua<'_> for N9TextLoader {
     }
 }
 
+#[allow(dead_code)]
 struct Print(Entity, String, TextFont);
 
 impl Command for Print {
@@ -91,18 +50,9 @@ impl UserData for N9TextLoader {
         });
 
         methods.add_method_mut("print", |ctx, _this, str: String| {
-            if let Ok(world) = ctx.get_world() {
-                let mut world = world.write();
-                world.spawn(Text::new(str));
-            } else if let Some(entities) = reserved_entities() {
-                if let Some(id) = entities.pop() {
-                    if let Some(c) = deferred_commands() {
-                        c.push(Print(id, str, TextFont::default()))
-                    }
-                } else {
-                    warn!("Ran out of reserved entities.");
-                }
-            }
+            let world = ctx.get_world()?;
+            let mut world = world.write();
+            world.spawn(Text::new(str));
             Ok(())
         });
     }
