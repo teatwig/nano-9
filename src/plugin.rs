@@ -326,7 +326,7 @@ impl Nano9Plugin {
         let resolution = settings.canvas_size.as_vec2() * settings.pixel_scale;
         DefaultPlugins
             .set(AudioPlugin {
-                global_volume: GlobalVolume::new(0.2),
+                global_volume: GlobalVolume::new(0.4),
                 ..default()
             })
             .set(WindowPlugin {

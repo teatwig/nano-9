@@ -40,11 +40,18 @@ where
 {
     type Frame = f64;
 
+    /// Make a triangle wave that starts and ends at zero.
     #[inline]
     fn next(&mut self) -> Self::Frame {
         let phase = self.phase.next_phase();
         let a = 4.0 * phase;
-        (a - 1.0).min(-a + 3.0)
+        if phase < 0.25 {
+            a
+        } else if phase < 0.75 {
+            -a + 2.0
+        } else {
+            a - 4.0
+        }
     }
 }
 
@@ -167,9 +174,9 @@ impl Pico8Note {
         assert!(pitch <= 63, "expected pitch <= 63 but was {pitch}");
         Pico8Note(
             (pitch & 0b0011_1111) as u16 |
-            u8::from(wave) as u16 & 0b111 << 6 |
+            (u8::from(wave) as u16) << 6 |
             ((volume & 0b111) as u16) << 9 |
-            u8::from(effect) as u16 & 0b111 << 12)
+            (u8::from(effect) as u16 & 0b111) << 12)
     }
 }
 
@@ -208,12 +215,13 @@ impl TryFrom<&str> for Sfx {
                                     .skip(HEADER_NYBBLES);
 
         while let Some(pitch_high) = nybbles.next() {
-            let pitch_low: u8 = nybbles.next().ok_or(SfxError::Missing("pitch high nybble".into()))??;
+            let pitch_low: u8 = nybbles.next().ok_or(SfxError::Missing("pitch low nybble".into()))??;
             let wave_form: u8 = nybbles.next().ok_or(SfxError::Missing("wave form".into()))??;
             let volume: u8 = nybbles.next().ok_or(SfxError::Missing("volume".into()))??;
             let effect: u8 = nybbles.next().ok_or(SfxError::Missing("effect".into()))??;
             // notes.push(Pico8Note::new(pitch_high << 4 | pitch_low?, WaveForm::try_from(wave_form)?,
-            notes.push(Pico8Note::new((pitch_high? << 4 | pitch_low) + PITCH_OFFSET, WaveForm::try_from(wave_form)?,
+            notes.push(Pico8Note::new((pitch_high? << 4 | pitch_low) + PITCH_OFFSET,
+                                      WaveForm::try_from(wave_form)?,
                                       volume,
                                       Effect::try_from(effect)?));
         }
@@ -248,7 +256,7 @@ impl Note for Pico8Note {
     }
 
     fn wave(&self) -> WaveForm {
-        WaveForm::try_from((self.0 >> 6 & 0b111) as u8).unwrap()
+        WaveForm::try_from(((self.0 >> 6) & 0b111) as u8).unwrap()
     }
 
     fn volume(&self) -> f32 {
@@ -308,9 +316,18 @@ impl Iterator for SfxDecoder {
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {
+        let mut result = None;
+        if let Some(ref mut samples) = self.samples {
+            result = samples.next();
+            if result.is_none() {
+                self.samples = None; // Will create one for the next note.
+            }
+        }
         if self.samples.is_none() {
             self.samples =
             self.notes.next().map(|note| {
+                // midi pitch to frequency equation.
+                // https://www.music.mcgill.ca/~gary/307/week1/node28.html
                 let freq = 440.0 * f32::exp2((note.pitch() as i8 - 69) as f32/12.0);
                 let hz = signal::rate(self.sample_rate as f64).const_hz(freq as f64);
                 let duration = (self.speed as f32 / 120.0) * self.sample_rate as f32;
@@ -363,7 +380,7 @@ impl Iterator for SfxDecoder {
             });
 
         }
-        self.samples.as_mut().and_then(|samples| samples.next())
+        result.or_else(||self.samples.as_mut().and_then(|samples| samples.next()))
     }
 }
 
@@ -498,4 +515,69 @@ mod test {
         assert_eq!(volumes, vec![0, 1, 2, 3, 4, 5, 6, 7]);
         assert_eq!(sfx.notes.len(), 8);
     }
+
+    #[test]
+    fn sfx_wave() {
+        use WaveForm::*;
+        //       0 1 2 3 a    b    c    d    e    f    g    h
+        let s = "001000000c050000000c150000000c250000000c350000000c450000000c550000000c650000000c7500000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+        let sfx = Sfx::try_from(s).unwrap();
+        let volumes: Vec<WaveForm> = sfx.notes.iter().map(|n| n.wave()).collect();
+        assert_eq!(volumes, vec![
+    Triangle,
+    Triangle,
+    Sawtooth,
+    Triangle,
+    LongSquare,
+    Triangle,
+    ShortSquare,
+    Triangle,
+    Ringing,
+    Triangle,
+    Noise,
+    Triangle,
+    RingingSine,
+    Triangle,
+            Custom(0),
+        ]);
+    // Custom(u8)
+        assert_eq!(sfx.notes.len(), 15);
+    }
+
+    #[test]
+    fn sfx_pitch() {
+        use WaveForm::*;
+        //       0 1 2 3 a    b    c    d    e    f    g    h
+        let s = "001000000c050000000c150000000c250000000c350000000c450000000c550000000c650000000c7500000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+        let sfx = Sfx::try_from(s).unwrap();
+        let volumes: Vec<u8> = sfx.notes.iter().take(15).map(|n| n.pitch()).collect();
+        assert_eq!(volumes, vec![
+36,
+            24,
+    36,
+            24,
+    36,
+            24,
+    36,
+            24,
+    36,
+            24,
+    36,
+            24,
+    36,
+            24,
+    36,
+        ]);
+    // Custom(u8)
+        assert_eq!(sfx.notes.len(), 15);
+    }
+
+    #[test]
+    fn note_wave() {
+        let note = Pico8Note::new(37, WaveForm::Noise, 7, Effect::None);
+        assert_eq!(note.wave(), WaveForm::Noise);
+
+    }
+
+
 }
