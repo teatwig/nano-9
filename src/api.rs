@@ -1,7 +1,7 @@
 #![allow(deprecated)]
 use std::sync::{Arc, Mutex};
 
-use bevy::{prelude::*, reflect::Reflect};
+use bevy::prelude::*;
 use bevy_mod_scripting::api::providers::bevy_ecs::LuaEntity;
 use bevy_mod_scripting::prelude::*;
 
@@ -95,25 +95,6 @@ impl APIProvider for Nano9API {
         // return any `FromLuaMulti` arguments, here a `usize`
         // check the Rlua documentation for more details
         let ctx = ctx.get_mut().unwrap();
-        macro_rules! define_global {
-            (fn $name:ident($($arg_name:ident : $arg_type:ty),*) $body:block) => {
-                fn $name($($arg_name: $arg_type),*) {
-                    println!("Executing function: {}", stringify!($name));
-                    $body
-                }
-            };
-        }
-        macro_rules! define_function {
-            ($ctx:ident, $name:ident, $body:expr) => {
-                $ctx.globals()
-                    .set(
-                        stringify!($name),
-                        $ctx.create_function($body)
-                            .map_err(ScriptError::new_other)?,
-                    )
-                    .map_err(ScriptError::new_other)?;
-            };
-        }
         ctx.globals()
             .set("nano9", Nano9)
             .map_err(ScriptError::new_other)?;
@@ -205,7 +186,7 @@ impl APIProvider for Nano9API {
         Ok(())
     }
 
-    fn register_with_app(&self, app: &mut App) {
+    fn register_with_app(&self, _app: &mut App) {
         // app.register_type::<Settings>();
     }
 }

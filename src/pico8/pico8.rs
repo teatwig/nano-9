@@ -1,5 +1,5 @@
 use bevy::{
-    ecs::{system::{SystemState, SystemParam}, world::Command},
+    ecs::{system::{SystemState, SystemParam}},
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
     prelude::*,
     sprite::Anchor,
@@ -77,6 +77,7 @@ pub struct SprArgs {
 
 
 impl Pico8<'_, '_> {
+    #[allow(dead_code)]
     fn load_cart(&mut self, cart: Handle<Cart>) {
         self.commands.spawn(LoadCart(cart));
         // self.cart_state.set(CartState::Loading(cart));
@@ -157,9 +158,9 @@ impl Pico8<'_, '_> {
         Ok(())
     }
 
-    fn rectfill(&mut self, upperLeft: UVec2, lowerRight: UVec2, color: Option<N9Color>) -> Result<Entity, Error> {
+    fn rectfill(&mut self, upper_left: UVec2, lower_right: UVec2, color: Option<N9Color>) -> Result<Entity, Error> {
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
-        let size = lowerRight - upperLeft;
+        let size = lower_right - upper_left;
         let clearable = Clearable::default();
         let id = self.commands.spawn((
             Name::new("rectfill"),
@@ -169,16 +170,16 @@ impl Pico8<'_, '_> {
                 custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
                 ..default()
             },
-            Transform::from_xyz(upperLeft.x as f32, -(upperLeft.y as f32), clearable.suggest_z()),
+            Transform::from_xyz(upper_left.x as f32, -(upper_left.y as f32), clearable.suggest_z()),
             clearable,
             ))
                      .id();
         Ok(id)
     }
 
-    fn rect(&mut self, upperLeft: UVec2, lowerRight: UVec2, color: Option<N9Color>) -> Result<Entity, Error> {
+    fn rect(&mut self, upper_left: UVec2, lower_right: UVec2, color: Option<N9Color>) -> Result<Entity, Error> {
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
-        let size = lowerRight - upperLeft;
+        let size = lower_right - upper_left;
         let clearable = Clearable::default();
         let id = self.commands.spawn((
             Name::new("rect"),
@@ -195,7 +196,7 @@ impl Pico8<'_, '_> {
                 }),
                 ..default()
             },
-            Transform::from_xyz(upperLeft.x as f32, -(upperLeft.y as f32), clearable.suggest_z()),
+            Transform::from_xyz(upper_left.x as f32, -(upper_left.y as f32), clearable.suggest_z()),
             clearable,
             ))
                      .id();
@@ -203,7 +204,7 @@ impl Pico8<'_, '_> {
     }
 
 
-    fn map(&mut self, map_pos: UVec2, screen_start: Vec2, size: UVec2, mask: u8) -> Result<Entity, Error> {
+    fn map(&mut self, map_pos: UVec2, screen_start: Vec2, size: UVec2, mask: Option<u8>) -> Result<Entity, Error> {
         let map_size = TilemapSize::from(size);
         // Create a tilemap entity a little early.
         // We want this entity early because we need to tell each tile which tilemap entity
@@ -227,7 +228,13 @@ impl Pico8<'_, '_> {
             .with_children(|builder| {
         for x in 0..map_size.x {
             for y in 0..map_size.y {
-                let texture_index = cart.and_then(|cart| cart.map.get((map_pos.x + x + (map_pos.y + y) * 128) as usize)).copied().unwrap_or(0);
+                let texture_index = cart.and_then(|cart|
+                    cart.map.get((map_pos.x + x + (map_pos.y + y) * 128) as usize)
+                        .and_then(|index|
+                            mask.and_then(|mask| // Skip sprites whose flags don't match the mask.
+                                (cart.flags[*index as usize] & mask == mask).then_some(index))))
+                        .copied()
+                        .unwrap_or(0);
                 if texture_index != 0 {
                     let tile_pos = TilePos { x, y: map_size.y - y - 1};
                     let tile_entity = builder
@@ -249,6 +256,8 @@ impl Pico8<'_, '_> {
         let tile_size = TilemapTileSize { x: 8.0, y: 8.0 };
         let grid_size = tile_size.into();
         let map_type = TilemapType::default();
+        let mut transform = get_tilemap_top_left_transform(&map_size, &grid_size, &map_type, clearable.suggest_z());
+        transform.translation += screen_start.extend(0.0);
 
         self.commands.entity(tilemap_entity).insert((TilemapBundle {
             grid_size,
@@ -258,7 +267,7 @@ impl Pico8<'_, '_> {
             texture: TilemapTexture::Single(self.state.sprites.clone()),
             tile_size,
             // transform: Transform::from_xyz(screen_start.x, -screen_start.y, 0.0),//get_tilemap_center_transform(&map_size, &grid_size, &map_type, 0.0),
-            transform: get_tilemap_top_left_transform(&map_size, &grid_size, &map_type, clearable.suggest_z()),
+            transform,
             ..Default::default()
         },
             clearable,
@@ -282,6 +291,7 @@ impl Pico8<'_, '_> {
         }
     }
 
+    #[allow(dead_code)]
     fn btn(&self, b: Option<u8>) -> Result<bool, Error> {
         match b {
             Some(b) => Ok(self.keys.pressed(match b {
@@ -351,7 +361,7 @@ impl Pico8<'_, '_> {
     }
 
     // sfx( n, [channel,] [offset,] [length] )
-    fn sfx(&mut self, n: u8, channel: Option<u8>, offset: Option<u8>, length: Option<u8>) -> Result<(), Error> {
+    fn sfx(&mut self, n: u8, _channel: Option<u8>, _offset: Option<u8>, _length: Option<u8>) -> Result<(), Error> {
         let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get(cart)).expect("cart");
         let sfx = cart.sfx.get(n as usize).ok_or(Error::NoAsset(format!("sfx {n}").into()))?;
 
@@ -551,7 +561,7 @@ impl APIProvider for Pico8API {
                 let sy = args.pop_front().and_then(|v| v.to_f32()).expect("sy");
                 let celw = args.pop_front().and_then(|v| v.as_u32()).expect("celw");
                 let celh = args.pop_front().and_then(|v| v.as_u32()).expect("celh");
-                let layer = args.pop_front().and_then(|v| v.as_u32().map(|v| v as u8)).unwrap_or(0);
+                let layer = args.pop_front().and_then(|v| v.as_u32().map(|v| v as u8));
 
                 // We get back an entity. Not doing anything with it here yet.
                 let _id = with_pico8(ctx, move |pico8| pico8.map(UVec2::new(celx, cely), Vec2::new(sx, sy), UVec2::new(celw, celh), layer))?;
@@ -594,18 +604,20 @@ impl APIProvider for Pico8API {
                 Ok(v.floor() as u32)
             }
 
-            fn sub(ctx, (string, mut start, end): (LuaString, usize, Option<usize>)) {
+            fn sub(ctx, (string, start, end): (LuaString, isize, Option<isize>)) {
                 let string = string.to_str()?;
-                if start < 0 {
-                    start = string.len() - start;
-                }
-                start -= 1;
-                // end -= 1;
+                let start = if start < 0 {
+                    (string.len() as isize - start - 1) as usize
+                } else {
+                    (start - 1) as usize
+                };
                 match end {
-                    Some(mut end) => {
-                        if end < 0 {
-                            end = string.len() - end;
-                        }
+                    Some(end) => {
+                        let end = if end < 0 {
+                            (string.len() as isize - end) as usize
+                        } else {
+                            end as usize
+                        };
                         if start <= end {
                             Ok(string.chars().skip(start).take(end - start).collect())
                             // BUG: This cuts unicode boundaries.
@@ -649,7 +661,7 @@ impl APIProvider for Pico8API {
         Ok(())
     }
 
-    fn register_with_app(&self, app: &mut App) {
+    fn register_with_app(&self, _app: &mut App) {
         // app.register_type::<Settings>();
     }
 }

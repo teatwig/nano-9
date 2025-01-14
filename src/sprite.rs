@@ -15,26 +15,7 @@ use bevy_mod_scripting::prelude::*;
 use crate::{palette::Nano9Palette, N9Color, N9Image};
 use std::sync::OnceLock;
 
-pub(crate) fn despawn_list() -> Option<&'static mut Vec<Entity>> {
-    static mut MEM: OnceLock<Vec<Entity>> = OnceLock::new();
-    unsafe {
-        let _ = MEM.get_or_init(Vec::new);
-        MEM.get_mut()
-    }
-}
-
-fn despawn_list_system(mut commands: Commands) {
-    if let Some(list) = despawn_list() {
-        for id in list.drain(..) {
-            if let Some(mut e) = commands.get_entity(id) {
-                e.despawn()
-            }
-        }
-    }
-}
-
-pub(crate) fn plugin(app: &mut App) {
-    app.add_systems(PostUpdate, despawn_list_system);
+pub(crate) fn plugin(_app: &mut App) {
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -70,11 +51,7 @@ pub struct N9GlobalTransform {
 impl Drop for N9Sprite {
     fn drop(&mut self) {
         if matches!(self.drop, DropPolicy::Despawn) {
-            if let Some(list) = despawn_list() {
-                list.push(self.entity);
-            } else {
-                warn!("Unable to despawn sprite {:?}.", self.entity);
-            }
+            warn!("Retained sprite leaked {:?}.", self.entity);
         }
     }
 }
@@ -84,9 +61,9 @@ pub(crate) trait EntityRep {
 }
 
 pub(crate) trait UserDataComponent {
-    fn add_fields<'lua, S: EntityRep, F: UserDataFields<'lua, S>>(fields: &mut F) {}
+    fn add_fields<'lua, S: EntityRep, F: UserDataFields<'lua, S>>(_fields: &mut F) {}
 
-    fn add_methods<'lua, S: EntityRep, M: UserDataMethods<'lua, S>>(methods: &mut M) {}
+    fn add_methods<'lua, S: EntityRep, M: UserDataMethods<'lua, S>>(_methods: &mut M) {}
 }
 
 impl<T: EntityRep> UserDataComponent for T {
@@ -186,12 +163,12 @@ impl UserDataComponent for Transform {
             Ok(())
         });
 
-        fields.add_field_method_get("global", |ctx, this| {
+        fields.add_field_method_get("global", |_ctx, this| {
             Ok(N9GlobalTransform {
                 entity: this.entity(),
             })
         });
-        fields.add_field_method_get("entity", |ctx, this| Ok(LuaEntity::new(this.entity())));
+        fields.add_field_method_get("entity", |_ctx, this| Ok(LuaEntity::new(this.entity())));
     }
 }
 
@@ -282,8 +259,8 @@ impl UserDataComponent for GlobalTransform {
             Ok(())
         });
 
-        fields.add_field_method_get("entity", |ctx, this| Ok(LuaEntity::new(this.entity())));
-        fields.add_field_method_get("loc", |ctx, this| {
+        fields.add_field_method_get("entity", |_ctx, this| Ok(LuaEntity::new(this.entity())));
+        fields.add_field_method_get("loc", |_ctx, this| {
             Ok(N9LocalTransform {
                 entity: this.entity(),
             })
@@ -305,7 +282,7 @@ impl EntityRep for N9LocalTransform {
 
 impl UserData for N9LocalTransform {
     fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
-        Transform::add_fields::<'lua, Self, _>(fields);
+        Transform::add_fields::<Self, _>(fields);
     }
 }
 
@@ -317,13 +294,13 @@ impl EntityRep for N9GlobalTransform {
 
 impl UserData for N9GlobalTransform {
     fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
-        GlobalTransform::add_fields::<'lua, Self, _>(fields);
+        GlobalTransform::add_fields::<Self, _>(fields);
     }
 }
 
 impl UserData for N9Sprite {
     fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
-        Transform::add_fields::<'lua, Self, _>(fields);
+        Transform::add_fields::<Self, _>(fields);
 
         fields.add_field_method_set("color", |ctx, this, value: Option<N9Color>| {
             let world = ctx.get_world()?;

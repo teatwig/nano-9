@@ -77,11 +77,11 @@ impl Command for Print {
 
 impl UserData for N9TextLoader {
     fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
-        fields.add_field_method_get("default", |ctx, this| Ok(N9TextStyle::default()));
+        fields.add_field_method_get("default", |_ctx, _this| Ok(N9TextStyle::default()));
     }
 
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method_mut("load", |ctx, this, path: String| {
+        methods.add_method_mut("load", |ctx, _this, path: String| {
             let world = ctx.get_world()?;
             let mut world = world.write();
             let mut system_state: SystemState<(Res<AssetServer>,)> = SystemState::new(&mut world);
@@ -90,10 +90,10 @@ impl UserData for N9TextLoader {
             Ok(N9TextStyle(TextFont::from_font(font)))
         });
 
-        methods.add_method_mut("print", |ctx, this, str: String| {
+        methods.add_method_mut("print", |ctx, _this, str: String| {
             if let Ok(world) = ctx.get_world() {
                 let mut world = world.write();
-                let id = world.spawn(Text::new(str)).id();
+                world.spawn(Text::new(str));
             } else if let Some(entities) = reserved_entities() {
                 if let Some(id) = entities.pop() {
                     if let Some(c) = deferred_commands() {
@@ -129,9 +129,8 @@ impl UserData for N9TextStyle {
                 let x = x.unwrap_or(0.0);
                 let y = y.unwrap_or(0.0);
                 let z = z.unwrap_or(0.0);
-                let id = world
-                    .spawn((Text::new(str), this.0.clone(), Transform::from_xyz(x, y, z)))
-                    .id();
+                world
+                    .spawn((Text::new(str), this.0.clone(), Transform::from_xyz(x, y, z)));
                 Ok(())
             },
         );

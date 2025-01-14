@@ -20,7 +20,6 @@ use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::Variadic;
 // use bevy_pixel_buffer::prelude::*;
 use crate::{
     api::{N9Arg, N9Args},
-    assets::ImageHandles,
     error::ErrorState,
     screens, DropPolicy, N9Camera, N9Sprite, N9Var,
 };
@@ -69,9 +68,7 @@ impl Default for Settings {
 
 pub fn setup_image(
     mut commands: Commands,
-    image_handles: Res<ImageHandles>,
     mut assets: ResMut<Assets<Image>>,
-    asset_server: Res<AssetServer>,
     settings: Res<N9Settings>,
 ) {
     let image = Image::new_fill(
@@ -193,7 +190,7 @@ pub fn sync_window_size(
     mut settings: ResMut<N9Settings>,
     // mut query: Query<&mut Sprite, With<Nano9Sprite>>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
-    mut orthographic: Query<(&mut OrthographicProjection, &mut Transform), With<Camera>>,
+    mut orthographic: Query<&mut OrthographicProjection, With<Camera>>,
 ) {
     if let Some(e) = resize_event
         .read()
@@ -208,11 +205,11 @@ pub fn sync_window_size(
             primary_window.physical_width() as f32,
             primary_window.physical_height() as f32,
         ) / window_scale;
-        let (mut orthographic, transform) = orthographic.single_mut();
+        let mut orthographic = orthographic.single_mut();
 
         let canvas_size = settings.canvas_size.as_vec2();
-        let canvas_aspect = canvas_size.x / canvas_size.y;
-        let window_aspect = window_size.x / window_size.y;
+        // let canvas_aspect = canvas_size.x / canvas_size.y;
+        // let window_aspect = window_size.x / window_size.y;
 
         let new_scale =
             // Canvas is longer than it is tall. Fit the width first.
@@ -352,8 +349,7 @@ impl Nano9Plugin {
 
 impl Plugin for Nano9Plugin {
     fn build(&self, app: &mut App) {
-        let settings = &self.settings;
-        let resolution = settings.canvas_size.as_vec2() * settings.pixel_scale;
+        // let resolution = settings.canvas_size.as_vec2() * settings.pixel_scale;
         app.insert_resource(bevy::winit::WinitSettings {
             // focused_mode: bevy::winit::UpdateMode::Continuous,
             focused_mode: bevy::winit::UpdateMode::reactive(Duration::from_millis(16)),

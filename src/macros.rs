@@ -4,6 +4,7 @@ macro_rules! define_globals {
     ) => {
         $(
             #[allow(unused_parens)]
+            #[allow(unused_variables)]
             $ctx.globals()
                 .set(stringify!($name),
                      $ctx.create_function(|$ctx, $arg_name: $arg_type| $body)

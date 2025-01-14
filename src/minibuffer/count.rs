@@ -40,7 +40,8 @@ impl Default for CountComponentsActs {
 impl PluginGroup for CountComponentsActs {
     fn build(mut self) -> PluginGroupBuilder {
         let builder = self.plugins.take().expect("plugin builder");
-        builder.add(move |app: &mut App| {
+        builder.add(move |_app: &mut App| {
+            // Add normal build() stuff here.
         })
     }
 }
@@ -83,6 +84,6 @@ fn setup_count<C: Component>(
     });
 }
 
-pub fn show_count(minibuffer: Minibuffer) {
+pub fn show_count(_minibuffer: Minibuffer) {
 
 }

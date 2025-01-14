@@ -75,11 +75,11 @@ impl FromLua<'_> for N9Color {
 
 impl UserData for N9Color {
     fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
-        fields.add_field_method_get("i", |ctx, this| match this {
+        fields.add_field_method_get("i", |_ctx, this| match this {
             Self::Palette(i) => Ok(Value::Integer(*i as i64)),
             Self::Color(_) | Self::Pen => Ok(Value::Nil),
         });
-        fields.add_field_method_set("i", |ctx, this, value: usize| match this {
+        fields.add_field_method_set("i", |_ctx, this, value: usize| match this {
             Self::Palette(ref mut i) => {
                 *i = value;
                 Ok(())
@@ -89,12 +89,12 @@ impl UserData for N9Color {
                 incomplete_input: false,
             }),
         });
-        fields.add_field_method_get("r", |ctx, this| match this {
+        fields.add_field_method_get("r", |_ctx, this| match this {
             Self::Palette(_) | Self::Pen => Ok(Value::Nil),
             Self::Color(c) => Ok(Value::Number(c.red as f64)),
         });
 
-        fields.add_field_method_set("r", |ctx, this, value: f32| match this {
+        fields.add_field_method_set("r", |_ctx, this, value: f32| match this {
             Self::Pen | Self::Palette(_) => Err(LuaError::RuntimeError(
                 "Cannot set red channel of palette color".into(),
             )),
@@ -105,7 +105,7 @@ impl UserData for N9Color {
         });
     }
 
-    fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
+    fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {
         // methods.add_method_mut(
         //     "set_grid",
         //     |ctx, this, (width, height, columns, rows): (f32, f32, usize, usize)| {

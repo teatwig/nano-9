@@ -201,10 +201,10 @@ impl TryFrom<&str> for Sfx {
             .map(|v| to_byte(v[0], v[1]).ok_or_else(|| SfxError::InvalidHex(String::from_utf8(v.to_vec()).unwrap())));
 
         // Process the header first.
-        let editor_mode = iter.next().ok_or(SfxError::Missing("editor_mode".into()))?;
+        let _editor_mode = iter.next().ok_or(SfxError::Missing("editor_mode".into()))?;
         let note_duration = iter.next().ok_or(SfxError::Missing("note_duration".into()))?;
-        let loop_start = iter.next().ok_or(SfxError::Missing("loop_start".into()))?;
-        let loop_end = iter.next().ok_or(SfxError::Missing("loop_end".into()))?;
+        let _loop_start = iter.next().ok_or(SfxError::Missing("loop_start".into()))?;
+        let _loop_end = iter.next().ok_or(SfxError::Missing("loop_end".into()))?;
 
         let mut nybbles = line_bytes.iter().map(|a|
                                                      to_nybble(*a).ok_or(SfxError::InvalidHex((*a as char).to_string())))

@@ -80,9 +80,7 @@ fn load_cart(query: Query<(Entity, &LoadCart)>,
              carts: Res<Assets<Cart>>,
              mut commands: Commands,
              asset_server: Res<AssetServer>,
-             palette: Local<Option<Handle<Image>>>,
              mut layouts: ResMut<Assets<TextureAtlasLayout>>,
-             assets: ResMut<Assets<Sfx>>,
 ) {
     for (id, load_cart) in &query {
         if let Some(cart) = carts.get(&load_cart.0) {

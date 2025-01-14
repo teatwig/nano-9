@@ -112,7 +112,7 @@ fn handle_clear_event(mut events: EventReader<ClearEvent>,
 
         let mut i = 1;
         greater_than.sort_by(|(_,_,a), (_, _, b)| a.translation.z.partial_cmp(&b.translation.z).unwrap_or(std::cmp::Ordering::Equal));
-        for (id, mut clearable, mut transform) in greater_than {
+        for (_id, mut clearable, mut transform) in greater_than {
             clearable.draw_count = 0;
             transform.translation.z = i as f32 / MAX_EXPECTED_CLEARABLES;
             i += 1;

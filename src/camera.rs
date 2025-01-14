@@ -1,6 +1,4 @@
 use bevy::prelude::*;
-use bevy_mod_scripting::prelude::*;
-
 use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{UserData, UserDataFields};
 
 use crate::{EntityRep, UserDataComponent};
@@ -16,6 +14,6 @@ impl EntityRep for N9Camera {
 
 impl UserData for N9Camera {
     fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
-        Transform::add_fields::<'lua, Self, _>(fields);
+        Transform::add_fields::<Self, _>(fields);
     }
 }

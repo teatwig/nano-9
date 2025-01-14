@@ -10,7 +10,7 @@ use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{
 use bevy_mod_scripting::api::common::bevy::ScriptWorld;
 use bevy_mod_scripting::prelude::*;
 // use bevy_pixel_buffer::prelude::*;
-use crate::{despawn_list, DropPolicy, N9Image, OneFrame};
+use crate::{DropPolicy, N9Image, OneFrame};
 
 #[derive(Clone)]
 pub struct N9Entity {
@@ -21,11 +21,7 @@ pub struct N9Entity {
 impl Drop for N9Entity {
     fn drop(&mut self) {
         if matches!(self.drop, DropPolicy::Despawn) {
-            if let Some(list) = despawn_list() {
-                list.push(self.entity);
-            } else {
-                warn!("Unable to despawn {:?}.", self.entity);
-            }
+            warn!("Retained entity leaked {:?}.", self.entity);
         }
     }
 }

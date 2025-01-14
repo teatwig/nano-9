@@ -6,7 +6,6 @@ use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{
 };
 use bevy_mod_scripting::prelude::*;
 // use bevy_pixel_buffer::prelude::*;
-use crate::despawn_list;
 
 #[derive(Clone)]
 pub struct N9AudioLoader;
@@ -21,7 +20,7 @@ impl FromLua<'_> for N9AudioLoader {
 
 impl UserData for N9AudioLoader {
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method_mut("load", |ctx, this, path: String| {
+        methods.add_method_mut("load", |ctx, _this, path: String| {
             let world = ctx.get_world()?;
             let mut world = world.write();
             let mut system_state: SystemState<(Res<AssetServer>,)> = SystemState::new(&mut world);
@@ -89,11 +88,7 @@ pub struct N9Sound(pub Entity);
 
 impl Drop for N9Sound {
     fn drop(&mut self) {
-        if let Some(list) = despawn_list() {
-            list.push(self.0);
-        } else {
-            warn!("Unable to despawn sprite {:?}.", self.0);
-        }
+        warn!("Retained sound leaked {:?}.", self.0);
     }
 }
 

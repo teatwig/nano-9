@@ -38,7 +38,7 @@ impl Nano9Palette {
     pub fn get_color(index: usize, world: &mut World) -> Result<Color, LuaError> {
         let mut system_state: SystemState<(Res<Nano9Palette>, Res<Assets<Image>>, Res<DrawState>)> =
             SystemState::new(world);
-        let (palette, images, draw_state) = system_state.get(world);
+        let (palette, images, _draw_state) = system_state.get(world);
 
         images
             .get(&palette.0)

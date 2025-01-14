@@ -26,7 +26,7 @@ impl FromLua<'_> for N9ImageLoader {
 
 impl UserData for N9ImageLoader {
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method_mut("load", |ctx, this, path: String| {
+        methods.add_method_mut("load", |ctx, _this, path: String| {
             let world = ctx.get_world()?;
             let mut world = world.write();
             let mut system_state: SystemState<(Res<AssetServer>,)> = SystemState::new(&mut world);
@@ -83,10 +83,10 @@ impl UserData for N9Image {
             },
         );
 
-        /// sprite([n], [x], [y])
-        /// XXX: What's the difference between sprite and spr?
-        ///
-        /// Sprite uses N9Entity, which is perhaps more general and dynamic.
+        // sprite([n], [x], [y])
+        // XXX: What's the difference between sprite and spr?
+        //
+        // Sprite uses N9Entity, which is perhaps more general and dynamic.
         methods.add_method_mut("sprite", |ctx, this, mut args: LuaMultiValue| {
             let world = ctx.get_world()?;
             let mut world = world.write();

@@ -26,7 +26,7 @@ pub enum ErrorState {
 }
 
 #[derive(Component)]
-struct ErrorMessages;
+pub struct ErrorMessages;
 
 /// Make component visible.
 pub fn show<T: Component>(
@@ -112,7 +112,7 @@ pub fn add_messages(
 
             let error_style = TextFont::default().with_font_size(FONT_SIZE);
             let msg = match &e.error {
-                ScriptError::FailedToLoad { script, msg } => msg.clone(),
+                ScriptError::FailedToLoad { script: _, msg } => msg.clone(),
                 x => format!("{}", x),
             };
             // panic!("{}", msg);

@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 // use crate::{assets::BgmHandles, audio::bgm::BgmCommands as _, demo::level::SpawnLevel};
 
-pub(super) fn plugin(app: &mut App) {
+pub(super) fn plugin(_app: &mut App) {
     // app.add_systems(OnEnter(Screen::Playing), spawn_level);
     // app.add_systems(OnExit(Screen::Playing), stop_bgm);
 
