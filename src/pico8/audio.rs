@@ -7,15 +7,19 @@ use bevy::{
     reflect::TypePath,
     utils::Duration,
 };
+use crate::pico8::cart::{to_byte, to_nybble};
 use dasp::{signal::{self, Phase, Step}, Sample, Signal};
-use std::sync::Arc;
+use std::{
+    borrow::Cow,
+    sync::Arc
+};
 use std::f32;
 
 const SAMPLE_RATE: u32 = 22_050;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WaveForm {
-    Sine,
+    // Sine,
     Triangle,
     Sawtooth,
     LongSquare,
@@ -48,49 +52,64 @@ impl From<WaveForm> for u8 {
     fn from(wave: WaveForm) -> u8 {
         use WaveForm::*;
         match wave {
-            Sine => 0,
-            Triangle => 1,
-            Sawtooth => 2,
-            LongSquare => 3,
-            ShortSquare => 4,
-            Ringing => 5,
-            Noise => 6,
-            RingingSine => 7,
-            Custom(x) => x + 8
+            // Sine => 0,
+            Triangle => 0,
+            Sawtooth => 1,
+            LongSquare => 2,
+            ShortSquare => 3,
+            Ringing => 4,
+            Noise => 5,
+            RingingSine => 6,
+            Custom(x) => x + 7
         }
     }
 }
 
-impl From<u8> for WaveForm {
-    fn from(value: u8) -> WaveForm {
+impl TryFrom<u8> for WaveForm {
+    type Error = SfxError;
+    fn try_from(value: u8) -> Result<WaveForm, SfxError> {
         use WaveForm::*;
         match value {
-            0 => Sine,
-            1 => Triangle,
-            2 => Sawtooth,
-            3 => LongSquare,
-            4 => ShortSquare,
-            5 => Ringing,
-            6 => Noise,
-            7 => RingingSine,
-            x => Custom(x as u8 - 8)
+            // 0 => Sine,
+            0 => Ok(Triangle),
+            1 => Ok(Sawtooth),
+            2 => Ok(LongSquare),
+            3 => Ok(ShortSquare),
+            4 => Ok(Ringing),
+            5 => Ok(Noise),
+            6 => Ok(RingingSine),
+            x if x <= 0xf => Ok(Custom(x as u8 - 7)),
+            y => Err(SfxError::InvalidWaveForm(y)),
         }
     }
 }
 
-impl From<u8> for Effect {
-    fn from(value: u8) -> Effect {
+#[derive(Debug, thiserror::Error)]
+pub enum SfxError {
+    #[error("Invalid effect: {0}")]
+    InvalidEffect(u8),
+    #[error("Invalid wave form: {0}")]
+    InvalidWaveForm(u8),
+    #[error("Invalid hex: {0}")]
+    InvalidHex(String),
+    #[error("Missing {0}")]
+    Missing(Cow<'static, str>),
+}
+
+impl TryFrom<u8> for Effect {
+    type Error = SfxError;
+    fn try_from(value: u8) -> Result<Effect, SfxError> {
         use Effect::*;
         match value {
-            0 => None,
-            1 => Slide,
-            2 => Vibrato,
-            3 => Drop,
-            4 => FadeIn,
-            5 => FadeOut,
-            6 => ArpFast,
-            7 => ArpSlow,
-            x => panic!("Unexpected effect {x}")
+            0 => Ok(None),
+            1 => Ok(Slide),
+            2 => Ok(Vibrato),
+            3 => Ok(Drop),
+            4 => Ok(FadeIn),
+            5 => Ok(FadeOut),
+            6 => Ok(ArpFast),
+            7 => Ok(ArpSlow),
+            x => Err(SfxError::InvalidEffect(x)),
         }
     }
 }
@@ -138,16 +157,18 @@ pub trait Note {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Pico8Note(pub u16);
 
-
 impl Pico8Note {
     pub fn new(pitch: u8,
-           volume: f32,
-           wave: WaveForm,
-           effect: Effect) -> Self {
+               wave: WaveForm,
+               volume: u8,
+               effect: Effect) -> Self {
+        let pitch = pitch - PITCH_OFFSET;
+        assert!(volume <= 7, "expected volume was greater than 7 but was {volume}");
+        assert!(pitch <= 63, "expected pitch <= 63 but was {pitch}");
         Pico8Note(
             (pitch & 0b0011_1111) as u16 |
             u8::from(wave) as u16 & 0b111 << 6 |
-            (volume * 7.0) as u16 & 0b111 << 9 |
+            ((volume & 0b111) as u16) << 9 |
             u8::from(effect) as u16 & 0b111 << 12)
     }
 }
@@ -158,6 +179,48 @@ impl Pico8Note {
 //     }
 
 // }
+
+impl TryFrom<&str> for Sfx {
+    type Error = SfxError;
+    fn try_from(line: &str) -> Result<Self, Self::Error> {
+        const HEADER_NYBBLES: usize = 8;
+        const NOTE_NYBBLES: usize = 5;
+        let note_nybbles = line.len() - HEADER_NYBBLES;
+        let empty_notes = {
+            let line_bytes = line.as_bytes();
+            line_bytes.iter().rev().position(|a| *a != b'0').map(|index| index / NOTE_NYBBLES).unwrap_or(0)
+        };
+        let mut notes = Vec::with_capacity(note_nybbles/NOTE_NYBBLES - empty_notes);
+        let line_bytes = &line.as_bytes()[..line.len() - empty_notes * NOTE_NYBBLES];
+
+        let mut iter = line_bytes
+            .chunks(2)
+            .map(|v| to_byte(v[0], v[1]).ok_or_else(|| SfxError::InvalidHex(String::from_utf8(v.iter().cloned().collect::<Vec<u8>>()).unwrap())));
+
+        // Process the header first.
+        let editor_mode = iter.next().ok_or(SfxError::Missing("editor_mode".into()))?;
+        let note_duration = iter.next().ok_or(SfxError::Missing("note_duration".into()))?;
+        let loop_start = iter.next().ok_or(SfxError::Missing("loop_start".into()))?;
+        let loop_end = iter.next().ok_or(SfxError::Missing("loop_end".into()))?;
+
+        let mut nybbles = line_bytes.into_iter().map(|a|
+                                                     to_nybble(*a).ok_or(SfxError::InvalidHex((*a as char).to_string())))
+                                    .skip(HEADER_NYBBLES);
+
+        while let Some(pitch_high) = nybbles.next() {
+            let pitch_low: u8 = nybbles.next().ok_or(SfxError::Missing("pitch high nybble".into()))??;
+            let wave_form: u8 = nybbles.next().ok_or(SfxError::Missing("wave form".into()))??;
+            let volume: u8 = nybbles.next().ok_or(SfxError::Missing("volume".into()))??;
+            let effect: u8 = nybbles.next().ok_or(SfxError::Missing("effect".into()))??;
+            // notes.push(Pico8Note::new(pitch_high << 4 | pitch_low?, WaveForm::try_from(wave_form)?,
+            notes.push(Pico8Note::new((pitch_high? << 4 | pitch_low) + PITCH_OFFSET, WaveForm::try_from(wave_form)?,
+                                      volume,
+                                      Effect::try_from(effect)?));
+        }
+        Ok(Sfx::new(notes)
+           .with_speed(note_duration?))
+    }
+}
 
 impl From<u16> for Pico8Note {
     fn from(value: u16) -> Self {
@@ -173,25 +236,27 @@ impl From<Pico8Note> for u16 {
 
 impl Default for Pico8Note {
     fn default() -> Self {
-        Pico8Note::new(32, 5.0 / 7.0, WaveForm::Sine, Effect::None)
+        Pico8Note::new(32, WaveForm::Triangle, 5, Effect::None)
     }
 }
 
+const PITCH_OFFSET: u8 = 24;
+
 impl Note for Pico8Note {
     fn pitch(&self) -> u8 {
-        (self.0 & 0b0011_1111) as u8 + 36
+        (self.0 & 0b0011_1111) as u8 + PITCH_OFFSET
     }
 
     fn wave(&self) -> WaveForm {
-        WaveForm::from((self.0 >> 6 & 0b111) as u8)
+        WaveForm::try_from((self.0 >> 6 & 0b111) as u8).unwrap()
     }
 
     fn volume(&self) -> f32 {
-        (self.0 >> 9 & 0b111) as f32 / 7.0
+        ((self.0 >> 9) & 0b111) as f32 / 7.0
     }
 
     fn effect(&self) -> Effect {
-        Effect::from((self.0 >> 12 & 0b111) as u8)
+        Effect::try_from((self.0 >> 12 & 0b111) as u8).unwrap()
     }
 }
 
@@ -251,21 +316,12 @@ impl Iterator for SfxDecoder {
                 let duration = (self.speed as f32 / 120.0) * self.sample_rate as f32;
                 let volume: f32 = note.volume();
                 match note.wave() {
-
-                    WaveForm::Triangle | WaveForm::Sine /* HACK */ => {
+                    WaveForm::Triangle => {
                         let mut synth = Triangle { phase: hz.phase() }
                             .map(|x| x as f32)
                             .scale_amp(volume);
                         Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
-                    WaveForm::Sine => {
-                        let mut synth = hz
-                            .sine()
-                            .map(|x| x as f32)
-                            .scale_amp(volume);
-                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
-                    }
-
                     WaveForm::Sawtooth => {
                         let mut synth = hz
                             .saw()
@@ -281,10 +337,23 @@ impl Iterator for SfxDecoder {
                             .scale_amp(volume);
                         Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
-
+                    WaveForm::Ringing => {
+                        let mut synth = hz
+                            .sine()
+                            .map(|x| x as f32)
+                            .scale_amp(volume);
+                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                    }
                     WaveForm::Noise => {
                         let mut synth = hz
                             .noise_simplex()
+                            .map(|x| x as f32)
+                            .scale_amp(volume);
+                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                    }
+                    WaveForm::RingingSine => {
+                        let mut synth = hz
+                            .sine()
                             .map(|x| x as f32)
                             .scale_amp(volume);
                         Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
@@ -397,5 +466,36 @@ mod test {
         let x = u16::from(a);
         let b = Pico8Note::from(x);
         assert_eq!(a, b);
+    }
+    #[test]
+    fn sfx_parse0() {
+        let s = "000800000f0000f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+        let sfx = Sfx::try_from(s).unwrap();
+        let note = &sfx.notes[0];
+        assert_eq!(note.pitch(), 39); // C1
+        assert_eq!(note.wave(), WaveForm::Triangle);
+        assert_eq!(note.effect(), Effect::None);
+        assert_eq!(note.volume(), 0.0);
+
+        let note  = Pico8Note(0x000f);
+        assert_eq!(note.pitch(), 39); // C1
+        assert_eq!(note.wave(), WaveForm::Triangle);
+        assert_eq!(note.effect(), Effect::None);
+        assert_eq!(note.volume(), 0.0);
+    }
+
+    #[test]
+    fn sfx_volume() {
+        //       0 1 2 3 a    b    c    d    e    f    g    h
+        let s = "001000000c0000c0100c0200c0300c0400c0500c0600c070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+        let sfx = Sfx::try_from(s).unwrap();
+        let note = &sfx.notes[1];
+        assert_eq!(note.pitch(), 36); // C1
+        assert_eq!(note.volume(), 1.0 / 7.0);
+        assert_eq!(note.wave(), WaveForm::Triangle);
+        assert_eq!(note.effect(), Effect::None);
+        let volumes: Vec<u8> = sfx.notes.iter().take(8).map(|n| (n.volume() * 7.0) as u8).collect();
+        assert_eq!(volumes, vec![0, 1, 2, 3, 4, 5, 6, 7]);
+        assert_eq!(sfx.notes.len(), 8);
     }
 }

@@ -20,7 +20,7 @@ pub(crate) fn plugin(app: &mut App) {
 
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
-enum CartLoaderError {
+pub enum CartLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load asset: {0}")]
     Io(#[from] std::io::Error),
@@ -32,6 +32,8 @@ enum CartLoaderError {
     UnexpectedHex(char),
     #[error("Missing: {0}")]
     Missing(String),
+    #[error("Sfx error: {0}")]
+    Sfx(#[from] SfxError)
 }
 
 #[derive(Debug)]
@@ -233,29 +235,7 @@ impl CartParts {
             let count = content.lines().count();
             let mut sfxs = Vec::with_capacity(count);
             for line in content.lines() {
-                let mut notes = Vec::with_capacity(32);
-                assert_eq!(168, line.len());
-                let line_bytes = line.as_bytes();
-                let mut iter = line_bytes
-                    // .map(|b| b as char)
-                    // .map(|c| c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c)))
-                    .chunks(2)
-                    .map(|v| to_byte(v[0], v[1]));
-
-                // Process the header first.
-                let editor_mode = iter.next().ok_or(CartLoaderError::Missing("editor_mode".into()))??;
-                let note_duration = iter.next().ok_or(CartLoaderError::Missing("note_duration".into()))??;
-                let loop_start = iter.next().ok_or(CartLoaderError::Missing("loop_start".into()))??;
-                let loop_end = iter.next().ok_or(CartLoaderError::Missing("loop_end".into()))??;
-
-                while let Some(a) = iter.next() {
-                    let b = iter.next().ok_or(CartLoaderError::Missing("pico8 note second byte".into()))?;
-                    let x = a? as u16;
-                    let y = b? as u16;
-                    let v: u16 = x << 8 | y;
-                    notes.push(Pico8Note::from(v));
-                }
-                sfxs.push(Sfx::new(notes).with_speed(note_duration));
+                sfxs.push(Sfx::try_from(line)?);
             }
             sfxs
         } else {
@@ -271,15 +251,15 @@ impl CartParts {
     }
 }
 
-fn to_nybble(a: u8) -> Result<u8, CartLoaderError> {
+pub(crate) fn to_nybble(a: u8) -> Option<u8> {
     let b = a as char;
-    b.to_digit(16).map(|x| x as u8).ok_or(CartLoaderError::UnexpectedHex(b))
+    b.to_digit(16).map(|x| x as u8)
 }
 
-fn to_byte(a: u8, b: u8) -> Result<u8, CartLoaderError> {
+pub(crate) fn to_byte(a: u8, b: u8) -> Option<u8> {
     let a = to_nybble(a)?;
     let b = to_nybble(b)?;
-    Ok(a << 4 | b)
+    Some(a << 4 | b)
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -502,14 +482,14 @@ end"#);
         let sfx = &cart.sfx[0];
         let notes = &sfx.notes;
         assert_eq!(sfx.speed, 1);
-        assert_eq!(notes[0].volume(), 0.14285715);
-        assert_eq!(notes[1].volume(), 0.14285715);
+        assert_eq!(notes[0].volume(), 5.0 / 7.0);
+        assert_eq!(notes[1].volume(), 5.0 / 7.0);
         assert_eq!(notes[2].volume(), 0.0);
-        assert_eq!(notes[3].volume(), 0.0);
-        assert_eq!(notes[0].pitch(), 41);
-        assert_eq!(notes[1].pitch(), 84);
-        assert_eq!(notes[2].pitch(), 68);
-        assert_eq!(notes[3].pitch(), 38);
+        assert_eq!(notes[3].volume(), 1.0);
+        assert_eq!(notes[0].pitch(), 26);
+        assert_eq!(notes[1].pitch(), 87);
+        assert_eq!(notes[2].pitch(), 56);
+        assert_eq!(notes[3].pitch(), 57);
     }
 
     #[test]
@@ -524,8 +504,8 @@ end"#);
         let sfx = &cart.sfx[0];
         let notes = &sfx.notes;
         assert_eq!(sfx.speed, 1);
-        assert_eq!(notes[0].volume(), 0.14285715);
-        assert_eq!(notes[0].pitch(), 41);
-        assert_eq!(notes[0].wave(), WaveForm::Sine);
+        assert_eq!(notes[0].volume(), 5.0 / 7.0);
+        assert_eq!(notes[0].pitch(), 26);
+        assert_eq!(notes[0].wave(), WaveForm::Triangle);
     }
 }

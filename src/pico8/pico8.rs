@@ -358,7 +358,9 @@ impl<'w, 's> Pico8<'w, 's> {
         let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get(cart)).expect("cart");
         let sfx = cart.sfx.get(n as usize).ok_or(Error::NoAsset(format!("sfx {n}").into()))?;
 
-        self.commands.spawn(AudioPlayer(sfx.clone()));
+        self.commands.spawn((Name::new("sfx"),
+                             AudioPlayer(sfx.clone()),
+                             PlaybackSettings::DESPAWN));
         Ok(())
     }
 }
