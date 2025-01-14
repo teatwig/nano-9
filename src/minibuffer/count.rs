@@ -1,4 +1,4 @@
-use bevy::{core::FrameCount, prelude::*, app::PluginGroupBuilder};
+use bevy::{prelude::*, app::PluginGroupBuilder};
 use bevy_minibuffer::{ui::IconContainer, prelude::*};
 use std::marker::PhantomData;
 
@@ -83,6 +83,6 @@ fn setup_count<C: Component>(
     });
 }
 
-pub fn show_count(mut minibuffer: Minibuffer) {
+pub fn show_count(minibuffer: Minibuffer) {
 
 }

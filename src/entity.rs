@@ -1,19 +1,16 @@
 use bevy::{
-    ecs::{system::SystemState, world::Command},
+    ecs::system::SystemState,
     prelude::*,
-    sprite::Anchor,
-    transform::commands::AddChildInPlace,
 };
 
 use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{
     MetaMethod, UserData, UserDataFields, UserDataMethods,
 };
 
-use bevy_mod_scripting::api::{common::bevy::ScriptWorld, providers::bevy_ecs::LuaEntity};
+use bevy_mod_scripting::api::common::bevy::ScriptWorld;
 use bevy_mod_scripting::prelude::*;
 // use bevy_pixel_buffer::prelude::*;
-use crate::{despawn_list, palette::Nano9Palette, DropPolicy, N9Color, N9Image, OneFrame};
-use std::sync::OnceLock;
+use crate::{despawn_list, DropPolicy, N9Image, OneFrame};
 
 #[derive(Clone)]
 pub struct N9Entity {
@@ -82,7 +79,7 @@ impl UserData for N9Entity {
 
         fields.add_field_method_get("one_frame", |ctx, this| {
             let world = ctx.get_world()?;
-            let mut world = world.write();
+            let world = world.write();
             Ok(world.entity(this.entity).contains::<OneFrame>())
         });
 

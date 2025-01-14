@@ -48,7 +48,7 @@ impl UserData for DropPolicy {}
 impl FromLua<'_> for DropPolicy {
     fn from_lua(value: Value, _: &Lua) -> mlua::Result<Self> {
         match value {
-            Value::UserData(ud) => Ok(ud.borrow::<Self>()?.clone()),
+            Value::UserData(ud) => Ok(*ud.borrow::<Self>()?),
             _ => unreachable!(),
         }
     }
@@ -141,7 +141,7 @@ impl UserDataComponent for Transform {
             let world = ctx.get_world()?;
             let mut world = world.write();
             let mut system_state: SystemState<Query<&Transform>> = SystemState::new(&mut world);
-            let mut transforms = system_state.get(&world);
+            let transforms = system_state.get(&world);
             let transform = transforms.get(this.entity()).unwrap();
             Ok(transform.translation.y)
         });
@@ -226,7 +226,7 @@ impl UserDataComponent for GlobalTransform {
             let mut world = world.write();
             let mut system_state: SystemState<Query<&GlobalTransform>> =
                 SystemState::new(&mut world);
-            let mut transforms = system_state.get(&mut world);
+            let transforms = system_state.get(&mut world);
             let transform = transforms.get(this.entity()).unwrap();
             Ok(transform.translation().y)
         });
@@ -343,8 +343,8 @@ impl UserData for N9Sprite {
             let world = ctx.get_world()?;
             let mut world = world.write();
             let mut system_state: SystemState<Query<&Sprite>> = SystemState::new(&mut world);
-            let mut query = system_state.get(&mut world);
-            let mut item = query.get(this.entity).unwrap();
+            let query = system_state.get(&mut world);
+            let item = query.get(this.entity).unwrap();
             Ok(item.flip_x)
         });
 
@@ -392,8 +392,8 @@ impl UserData for N9Sprite {
             let world = ctx.get_world()?;
             let mut world = world.write();
             let mut system_state: SystemState<Query<&Sprite>> = SystemState::new(&mut world);
-            let mut query = system_state.get(&mut world);
-            let mut item = query.get(this.entity).unwrap();
+            let query = system_state.get(&mut world);
+            let item = query.get(this.entity).unwrap();
             Ok(item.flip_y)
         });
 

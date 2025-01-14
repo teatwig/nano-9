@@ -38,7 +38,7 @@ impl FromLua<'_> for N9Color {
             }
         }
         match value {
-            Value::UserData(ud) => Ok(ud.borrow::<Self>()?.clone()),
+            Value::UserData(ud) => Ok(*ud.borrow::<Self>()?),
             Value::Nil => Ok(N9Color::Pen),
             Value::Integer(n) => Ok(N9Color::Palette(n as usize)),
             Value::Number(n) => Ok(N9Color::Palette(n as usize)),

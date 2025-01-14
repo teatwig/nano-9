@@ -1,18 +1,14 @@
 //! Shows how to create a custom [`Decodable`] type by implementing a Sine wave.
 
 use bevy::{
-    audio::{AddAudioSource, AudioPlugin, Source},
-    math::ops,
+    audio::{AddAudioSource, Source},
     prelude::*,
     reflect::TypePath,
     utils::Duration,
 };
 use crate::pico8::cart::{to_byte, to_nybble};
-use dasp::{signal::{self, Phase, Step}, Sample, Signal};
-use std::{
-    borrow::Cow,
-    sync::Arc
-};
+use dasp::{signal::{self, Phase, Step}, Signal};
+use std::borrow::Cow;
 use std::f32;
 
 const SAMPLE_RATE: u32 = 22_050;
@@ -85,7 +81,7 @@ impl TryFrom<u8> for WaveForm {
             4 => Ok(Ringing),
             5 => Ok(Noise),
             6 => Ok(RingingSine),
-            x if x <= 0xf => Ok(Custom(x as u8 - 7)),
+            x if x <= 0xf => Ok(Custom(x - 7)),
             y => Err(SfxError::InvalidWaveForm(y)),
         }
     }
@@ -202,7 +198,7 @@ impl TryFrom<&str> for Sfx {
 
         let mut iter = line_bytes
             .chunks(2)
-            .map(|v| to_byte(v[0], v[1]).ok_or_else(|| SfxError::InvalidHex(String::from_utf8(v.iter().cloned().collect::<Vec<u8>>()).unwrap())));
+            .map(|v| to_byte(v[0], v[1]).ok_or_else(|| SfxError::InvalidHex(String::from_utf8(v.to_vec()).unwrap())));
 
         // Process the header first.
         let editor_mode = iter.next().ok_or(SfxError::Missing("editor_mode".into()))?;
@@ -210,7 +206,7 @@ impl TryFrom<&str> for Sfx {
         let loop_start = iter.next().ok_or(SfxError::Missing("loop_start".into()))?;
         let loop_end = iter.next().ok_or(SfxError::Missing("loop_end".into()))?;
 
-        let mut nybbles = line_bytes.into_iter().map(|a|
+        let mut nybbles = line_bytes.iter().map(|a|
                                                      to_nybble(*a).ok_or(SfxError::InvalidHex((*a as char).to_string())))
                                     .skip(HEADER_NYBBLES);
 
@@ -334,13 +330,13 @@ impl Iterator for SfxDecoder {
                 let volume: f32 = note.volume();
                 match note.wave() {
                     WaveForm::Triangle => {
-                        let mut synth = Triangle { phase: hz.phase() }
+                        let synth = Triangle { phase: hz.phase() }
                             .map(|x| x as f32)
                             .scale_amp(volume);
                         Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
                     WaveForm::Sawtooth => {
-                        let mut synth = hz
+                        let synth = hz
                             .saw()
                             .map(|x| x as f32)
                             .scale_amp(volume);
@@ -348,28 +344,28 @@ impl Iterator for SfxDecoder {
                     }
 
                     WaveForm::LongSquare | WaveForm::ShortSquare => {
-                        let mut synth = hz
+                        let synth = hz
                             .square()
                             .map(|x| x as f32)
                             .scale_amp(volume);
                         Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
                     WaveForm::Ringing => {
-                        let mut synth = hz
+                        let synth = hz
                             .sine()
                             .map(|x| x as f32)
                             .scale_amp(volume);
                         Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
                     WaveForm::Noise => {
-                        let mut synth = hz
+                        let synth = hz
                             .noise_simplex()
                             .map(|x| x as f32)
                             .scale_amp(volume);
                         Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
                     WaveForm::RingingSine => {
-                        let mut synth = hz
+                        let synth = hz
                             .sine()
                             .map(|x| x as f32)
                             .scale_amp(volume);
@@ -398,7 +394,7 @@ impl Source for SfxDecoder {
     }
 
     fn total_duration(&self) -> Option<Duration> {
-        self.duration.clone()
+        self.duration
     }
 }
 
@@ -463,7 +459,7 @@ mod test {
         let a = 0..3;
         let b = 3..6;
         let c = 6..9;
-        let v = vec![a, b, c];
+        let v = [a, b, c];
         v.iter().flat_map(|it| it.clone());
     }
 
@@ -473,7 +469,7 @@ mod test {
         let b = 3..6;
         let c = 6..9;
         let v = vec![a, b, c];
-        let w = v.into_iter().flat_map(|it| it);
+        let w = v.into_iter().flatten();
         assert_eq!((0..9).collect::<Vec<_>>(), w.collect::<Vec<_>>());
     }
 
@@ -546,7 +542,7 @@ mod test {
 
     #[test]
     fn sfx_pitch() {
-        use WaveForm::*;
+        
         //       0 1 2 3 a    b    c    d    e    f    g    h
         let s = "001000000c050000000c150000000c250000000c350000000c450000000c550000000c650000000c7500000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
         let sfx = Sfx::try_from(s).unwrap();

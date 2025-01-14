@@ -1,6 +1,5 @@
 use crate::{api::*, *};
-use bevy::{ecs::prelude::Condition, prelude::*};
-use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{self, UserData, Variadic};
+use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{Variadic};
 use bevy_mod_scripting::{core::event::ScriptLoaded, prelude::*};
 use std::{borrow::Cow, sync::Arc};
 

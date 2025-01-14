@@ -2,7 +2,7 @@ use bevy::{
     render::{render_asset::RenderAssetUsages,
              render_resource::{Extent3d, TextureDimension, TextureFormat}
     },
-    image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
+    image::{ImageLoaderSettings, ImageSampler},
     asset::{io::Reader, AssetLoader, LoadContext},
     prelude::*,
     reflect::TypePath,
@@ -82,7 +82,7 @@ fn load_cart(query: Query<(Entity, &LoadCart)>,
              asset_server: Res<AssetServer>,
              palette: Local<Option<Handle<Image>>>,
              mut layouts: ResMut<Assets<TextureAtlasLayout>>,
-             mut assets: ResMut<Assets<Sfx>>,
+             assets: ResMut<Assets<Sfx>>,
 ) {
     for (id, load_cart) in &query {
         if let Some(cart) = carts.get(&load_cart.0) {
@@ -167,7 +167,7 @@ impl CartParts {
                 let mut set_color = |pixel_index: usize, palette_index: u8| {
                     let pi = palette_index as usize;
                     // PERF: We should just set the 24 or 32 bits in one go, right?
-                    bytes[pixel_index * 4 + 0] = PALETTE[pi][0];
+                    bytes[pixel_index * 4] = PALETTE[pi][0];
                     bytes[pixel_index * 4 + 1] = PALETTE[pi][1];
                     bytes[pixel_index * 4 + 2] = PALETTE[pi][2];
                     bytes[pixel_index * 4 + 3] = if settings.is_transparent(pi) { 0x00 } else { 0xff };
@@ -242,7 +242,7 @@ impl CartParts {
             Vec::new()
         };
         Ok(CartParts {
-            lua: lua,
+            lua,
             sprites,
             map,
             flags: Vec::new(),
@@ -298,10 +298,10 @@ impl AssetLoader for CartLoader {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let content = String::from_utf8(bytes)?;
-        let mut parts = CartParts::from_str(&content, settings)?;
+        let parts = CartParts::from_str(&content, settings)?;
         let code = parts.lua;
         // cart.lua = Some(load_context.add_labeled_asset("lua".into(), LuaFile { bytes: code.into_bytes() }));
-        let sprites = parts.sprites.unwrap_or_else(|| Image::default());
+        let sprites = parts.sprites.unwrap_or_else(Image::default);
         Ok(Cart {
             lua: load_context.labeled_asset_scope("lua".into(), move |_load_context| LuaFile { bytes: code.into_bytes() }),
             sprites: load_context.labeled_asset_scope("sprites".into(), move |_load_context| sprites),

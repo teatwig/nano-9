@@ -1,7 +1,7 @@
 #![allow(deprecated)]
 use std::sync::{Arc, Mutex};
 
-use bevy::{ecs::system::SystemState, prelude::*, reflect::Reflect};
+use bevy::{prelude::*, reflect::Reflect};
 use bevy_mod_scripting::api::providers::bevy_ecs::LuaEntity;
 use bevy_mod_scripting::prelude::*;
 
@@ -10,8 +10,8 @@ use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{self, UserData, Variadi
 #[cfg(feature = "level")]
 use crate::N9LevelLoader;
 use crate::{
-    DropPolicy, N9AudioLoader, N9Camera, N9Color, N9Entity, N9Image, N9ImageLoader, N9Sound,
-    N9Sprite, N9TextLoader, N9Var, Nano9, Nano9Palette, Nano9Screen,
+    DropPolicy, N9Camera, N9Entity, N9Image, N9Sound,
+    N9Sprite, Nano9, Nano9Palette,
 };
 
 #[derive(Clone)]

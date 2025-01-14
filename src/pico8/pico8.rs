@@ -3,32 +3,29 @@ use bevy::{
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
     prelude::*,
     sprite::Anchor,
-    transform::commands::AddChildInPlace,
 };
 
 use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{
-    MetaMethod, UserData, UserDataFields, UserDataMethods, Function, Number
+    Function, Number
 };
 
-use bevy_mod_scripting::api::{common::bevy::ScriptWorld, providers::bevy_ecs::LuaEntity};
 use bevy_mod_scripting::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::{
     pico8::{LoadCart, Cart, Clearable, ClearEvent},
-    api::N9Args, despawn_list, palette::Nano9Palette, DropPolicy, N9AudioLoader, N9Color, N9Image,
-    N9ImageLoader, N9TextLoader, Nano9Screen, ValueExt, DrawState,
+    api::N9Args, N9Color, Nano9Screen, ValueExt, DrawState,
 };
 
 use std::{
-    sync::{Mutex, OnceLock},
+    sync::Mutex,
     borrow::Cow,
 };
 
-pub const PICO8_PALETTE: &'static str = "images/pico-8-palette.png";
-pub const PICO8_SPRITES: &'static str = "images/pooh-book-sprites.png";
-pub const PICO8_BORDER: &'static str = "images/rect-border.png";
-pub const PICO8_FONT: &'static str = "fonts/pico-8.ttf";
+pub const PICO8_PALETTE: &str = "images/pico-8-palette.png";
+pub const PICO8_SPRITES: &str = "images/pooh-book-sprites.png";
+pub const PICO8_BORDER: &str = "images/rect-border.png";
+pub const PICO8_FONT: &str = "fonts/pico-8.ttf";
 
 /// Pico8State's state.
 #[derive(Resource, Clone)]
@@ -79,7 +76,7 @@ pub struct SprArgs {
 
 
 
-impl<'w, 's> Pico8<'w, 's> {
+impl Pico8<'_, '_> {
     fn load_cart(&mut self, cart: Handle<Cart>) {
         self.commands.spawn(LoadCart(cart));
         // self.cart_state.set(CartState::Loading(cart));
@@ -480,15 +477,15 @@ impl APIProvider for Pico8API {
         crate::macros::define_globals! {
             // XXX: This should be demoted in favor of a general `input` solution.
             fn btnp(ctx, b: (Option<u8>)) {
-                with_pico8(ctx, |pico8| Ok(pico8.btnp(b)?))
+                with_pico8(ctx, |pico8| pico8.btnp(b))
             }
 
             fn btn(ctx, b: (Option<u8>)) {
-                with_pico8(ctx, |pico8| Ok(pico8.btnp(b)?))
+                with_pico8(ctx, |pico8| pico8.btnp(b))
             }
 
             fn cls(ctx, value: (Option<N9Color>)) {
-                with_pico8(ctx, |pico8| Ok(pico8.cls(value)?))
+                with_pico8(ctx, |pico8| pico8.cls(value))
             }
 
             fn pset(ctx, (x, y, color): (u32, u32, Option<N9Color>)) {
@@ -542,7 +539,7 @@ impl APIProvider for Pico8API {
                 };
 
                 // We get back an entity. Not doing anything with it here yet.
-                let _id = with_pico8(ctx, move |pico8| Ok(pico8.spr(n, spr_args_maybe)?))?;
+                let _id = with_pico8(ctx, move |pico8| pico8.spr(n, spr_args_maybe))?;
                 Ok(())
             }
 
@@ -557,7 +554,7 @@ impl APIProvider for Pico8API {
                 let layer = args.pop_front().and_then(|v| v.as_u32().map(|v| v as u8)).unwrap_or(0);
 
                 // We get back an entity. Not doing anything with it here yet.
-                let _id = with_pico8(ctx, move |pico8| Ok(pico8.map(UVec2::new(celx, cely), Vec2::new(sx, sy), UVec2::new(celw, celh), layer)?))?;
+                let _id = with_pico8(ctx, move |pico8| pico8.map(UVec2::new(celx, cely), Vec2::new(sx, sy), UVec2::new(celw, celh), layer))?;
                 Ok(())
             }
 
@@ -579,9 +576,9 @@ impl APIProvider for Pico8API {
                 // let y = args.pop_front().and_then(|v| v.to_f32());
                 let x = args.pop_front().and_then(|v| v.as_u32());
                 let y = args.pop_front().and_then(|v| v.as_u32());
-                let c = args.pop_front().and_then(|v| v.as_usize()).map(|p| N9Color::Palette(p));
+                let c = args.pop_front().and_then(|v| v.as_usize()).map(N9Color::Palette);
                 let pos = x.map(|x| UVec2::new(x, y.unwrap_or(draw_state.print_cursor.y)));
-                with_pico8(ctx, move |pico8| Ok(pico8.print(text, pos, c)?))
+                with_pico8(ctx, move |pico8| pico8.print(text, pos, c))
             }
 
             // sfx( n, [channel,] [offset,] [length] )
@@ -590,7 +587,7 @@ impl APIProvider for Pico8API {
                 let channel: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
                 let offset: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
                 let length: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
-                with_pico8(ctx, move |pico8| Ok(pico8.sfx(n, channel, offset, length)?))
+                with_pico8(ctx, move |pico8| pico8.sfx(n, channel, offset, length))
             }
 
             fn flr(ctx, v: Number) {

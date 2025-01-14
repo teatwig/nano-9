@@ -10,7 +10,7 @@ use bevy::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
     utils::Duration,
-    window::{PresentMode, PrimaryWindow, WindowMode, WindowResized, WindowResolution},
+    window::{PresentMode, PrimaryWindow, WindowMode, WindowResized},
 };
 use std::sync::{Arc, Mutex};
 
@@ -208,7 +208,7 @@ pub fn sync_window_size(
             primary_window.physical_width() as f32,
             primary_window.physical_height() as f32,
         ) / window_scale;
-        let (mut orthographic, mut transform) = orthographic.single_mut();
+        let (mut orthographic, transform) = orthographic.single_mut();
 
         let canvas_size = settings.canvas_size.as_vec2();
         let canvas_aspect = canvas_size.x / canvas_size.y;

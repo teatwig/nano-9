@@ -1,4 +1,3 @@
-use bevy::app::AppExit;
 use std::sync::Mutex;
 
 use crate::mlua::Variadic;
@@ -73,7 +72,7 @@ fn run_lua_test(script: impl Into<String>) {
     app.update();
     if let Some(events) = app.world().get_resource::<Events<ScriptErrorEvent>>() {
         let mut reader = events.get_reader();
-        for r in reader.read(&events) {
+        for r in reader.read(events) {
             assert!(false, "{}", r.error);
         }
     }
