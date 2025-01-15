@@ -1,6 +1,6 @@
 # Nano-9
 
-Nano-9 is a fantasy console library heavily inspired by Pico-8.
+Nano-9 is a fantasy video game library heavily inspired by Pico-8.
 
 ## Goals
 
@@ -15,12 +15,15 @@ The goals for Nano-9 are to
 - support audio files,
 - support different fonts,
 - provide a library first, and an application second,
+- provide a gateway from the Pico-8 world to the Bevy world,
 - and support unlimited code size.
 
 ## Anti-Goals
 
 - Do not provide 100% compatibility with Pico-8.
+- Do not provide a comprehensive game development console experience.
 - Do not support `peek()` or `poke()` in their entirety.
+- Do not write P8 or PNG cartridges.
 - Do not support same performance characteristics.
   
   Let me provide an example where Nano-9 and Pico-8 performance differ. In
@@ -35,7 +38,7 @@ The goals for Nano-9 are to
   `Sprite`, `print()` to be `Text`, `map()` to be `bevy_ecs_tilemap`. In this
   way the comfortable world of Pico-8 can help introduce one to the Bevy world.
 
-## Considerations
+## Design Considerations
 
 There are a number of questions that remain unanswered.
 
@@ -75,17 +78,65 @@ feedback on this.
 ### Why a library?
 
 Why not just offer an application like Pico-8? Because I don't mean to
-substitute Pico-8's reach; I mean to lengthen it. One case I imagine is where
-one creates a game using Pico-8, but they yearn to do something that is not
-possible with Pico-8 itself. Like what? There are so many reasons: 
+substitute Pico-8's reach; I mean to extend it. A case I imagine is this:
+someone creates a Pico-8 game, but they yearn to do something that is not
+possible with Pico-8 itself. Like what? There are so many things:
 
-- Maybe use a full screen shader that creates a CRT effect. 
-- Maybe they want to embed an arcade game in their actual game that is in fact a
-Pico-8 game.
-- Maybe they want to adjust the proportions of the screen so that it's a
-landscape.
-- Maybe they have a color palette that best expresses their aesthetic.
-- Maybe they want to port their game to a console.
+- Maybe use a full screen shader that creates a CRT effect, 
+- maybe embed an arcade game in their actual game that is in fact a
+Pico-8 game,
+- maybe adjust the proportions of the screen so that it's a
+landscape,
+- maybe use a color palette that best expresses their aesthetic,
+- or maybe port their game to a console.
+
+### Why Rust?
+
+Nano-9 is built on Bevy, a game engine written in Rust. 
+
+Here is Pico-8 code that draws a line from top-left of the screen to
+the bottom-right.
+
+``` lua
+x = 0
+function _update()
+    pset(x, x)
+    x = x + 1
+end
+```
+Here is what the Rust version of the same thing looks like.
+
+``` rust
+fn update(mut pico8: Pico8, mut x: Local<u32>) -> Result<(), Pico8Error> {
+    pico8.pset(*x, *x)?;
+    *x += 1;
+}
+```
+
+### Can I use this to port my game to a console?
+
+Hopefully, yes. Whatever consoles Bevy supports, Nano-9 should support too.
+(However, I am not certain that bevy_mod_scripting supports WASM builds.)
+
+Some game developers have the technical wherewithal to rebuild their game in
+another engine like the famous story of the
+[Celeste](https://www.thatguyglen.com/article/MSKOQr_YS-U) by [Maddy
+Thorson](https://www.maddymakesgames.com) and [Noel Berry](https://noelberry.ca)
+which originated as a Pico-8 game before it was recreated in C# and XNA and
+released to great success.
+
+My hope is that Nano-9 offers a much less steep path for Pico-8 developers who
+for whatever reason need more control over their game.
+
+### Why is there no sprite, map, sfx, or music editor?
+
+Because this is a library not a wholly integrated game development console like
+Pico-8. Those things are all provided by different tools. Use whatever you like.
+If you like the ones provided by Pico-8, use it! Here are some tools I like:
+
+- I like [Aseprite](https://www.aseprite.org) for sprite editing.
+- I like [Doom Emacs](https://github.com/doomemacs/doomemacs?tab=readme-ov-file) for text editing.
+- I like [Bfxr](https://www.bfxr.net) for sound effects.
 
 ### Why does `print()` create a tree of entities?
 
@@ -101,3 +152,30 @@ under a root entity. It would be great to fix the font for our use.
 ### Isn't this against Pico-8's purposefully constrained design?
 
 Yes.
+
+### Why buy Pico-8?
+
+Because Pico-8 is great! It's limited for creativity's sake yet totally
+comprehensive. Nano-9 doesn't aim to replicate the cohesive experience it
+offers, which is utterly charming especially if you ever used an Apple IIe or
+Commodore 64. I introduced my daughter to it a few years ago and she and I have
+had a blast with it.
+
+If you can't afford Pico-8, you can still play with it and learn it using the
+[educational edition](https://www.pico-8-edu.com).
+
+## Compatibility
+
+| nano9 | bevy |
+|-------|------|
+| 0.1.0 | 0.15 |
+
+## License
+
+This crate is licensed under the MIT License or the Apache License 2.0.
+
+## Acknowledgments
+
+Many thanks to [Joseph "Zep" White](https://mastodon.social/@zep) the founder of
+[Lexaloffle Games](https://www.lexaloffle.com) and creator of
+[Pico-8](https://www.lexaloffle.com/pico-8.php).
