@@ -231,8 +231,11 @@ impl Pico8<'_, '_> {
                 let texture_index = cart.and_then(|cart|
                     cart.map.get((map_pos.x + x + (map_pos.y + y) * 128) as usize)
                         .and_then(|index|
-                            mask.and_then(|mask| // Skip sprites whose flags don't match the mask.
-                                (cart.flags[*index as usize] & mask == mask).then_some(index))))
+                                  if let Some(mask) = mask {
+                                      (cart.flags[*index as usize] & mask == mask).then_some(index)
+                                  } else {
+                                      Some(index)
+                                  }))
                         .copied()
                         .unwrap_or(0);
                 if texture_index != 0 {
