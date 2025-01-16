@@ -48,6 +48,8 @@ pub enum Error {
     TextureAccess(#[from] TextureAccessError),
     #[error("no such button: {0}")]
     NoSuchButton(u8),
+    #[error("invalid argument {0}")]
+    InvalidArgument(Cow<'static, str>),
 }
 
 impl From<Error> for LuaError {
@@ -75,6 +77,18 @@ pub struct SprArgs {
 }
 
 
+#[derive(Clone, Copy)]
+enum SfxCommand {
+    Play(u8),
+    Release,
+    Stop,
+}
+
+impl From<u8> for SfxCommand {
+    fn from(x: u8) -> Self {
+        SfxCommand::Play(x)
+    }
+}
 
 impl Pico8<'_, '_> {
     #[allow(dead_code)]
@@ -364,13 +378,24 @@ impl Pico8<'_, '_> {
     }
 
     // sfx( n, [channel,] [offset,] [length] )
-    fn sfx(&mut self, n: u8, _channel: Option<u8>, _offset: Option<u8>, _length: Option<u8>) -> Result<(), Error> {
-        let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get(cart)).expect("cart");
-        let sfx = cart.sfx.get(n as usize).ok_or(Error::NoAsset(format!("sfx {n}").into()))?;
+    fn sfx(&mut self, n: impl Into<SfxCommand>, _channel: Option<u8>, _offset: Option<u8>, _length: Option<u8>) -> Result<(), Error> {
+        let n = n.into();
+        match n {
+            SfxCommand::Release => {
+                todo!("release loop for channel");
+            },
+            SfxCommand::Stop => {
+                todo!("stop playing channel");
+            }
+            SfxCommand::Play(n) => {
+                let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get(cart)).expect("cart");
+                let sfx = cart.sfx.get(n as usize).ok_or(Error::NoAsset(format!("sfx {n}").into()))?;
 
-        self.commands.spawn((Name::new("sfx"),
-                             AudioPlayer(sfx.clone()),
-                             PlaybackSettings::DESPAWN));
+                self.commands.spawn((Name::new("sfx"),
+                                    AudioPlayer(sfx.clone()),
+                                    PlaybackSettings::DESPAWN));
+            }
+        }
         Ok(())
     }
 }
@@ -596,11 +621,25 @@ impl APIProvider for Pico8API {
 
             // sfx( n, [channel,] [offset,] [length] )
             fn sfx(ctx, (mut args): LuaMultiValue) {
-                let n: u8 = args.pop_front().and_then(|v| v.as_u32()).expect("n") as u8;
+                let n: i8 = args.pop_front().and_then(|v| v.as_i32()).expect("n") as i8;
                 let channel: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
                 let offset: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
                 let length: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
-                with_pico8(ctx, move |pico8| pico8.sfx(n, channel, offset, length))
+                with_pico8(ctx, move |pico8| pico8.sfx(match n {
+                    -2 => Ok(SfxCommand::Release),
+                    -1 => Ok(SfxCommand::Stop),
+                    n if n >= 0 => Ok(SfxCommand::Play(n as u8)),
+                    x => {
+                        // Maybe we should let Lua errors pass through.
+                        // Err(LuaError::BadArgument {
+                        //     to: Some("sfx".into()),
+                        //     pos: 0,
+                        //     name: Some("n".into()),
+                        //     cause: std::sync::Arc::new(
+                        // })
+                        Err(Error::InvalidArgument(format!("sfx: expected n to be -2, -1 or >= 0 but was {x}").into()))
+                    }
+                }?, channel, offset, length))
             }
 
             fn flr(ctx, v: Number) {

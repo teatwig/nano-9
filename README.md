@@ -2,12 +2,15 @@
 
 Nano-9 is a fantasy video game library heavily inspired by Pico-8.
 
+Nano-9 is Bevy in Pico-8 clothing.
+
 ## Goals
 
 The goals for Nano-9 are to
 
 - offer a Pico-8 API and semantics in both Rust and Lua,
 - support the P8 cartridge format (maybe PNG),
+- provide a gateway from the Pico-8 world to the Bevy world,
 - support different color palettes,
 - support different color palette sizes,
 - support different screen sizes,
@@ -15,7 +18,6 @@ The goals for Nano-9 are to
 - support audio files,
 - support different fonts,
 - provide a library first, and an application second,
-- provide a gateway from the Pico-8 world to the Bevy world,
 - and support unlimited code size.
 
 ## Anti-Goals
@@ -35,10 +37,11 @@ The goals for Nano-9 are to
   Why not reify the last render to an image to preserve Pico-8's performance?
   One could do this certainly but my aim is to support Bevy's native elements as
   much as possible. I'd prefer for `spr()` to be a thin layer to Bevy's
-  `Sprite`, `print()` to be `Text`, `map()` to be `bevy_ecs_tilemap`. In this
-  way the comfortable world of Pico-8 can help introduce one to the Bevy world.
+  `Sprite`, `print()` to create a `Text` component, `map()` to create a
+  `bevy_ecs_tilemap::TilemapBundle`. In this way the comfortable world of Pico-8
+  can help introduce one to the Bevy world.
 
-## Design Considerations
+## Current Design Considerations
 
 There are a number of questions that remain unanswered.
 
@@ -88,6 +91,7 @@ Pico-8 game,
 - maybe adjust the proportions of the screen so that it's a
 landscape,
 - maybe use a color palette that best expresses their aesthetic,
+- maybe they need more buttons or access to a thumbstick,
 - or maybe port their game to a console.
 
 ### Why Rust?
@@ -119,14 +123,14 @@ Hopefully, yes. Whatever consoles Bevy supports, Nano-9 should support too.
 (However, I am not certain that bevy_mod_scripting supports WASM builds.)
 
 Some game developers have the technical wherewithal to rebuild their game in
-another engine like the famous story of the
+another engine like the celebrated story of the
 [Celeste](https://www.thatguyglen.com/article/MSKOQr_YS-U) by [Maddy
 Thorson](https://www.maddymakesgames.com) and [Noel Berry](https://noelberry.ca)
 which originated as a Pico-8 game before it was recreated in C# and XNA and
 released to great success.
 
-My hope is that Nano-9 offers a much less steep path for Pico-8 developers who
-for whatever reason need more control over their game.
+My hope is that Nano-9 offers a less-steep path for Pico-8 developers who, for
+whatever reason, want more control over their game.
 
 ### Why is there no sprite, map, sfx, or music editor?
 
@@ -145,11 +149,12 @@ necessary; it's 7 pixels high. However, Pico-8 renders its text with 6 pixels of
 verical spacing between lines. If one renders multi-line text naively with
 Bevy's `Text::new(multi_line_string)` component, it will not look like Pico-8;
 it will be off by 1 pixel each line, which for a small 128x128 display is a lot!
-I tried to muck with the font in FontForge but it was beyond my ability. So
-instead of using one `Text` component, Nano-9 creates a `Text` for each line
-under a root entity. It would be great to fix the font for our use.
+I tried to muck with the font in [FontForge](https://fontforge.org/en-US/) but
+it was beyond my ability. So instead of using one `Text` component, Nano-9
+creates a `Text` for each line under a root entity. It would be great to fix the
+font for our use.
 
-### Isn't this against Pico-8's purposefully constrained design?
+### Isn't this against Pico-8's purposefully constrained design philosophy?
 
 Yes.
 
@@ -163,6 +168,18 @@ had a blast with it.
 
 If you can't afford Pico-8, you can still play with it and learn it using the
 [educational edition](https://www.pico-8-edu.com).
+
+### Why not support `peek()` and `poke()`?
+
+Pico-8 has easter-egg like features where if one tickles the right part of
+memory, one _can_ access the keyboard keys or the mouse position, which are not
+explicitly available via the API. While I think that is fun for a fantasy
+console, I am not intent on replicating that behavior. Instead I would suggest
+that people extend the Lua API to provide access to whatever new facilities they
+need.
+
+If someone were to make a handful of useful `peek()` or `poke()` cases work, I
+would consider such a pull request.
 
 ## Compatibility
 

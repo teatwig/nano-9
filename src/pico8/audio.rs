@@ -203,8 +203,9 @@ impl TryFrom<&str> for Sfx {
         // Process the header first.
         let _editor_mode = iter.next().ok_or(SfxError::Missing("editor_mode".into()))?;
         let note_duration = iter.next().ok_or(SfxError::Missing("note_duration".into()))?;
-        let _loop_start = iter.next().ok_or(SfxError::Missing("loop_start".into()))?;
-        let _loop_end = iter.next().ok_or(SfxError::Missing("loop_end".into()))?;
+
+        let loop_start = iter.next().ok_or(SfxError::Missing("loop_start".into()))??;
+        let loop_end = iter.next().ok_or(SfxError::Missing("loop_end".into()))??;
 
         let mut nybbles = line_bytes.iter().map(|a|
                                                      to_nybble(*a).ok_or(SfxError::InvalidHex((*a as char).to_string())))
@@ -222,7 +223,8 @@ impl TryFrom<&str> for Sfx {
                                       Effect::try_from(effect)?));
         }
         Ok(Sfx::new(notes)
-           .with_speed(note_duration?))
+           .with_speed(note_duration?)
+           .with_loop((loop_start != 0).then_some(loop_start), (loop_end != 0).then_some(loop_end)))
     }
 }
 
@@ -272,13 +274,17 @@ impl Note for Pico8Note {
 pub struct Sfx {
     pub notes: Vec<Pico8Note>,
     pub speed: u8,
+    pub loop_start: Option<u8>,
+    pub loop_end: Option<u8>,
 }
 
 impl Sfx {
     pub fn new(notes: impl IntoIterator<Item = Pico8Note>) -> Self {
         Sfx {
             notes: notes.into_iter().collect(),
-            speed: 16
+            speed: 16,
+            loop_start: None,
+            loop_end: None,
         }
     }
 
@@ -286,6 +292,13 @@ impl Sfx {
         self.speed = speed;
         self
     }
+
+    pub fn with_loop(mut self, loop_start: Option<u8>, loop_end: Option<u8>) -> Self {
+        self.loop_start = loop_start;
+        self.loop_end = loop_end;
+        self
+    }
+
 }
 
 impl SfxDecoder {
