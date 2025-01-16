@@ -51,6 +51,9 @@ where
     }
 }
 
+#[derive(Resource, Debug, Reflect, Deref)]
+pub struct SfxChannels(pub Vec<Entity>);
+
 impl From<WaveForm> for u8 {
     fn from(wave: WaveForm) -> u8 {
         use WaveForm::*;
@@ -430,7 +433,16 @@ impl Decodable for Sfx {
 
 pub(crate) fn plugin(app: &mut App) {
     app
+        .add_systems(Startup, add_channels)
         .add_audio_source::<Sfx>();
+}
+
+fn add_channels(mut commands: Commands) {
+    let channels: Vec<Entity> = (0..4).map(|i|
+        commands.spawn((Name::new(format!("channel {i}")),
+                        PlaybackSettings::REMOVE))
+               .id()).collect();
+    commands.insert_resource(SfxChannels(channels));
 }
 
 // fn main() {

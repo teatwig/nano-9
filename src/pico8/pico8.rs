@@ -13,7 +13,7 @@ use bevy_mod_scripting::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::{
-    pico8::{LoadCart, Cart, Clearable, ClearEvent},
+    pico8::{LoadCart, Cart, Clearable, ClearEvent, audio::SfxChannels},
     api::N9Args, N9Color, Nano9Screen, ValueExt, DrawState,
 };
 
@@ -50,6 +50,10 @@ pub enum Error {
     NoSuchButton(u8),
     #[error("invalid argument {0}")]
     InvalidArgument(Cow<'static, str>),
+    #[error("no sfx channel {0}")]
+    NoChannel(u8),
+    #[error("all sfx channels are busy")]
+    ChannelsBusy,
 }
 
 impl From<Error> for LuaError {
@@ -66,16 +70,9 @@ pub struct Pico8<'w, 's> {
     commands: Commands<'w, 's>,
     background: Res<'w, Nano9Screen>,
     keys: Res<'w, ButtonInput<KeyCode>>,
+    sfx_channels: Res<'w, SfxChannels>,
+    audio_sinks: Query<'w, 's, Option<&'static mut AudioSink>>,
 }
-
-#[derive(Default, Clone, Copy)]
-pub struct SprArgs {
-    pos: Vec2,
-    size: Option<Vec2>,
-    flip_x: bool,
-    flip_y: bool,
-}
-
 
 #[derive(Clone, Copy)]
 enum SfxCommand {
@@ -98,15 +95,12 @@ impl Pico8<'_, '_> {
     }
 
     // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
-
     // XXX: Reconsider using args struct.
     // fn spr(&mut self, index: usize, pos: Option<Vec2>, size: Option<Vec2>, flip: Option<BVec2>) -> Result<Entity, Error> {
-    fn spr(&mut self, index: usize, args: Option<SprArgs>) -> Result<Entity, Error> {
-        let args = args.unwrap_or_default();
-        let x = args.pos.x;
-        let y = args.pos.y;
-        let flip_x = args.flip_x;
-        let flip_y = args.flip_y;
+    fn spr(&mut self, index: usize, pos: Vec2, size: Option<Vec2>, flip: Option<BVec2>) -> Result<Entity, Error> {
+        let x = pos.x;
+        let y = pos.y;
+        let flip = flip.unwrap_or_default();
         let sprite = {
             let atlas = TextureAtlas {
                 layout: self.state.layout.clone(),
@@ -115,11 +109,11 @@ impl Pico8<'_, '_> {
             Sprite {
                 image: self.state.sprites.clone(),
                 texture_atlas: Some(atlas),
-                rect: args.size.map(|v|
+                rect: size.map(|v|
                                     Rect { min: Vec2::ZERO,
                                            max: self.state.sprite_size.as_vec2() * v }),
-                flip_x,
-                flip_y,
+                flip_x: flip.x,
+                flip_y: flip.y,
                 ..default()
             }
         };
@@ -165,10 +159,10 @@ impl Pico8<'_, '_> {
         Ok(())
     }
 
-    fn pset(&mut self, x: u32, y: u32, color: Option<N9Color>) -> Result<(), Error> {
+    fn pset(&mut self, pos: UVec2, color: Option<N9Color>) -> Result<(), Error> {
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let image = self.images.get_mut(&self.background.0).ok_or(Error::NoAsset("background".into()))?;
-        image.set_color_at(x, y, c)?;
+        image.set_color_at(pos.x, pos.y, c)?;
         Ok(())
     }
 
@@ -377,23 +371,54 @@ impl Pico8<'_, '_> {
         Ok(pos.x + len * CHAR_WIDTH)
     }
 
+    // enum SfxChannel {
+    //     AnyAvailable,
+    //     Channel(u8),
+    // }
+
     // sfx( n, [channel,] [offset,] [length] )
-    fn sfx(&mut self, n: impl Into<SfxCommand>, _channel: Option<u8>, _offset: Option<u8>, _length: Option<u8>) -> Result<(), Error> {
+    fn sfx(&mut self, n: impl Into<SfxCommand>, channel: Option<u8>, _offset: Option<u8>, _length: Option<u8>) -> Result<(), Error> {
         let n = n.into();
         match n {
             SfxCommand::Release => {
                 todo!("release loop for channel");
             },
             SfxCommand::Stop => {
+                if let Some(chan) = channel {
+                    if let Some(id) = self.sfx_channels.get(chan as usize) {
+                        if let Some(sink) = self.audio_sinks.get_mut(*id).map_err(|_| Error::NoChannel(chan))? {
+                            sink.stop();
+                        }
+                    } else {
+                        Err(Error::NoChannel(chan))?;
+                    }
+                } else {
+
+                }
                 todo!("stop playing channel");
             }
             SfxCommand::Play(n) => {
                 let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get(cart)).expect("cart");
                 let sfx = cart.sfx.get(n as usize).ok_or(Error::NoAsset(format!("sfx {n}").into()))?;
 
-                self.commands.spawn((Name::new("sfx"),
-                                    AudioPlayer(sfx.clone()),
-                                    PlaybackSettings::DESPAWN));
+                if let Some(chan) = channel {
+                    if let Some(id) = self.sfx_channels.get(chan as usize) {
+                        self.commands.entity(*id).insert((AudioPlayer(sfx.clone()),
+                                                          PlaybackSettings::REMOVE));
+                    } else {
+                        Err(Error::NoChannel(chan))?;
+                    }
+                } else {
+                    if let Some((_sink, id)) = self.audio_sinks
+                                                   .iter_many(self.sfx_channels.iter())
+                                                   .zip(self.sfx_channels.iter())
+                                                   .find(|(sink, _id)| sink.map(|s| s.is_paused() || s.empty()).unwrap_or(true)) {
+                        self.commands.entity(*id).insert((AudioPlayer(sfx.clone()),
+                                                          PlaybackSettings::REMOVE));
+                    } else {
+                        Err(Error::ChannelsBusy)?;
+                    }
+                }
             }
         }
         Ok(())
@@ -528,9 +553,9 @@ impl APIProvider for Pico8API {
 
             fn pset(ctx, (x, y, color): (u32, u32, Option<N9Color>)) {
                 with_pico8(ctx, |pico8| {
-                    // We want to ignore out of bounds errors specifically.
+                    // We want to ignore out of bounds errors specifically but possibly not others.
                     // Ok(pico8.pset(x, y, color)?)
-                    let _ = pico8.pset(x, y, color);
+                    let _ = pico8.pset(UVec2::new(x, y), color);
                     Ok(())
                 })
             }
@@ -559,25 +584,18 @@ impl APIProvider for Pico8API {
             // Sprite uses N9Entity, which is perhaps more general and dynamic.
             fn spr(ctx, (mut args): LuaMultiValue) {
                 let n = args.pop_front().and_then(|v| v.as_usize()).expect("sprite id");
-                let spr_args_maybe = if !args.is_empty() {
-                    let x = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
-                    let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
-                    let w = args.pop_front().and_then(|v| v.to_f32());
-                    let h = args.pop_front().and_then(|v| v.to_f32());
-                    let flip_x = args.pop_front().and_then(|v| v.as_boolean()).unwrap_or(false);
-                    let flip_y = args.pop_front().and_then(|v| v.as_boolean()).unwrap_or(false);
-                    Some(SprArgs {
-                        pos: Vec2::new(x, y),
-                        flip_x,
-                        flip_y,
-                        size: w.or(h).is_some().then(|| Vec2::new(w.unwrap_or(1.0), h.unwrap_or(1.0))),
-                    })
-                } else {
-                    None
-                };
+                let x = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
+                let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
+                let w = args.pop_front().and_then(|v| v.to_f32());
+                let h = args.pop_front().and_then(|v| v.to_f32());
+                let flip_x = args.pop_front().and_then(|v| v.as_boolean());
+                let flip_y = args.pop_front().and_then(|v| v.as_boolean());
+                let pos = Vec2::new(x, y);
+                let flip = (flip_x.is_some() || flip_y.is_some()).then(|| BVec2::new(flip_x.unwrap_or(false),flip_y.unwrap_or(false)));
+                let size = w.or(h).is_some().then(|| Vec2::new(w.unwrap_or(1.0), h.unwrap_or(1.0)));
 
                 // We get back an entity. Not doing anything with it here yet.
-                let _id = with_pico8(ctx, move |pico8| pico8.spr(n, spr_args_maybe))?;
+                let _id = with_pico8(ctx, move |pico8| pico8.spr(n, pos, size, flip))?;
                 Ok(())
             }
 
