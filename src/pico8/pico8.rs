@@ -372,7 +372,8 @@ impl Pico8<'_, '_> {
     }
 
     // enum SfxChannel {
-    //     AnyAvailable,
+    //     Any,
+    //     All,
     //     Channel(u8),
     // }
 
@@ -393,9 +394,11 @@ impl Pico8<'_, '_> {
                         Err(Error::NoChannel(chan))?;
                     }
                 } else {
-
+                    // Stop all channels.
+                    for id in self.sfx_channels.iter() {
+                        self.commands.queue(StopChannel(*id));
+                    }
                 }
-                todo!("stop playing channel");
             }
             SfxCommand::Play(n) => {
                 let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get(cart)).expect("cart");
@@ -422,6 +425,16 @@ impl Pico8<'_, '_> {
             }
         }
         Ok(())
+    }
+}
+
+struct StopChannel(Entity);
+
+impl Command for StopChannel {
+    fn apply(self, world: &mut World) {
+        if let Some(ref mut sink) = world.get_mut::<AudioSink>(self.0) {
+            sink.stop();
+        }
     }
 }
 

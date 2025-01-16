@@ -8,8 +8,7 @@ use bevy::{
 };
 use crate::pico8::cart::{to_byte, to_nybble};
 use dasp::{signal::{self, Phase, Step}, Signal};
-use std::borrow::Cow;
-use std::f32;
+use std::{borrow::Cow, f32, sync::atomic::AtomicBool};
 
 const SAMPLE_RATE: u32 = 22_050;
 
@@ -53,6 +52,9 @@ where
 
 #[derive(Resource, Debug, Reflect, Deref)]
 pub struct SfxChannels(pub Vec<Entity>);
+
+#[derive(Component, Debug, Reflect)]
+pub struct SfxLoop { release: AtomicBool }
 
 impl From<WaveForm> for u8 {
     fn from(wave: WaveForm) -> u8 {
@@ -301,7 +303,6 @@ impl Sfx {
         self.loop_end = loop_end;
         self
     }
-
 }
 
 impl SfxDecoder {
@@ -421,7 +422,7 @@ impl Decodable for Sfx {
 
     fn decoder(&self) -> Self::Decoder {
         let sample_rate = SAMPLE_RATE;
-        let duration = Some(Duration::from_secs_f32(self.notes.len() as f32 * 183.0 / sample_rate as f32));
+        let duration = None; //Some(Duration::from_secs_f32(self.notes.len() as f32 * 183.0 / sample_rate as f32));
         SfxDecoder::new(
             sample_rate,
             self.speed,
