@@ -8,7 +8,7 @@ use bevy::{
 };
 use crate::pico8::cart::{to_byte, to_nybble};
 use dasp::{signal::{self, Phase, Step}, Signal};
-use std::{borrow::Cow, f32, sync::atomic::AtomicBool};
+use std::{borrow::Cow, f32, sync::{Arc, atomic::{Ordering, AtomicBool}}};
 
 const SAMPLE_RATE: u32 = 22_050;
 
@@ -279,8 +279,13 @@ impl Note for Pico8Note {
 pub struct Sfx {
     pub notes: Vec<Pico8Note>,
     pub speed: u8,
-    pub loop_start: Option<u8>,
-    pub loop_end: Option<u8>,
+    pub loop_maybe: Option<Loop>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Loop {
+    Unstoppable { start: Option<u8>, end: Option<u8> },
+    Stoppable { start: Option<u8>, end: Option<u8>, release: Arc<AtomicBool> }
 }
 
 impl Sfx {
@@ -288,8 +293,7 @@ impl Sfx {
         Sfx {
             notes: notes.into_iter().collect(),
             speed: 16,
-            loop_start: None,
-            loop_end: None,
+            loop_maybe: None,
         }
     }
 
@@ -299,29 +303,81 @@ impl Sfx {
     }
 
     pub fn with_loop(mut self, loop_start: Option<u8>, loop_end: Option<u8>) -> Self {
-        self.loop_start = loop_start;
-        self.loop_end = loop_end;
+        self.loop_maybe = Some(Loop::Unstoppable { start: loop_start, end: loop_end });
         self
+    }
+
+    pub fn get_stoppable_handle(handle: Handle<Sfx>, world: &mut World) -> (Handle<Sfx>, Option<Arc<AtomicBool>>) {
+        let mut sfxs = world.resource_mut::<Assets<Sfx>>();
+        let mut new_sfx = None;
+        let mut new_release = None;
+        if let Some(sfx) = sfxs.get(&handle) {
+            if let Some(ref loop_maybe) = sfx.loop_maybe {
+                match loop_maybe {
+                    &Loop::Unstoppable { start, end } => {
+                        let mut sfx_stoppable = sfx.clone();
+                        let release = Arc::new(AtomicBool::new(false));
+                        new_release = Some(release.clone());
+                        sfx_stoppable.loop_maybe = Some(Loop::Stoppable { start, end, release });
+                        new_sfx = Some(sfx_stoppable);
+                    }
+                    Loop::Stoppable { release, .. } => {
+                        release.store(false, Ordering::Relaxed);
+                        new_release = Some(release.clone());
+                    }
+                }
+            }
+        }
+        if let Some(new_sfx) = new_sfx {
+            (sfxs.add(new_sfx), new_release)
+        } else {
+            (handle, new_release)
+        }
     }
 }
 
-impl SfxDecoder {
-    pub fn new(sample_rate: u32, speed: u8, duration: Option<Duration>, notes: Vec<Pico8Note>) -> Self {
-        Self {
-            sample_rate,
-            speed,
-            duration,
-            notes: notes.into_iter(),
-            samples: None,
+pub struct NoteIter {
+    sfx: Sfx,
+    index: usize,
+}
+
+impl Iterator for NoteIter {
+    type Item = Pico8Note;
+    fn next(&mut self) -> Option<Pico8Note> {
+        let result = self.sfx.notes.get(self.index).copied();
+        if let Some(ref loop_maybe) = self.sfx.loop_maybe {
+            match loop_maybe {
+                Loop::Unstoppable { .. } => { panic!("Cannot stop a unstoppable sfx."); }
+                Loop::Stoppable { start, end, release } => 'block: {
+                    if let Some(end) = end {
+                        if *end as usize == self.index && !release.load(Ordering::Relaxed) {
+                            self.index = start.unwrap_or(0) as usize;
+                            break 'block;
+                        }
+                    }
+                    self.index += 1;
+                }
+            }
+        } else {
+            self.index += 1;
+        }
+        result
+    }
+}
+
+impl From<Sfx> for NoteIter {
+    fn from(sfx: Sfx) -> Self {
+        NoteIter {
+            index: sfx.loop_maybe.as_ref().and_then(|l| match *l {
+                Loop::Unstoppable { start, .. } | Loop::Stoppable { start, .. } => start
+            }).unwrap_or(0) as usize,
+            sfx,
         }
     }
 }
 
 pub struct SfxDecoder {
-    sample_rate: u32,
-    speed: u8,
-    duration: Option<Duration>,
-    notes: std::vec::IntoIter<Pico8Note>,
+    sfx_notes: NoteIter,
     samples: Option<Box<dyn Iterator<Item = f32> + Sync + Send + 'static>>,
 }
 
@@ -338,12 +394,12 @@ impl Iterator for SfxDecoder {
         }
         if self.samples.is_none() {
             self.samples =
-            self.notes.next().map(|note| {
+            self.sfx_notes.next().map(|note| {
                 // midi pitch to frequency equation.
                 // https://www.music.mcgill.ca/~gary/307/week1/node28.html
                 let freq = 440.0 * f32::exp2((note.pitch() as i8 - 69) as f32/12.0);
-                let hz = signal::rate(self.sample_rate as f64).const_hz(freq as f64);
-                let duration = (self.speed as f32 / 120.0) * self.sample_rate as f32;
+                let hz = signal::rate(SAMPLE_RATE as f64).const_hz(freq as f64);
+                let duration = (self.sfx_notes.sfx.speed as f32 / 120.0) * SAMPLE_RATE as f32;
                 let volume: f32 = note.volume();
                 match note.wave() {
                     WaveForm::Triangle => {
@@ -407,11 +463,11 @@ impl Source for SfxDecoder {
     }
 
     fn sample_rate(&self) -> u32 {
-        self.sample_rate
+        SAMPLE_RATE
     }
 
     fn total_duration(&self) -> Option<Duration> {
-        self.duration
+        None
     }
 }
 
@@ -421,14 +477,10 @@ impl Decodable for Sfx {
     type Decoder = SfxDecoder;
 
     fn decoder(&self) -> Self::Decoder {
-        let sample_rate = SAMPLE_RATE;
-        let duration = None; //Some(Duration::from_secs_f32(self.notes.len() as f32 * 183.0 / sample_rate as f32));
-        SfxDecoder::new(
-            sample_rate,
-            self.speed,
-            duration,
-            self.notes.clone(),
-        )
+        SfxDecoder {
+            sfx_notes: self.clone().into(),
+            samples: None,
+        }
     }
 }
 

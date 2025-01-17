@@ -13,12 +13,12 @@ use bevy_mod_scripting::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::{
-    pico8::{LoadCart, Cart, Clearable, ClearEvent, audio::SfxChannels},
+    pico8::{LoadCart, Cart, Clearable, ClearEvent, audio::{Sfx, SfxChannels}},
     api::N9Args, N9Color, Nano9Screen, ValueExt, DrawState,
 };
 
 use std::{
-    sync::Mutex,
+    sync::{Arc, atomic::{AtomicBool, Ordering}, Mutex},
     borrow::Cow,
 };
 
@@ -371,56 +371,35 @@ impl Pico8<'_, '_> {
         Ok(pos.x + len * CHAR_WIDTH)
     }
 
-    // enum SfxChannel {
-    //     Any,
-    //     All,
-    //     Channel(u8),
-    // }
-
     // sfx( n, [channel,] [offset,] [length] )
     fn sfx(&mut self, n: impl Into<SfxCommand>, channel: Option<u8>, _offset: Option<u8>, _length: Option<u8>) -> Result<(), Error> {
         let n = n.into();
         match n {
             SfxCommand::Release => {
-                todo!("release loop for channel");
+                if let Some(chan) = channel {
+                    let chan = self.sfx_channels[chan as usize];
+                    self.commands.queue(AudioCommand::Release(SfxDest::Channel(chan)));
+                } else {
+                    self.commands.queue(AudioCommand::Release(SfxDest::Any));
+                }
             },
             SfxCommand::Stop => {
                 if let Some(chan) = channel {
-                    if let Some(id) = self.sfx_channels.get(chan as usize) {
-                        if let Some(sink) = self.audio_sinks.get_mut(*id).map_err(|_| Error::NoChannel(chan))? {
-                            sink.stop();
-                        }
-                    } else {
-                        Err(Error::NoChannel(chan))?;
-                    }
+                    let chan = self.sfx_channels[chan as usize];
+                    self.commands.queue(AudioCommand::Stop(SfxDest::Channel(chan)));
                 } else {
-                    // Stop all channels.
-                    for id in self.sfx_channels.iter() {
-                        self.commands.queue(StopChannel(*id));
-                    }
+                    self.commands.queue(AudioCommand::Stop(SfxDest::All));
                 }
             }
             SfxCommand::Play(n) => {
                 let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get(cart)).expect("cart");
-                let sfx = cart.sfx.get(n as usize).ok_or(Error::NoAsset(format!("sfx {n}").into()))?;
+                let sfx = cart.sfx.get(n as usize).ok_or(Error::NoAsset(format!("sfx {n}").into()))?.clone();
 
                 if let Some(chan) = channel {
-                    if let Some(id) = self.sfx_channels.get(chan as usize) {
-                        self.commands.entity(*id).insert((AudioPlayer(sfx.clone()),
-                                                          PlaybackSettings::REMOVE));
-                    } else {
-                        Err(Error::NoChannel(chan))?;
-                    }
+                    let chan = self.sfx_channels[chan as usize];
+                    self.commands.queue(AudioCommand::Play(sfx, SfxDest::Channel(chan)));
                 } else {
-                    if let Some((_sink, id)) = self.audio_sinks
-                                                   .iter_many(self.sfx_channels.iter())
-                                                   .zip(self.sfx_channels.iter())
-                                                   .find(|(sink, _id)| sink.map(|s| s.is_paused() || s.empty()).unwrap_or(true)) {
-                        self.commands.entity(*id).insert((AudioPlayer(sfx.clone()),
-                                                          PlaybackSettings::REMOVE));
-                    } else {
-                        Err(Error::ChannelsBusy)?;
-                    }
+                    self.commands.queue(AudioCommand::Play(sfx, SfxDest::Any));
                 }
             }
         }
@@ -428,12 +407,87 @@ impl Pico8<'_, '_> {
     }
 }
 
-struct StopChannel(Entity);
 
-impl Command for StopChannel {
+enum SfxDest {
+    Any,
+    All,
+    Channel(Entity),
+}
+
+enum AudioCommand {
+    Stop(SfxDest),
+    Play(Handle<Sfx>, SfxDest),
+    Release(SfxDest),
+}
+
+#[derive(Component)]
+struct SfxRelease(Arc<AtomicBool>);
+
+impl Command for AudioCommand {
     fn apply(self, world: &mut World) {
-        if let Some(ref mut sink) = world.get_mut::<AudioSink>(self.0) {
-            sink.stop();
+        match self {
+            AudioCommand::Stop(sfx_channel) => {
+                match sfx_channel {
+                    SfxDest::All => {
+                        // TODO: Consider using smallvec for channels.
+                        let channels: Vec<Entity> = (*world.resource::<SfxChannels>()).clone();
+                        for chan in channels {
+                            if let Some(ref mut sink) = world.get_mut::<AudioSink>(chan) {
+                                sink.stop();
+                            }
+                        }
+                    }
+                    SfxDest::Channel(chan) => {
+                        if let Some(ref mut sink) = world.get_mut::<AudioSink>(chan) {
+                            sink.stop();
+                        }
+                    }
+                    SfxDest::Any => {
+                        warn!("Cannot stop 'any' channels.");
+                    }
+                }
+            }
+            AudioCommand::Release(sfx_channel) => {
+                match sfx_channel {
+                    SfxDest::Channel(channel) => {
+                        if let Some(sfx_release) = world.get::<SfxRelease>(channel) {
+                            sfx_release.0.store(true, Ordering::Relaxed);
+                        } else {
+                            warn!("Released a channel that did not have a sfx loop.");
+                        }
+                    }
+                    SfxDest::Any => { }
+                    SfxDest::All => { }
+                }
+            }
+            AudioCommand::Play(sfx, sfx_channel) => {
+                match sfx_channel {
+                    SfxDest::Any => {
+                        if let Some(available_channel) = world.resource::<SfxChannels>().iter().find(|id| world.get::<AudioSink>(**id).map(|s| s.is_paused() || s.empty()).unwrap_or(true)).copied() {
+                            let (sfx, release) = Sfx::get_stoppable_handle(sfx, world);
+                            let mut commands = world.commands();
+                            if let Some(release) = release {
+                                commands.entity(available_channel).insert(SfxRelease(release));
+                            }
+                            commands.entity(available_channel).insert((AudioPlayer(sfx),
+                                                                       PlaybackSettings::REMOVE));
+
+                        } else {
+
+                            warn!("Channels busy.");
+                            // Err(Error::ChannelsBusy)?;
+                        }
+                    }
+                    SfxDest::Channel(chan) => {
+                        let mut commands = world.commands();
+                        commands.entity(chan).insert((AudioPlayer(sfx.clone()),
+                                                      PlaybackSettings::REMOVE));
+                    }
+                    SfxDest::All => {
+                        warn!("Cannot play on all channels.");
+                    }
+                }
+            }
         }
     }
 }
