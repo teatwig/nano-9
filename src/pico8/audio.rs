@@ -7,21 +7,21 @@ use bevy::{
     utils::Duration,
 };
 use crate::pico8::cart::{to_byte, to_nybble};
-use dasp::{signal::{self, Phase, Step}, Signal};
+use dasp::{signal::{self, Phase, Step, noise, Noise}, Signal};
 use std::{borrow::Cow, f32, sync::{Arc, atomic::{Ordering, AtomicBool}}};
 
 const SAMPLE_RATE: u32 = 22_050;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WaveForm {
-    // Sine,
     Triangle,
-    Sawtooth,
-    LongSquare,
-    ShortSquare,
-    Ringing,
+    TiltedSaw,
+    Saw,
+    Square,
+    Pulse,
+    Organ,
     Noise,
-    RingingSine,
+    Phaser,
     Custom(u8)
 }
 
@@ -50,6 +50,131 @@ where
     }
 }
 
+const DEFAULT_KNEE: f64 = 0.9;
+
+pub struct TiltedSaw<S> {
+    /// Where the saw turns downward. If `knee` is 1, it degrades into [Saw].
+    knee: f64,
+    phase: Phase<S>,
+}
+
+impl<S> Signal for TiltedSaw<S>
+where
+    S: Step,
+{
+    type Frame = f64;
+
+    /// Make a triangle wave that starts and ends at zero.
+    #[inline]
+    fn next(&mut self) -> Self::Frame {
+        let phase = self.phase.next_phase();
+
+        if phase < self.knee {
+            2.0 * phase / self.knee - 1.0
+        } else {
+            (-2.0 * phase + self.knee + 1.0) / (1.0 - self.knee)
+        }
+    }
+}
+
+pub struct Saw<S> {
+    phase: Phase<S>,
+}
+
+impl<S> Signal for Saw<S>
+where
+    S: Step,
+{
+    type Frame = f64;
+
+    /// Make a triangle wave that starts and ends at zero.
+    #[inline]
+    fn next(&mut self) -> Self::Frame {
+
+        let phase = self.phase.next_phase();
+        phase * 2.0 - 1.0
+    }
+}
+
+const MINOR_HEIGHT: f64 = 1.1;
+
+pub struct Organ<S> {
+    phase: Phase<S>,
+    minor_height: f64,
+}
+
+impl<S> Signal for Organ<S>
+where
+    S: Step,
+{
+    type Frame = f64;
+
+    /// Make a triangle wave that starts and ends at zero.
+    #[inline]
+    fn next(&mut self) -> Self::Frame {
+        let phase = self.phase.next_phase();
+        if phase < 0.25 {
+            8.0 * phase - 1.0
+        } else if phase < 0.5 {
+            3.0 - 8.0 * phase
+        } else if phase < 0.75 {
+            self.minor_height * (4.0 * phase - 2.0) - 1.0
+        } else {
+            self.minor_height * (4.0 - 4.0 * phase) - 1.0
+        }
+    }
+}
+
+const PULSE_WIDTH: f64 = 0.375;
+
+pub struct Pulse<S> {
+    phase: Phase<S>,
+    width: f64,
+}
+
+impl<S> Signal for Pulse<S>
+where
+    S: Step,
+{
+    type Frame = f64;
+
+    #[inline]
+    fn next(&mut self) -> Self::Frame {
+        let phase = self.phase.next_phase();
+        if phase < self.width {
+            1.0
+        } else {
+            -1.0
+        }
+    }
+}
+
+const DRUNK_PACE: f64 = 0.1;
+
+pub struct DrunkNoise {
+    noise: Noise,
+    pace: f64,
+    current: f64,
+}
+
+impl Signal for DrunkNoise
+{
+    type Frame = f64;
+
+    #[inline]
+    fn next(&mut self) -> Self::Frame {
+        let step = self.pace * self.noise.next();
+        self.current += step;
+        if self.current > 1.0 {
+            self.current -= 2.0 * step.abs();
+        } else if self.current < -1.0 {
+            self.current += 2.0 * step.abs();
+        }
+        self.current
+    }
+}
+
+
 #[derive(Resource, Debug, Reflect, Deref)]
 pub struct SfxChannels(pub Vec<Entity>);
 
@@ -60,14 +185,14 @@ impl From<WaveForm> for u8 {
     fn from(wave: WaveForm) -> u8 {
         use WaveForm::*;
         match wave {
-            // Sine => 0,
             Triangle => 0,
-            Sawtooth => 1,
-            LongSquare => 2,
-            ShortSquare => 3,
-            Ringing => 4,
-            Noise => 5,
-            RingingSine => 6,
+            TiltedSaw => 1,
+            Saw => 2,
+            Square => 3,
+            Pulse => 4,
+            Organ => 5,
+            Noise => 6,
+            Phaser => 7,
             Custom(x) => x + 7
         }
     }
@@ -80,12 +205,13 @@ impl TryFrom<u8> for WaveForm {
         match value {
             // 0 => Sine,
             0 => Ok(Triangle),
-            1 => Ok(Sawtooth),
-            2 => Ok(LongSquare),
-            3 => Ok(ShortSquare),
-            4 => Ok(Ringing),
-            5 => Ok(Noise),
-            6 => Ok(RingingSine),
+            1 => Ok(TiltedSaw),
+            2 => Ok(Saw),
+            3 => Ok(Square),
+            4 => Ok(Pulse),
+            5 => Ok(Organ),
+            6 => Ok(Noise),
+            7 => Ok(Phaser),
             x if x <= 0xf => Ok(Custom(x - 7)),
             y => Err(SfxError::InvalidWaveForm(y)),
         }
@@ -251,7 +377,7 @@ impl Default for Pico8Note {
     }
 }
 
-const PITCH_OFFSET: u8 = 24;
+const PITCH_OFFSET: u8 = 35;
 
 impl Note for Pico8Note {
     fn pitch(&self) -> u8 {
@@ -400,6 +526,7 @@ impl Iterator for SfxDecoder {
                 // midi pitch to frequency equation.
                 // https://www.music.mcgill.ca/~gary/307/week1/node28.html
                 let freq = 440.0 * f32::exp2((note.pitch() as i8 - 69) as f32/12.0);
+                // dbg!(note.pitch(), freq);
                 let hz = signal::rate(SAMPLE_RATE as f64).const_hz(freq as f64);
                 let duration = (self.sfx_notes.sfx.speed as f32 / 120.0) * SAMPLE_RATE as f32;
                 let volume: f32 = note.volume();
@@ -410,36 +537,51 @@ impl Iterator for SfxDecoder {
                             .scale_amp(volume);
                         Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
-                    WaveForm::Sawtooth => {
-                        let synth = hz
-                            .saw()
+                    WaveForm::TiltedSaw => {
+                        let synth = TiltedSaw { phase: hz.phase(),
+                                                knee: DEFAULT_KNEE }
                             .map(|x| x as f32)
                             .scale_amp(volume);
                         Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
-
-                    WaveForm::LongSquare | WaveForm::ShortSquare => {
+                    WaveForm::Saw => {
+                        let synth = Saw { phase: hz.phase() }
+                            .map(|x| x as f32)
+                            .scale_amp(volume);
+                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                    }
+                    WaveForm::Square => {
+                        // let synth = TiltedSaw { phase: hz.phase(),
+                        //                         knee: DEFAULT_KNEE }
                         let synth = hz
                             .square()
                             .map(|x| x as f32)
                             .scale_amp(volume);
                         Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
-                    WaveForm::Ringing => {
-                        let synth = hz
-                            .sine()
+                    WaveForm::Pulse => {
+                        let synth = Pulse { phase: hz.phase(), width: PULSE_WIDTH }
+                            .map(|x| x as f32)
+                            .scale_amp(volume);
+                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                    }
+                    WaveForm::Organ => {
+                        let synth = Organ { phase: hz.phase(), minor_height: MINOR_HEIGHT }
                             .map(|x| x as f32)
                             .scale_amp(volume);
                         Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
                     WaveForm::Noise => {
-                        let synth = hz
-                            .noise_simplex()
+                        let synth = DrunkNoise {
+                            noise: noise(0),
+                            pace: DRUNK_PACE,
+                            current: 0.0
+                        }
                             .map(|x| x as f32)
                             .scale_amp(volume);
                         Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
-                    WaveForm::RingingSine => {
+                    WaveForm::Phaser => {
                         let synth = hz
                             .sine()
                             .map(|x| x as f32)
@@ -602,17 +744,17 @@ mod test {
         assert_eq!(volumes, vec![
     Triangle,
     Triangle,
-    Sawtooth,
+    TiltedSaw,
     Triangle,
-    LongSquare,
+    Saw,
     Triangle,
-    ShortSquare,
+    Square,
     Triangle,
-    Ringing,
+    Pulse,
     Triangle,
     Noise,
     Triangle,
-    RingingSine,
+    Phaser,
     Triangle,
             Custom(0),
         ]);
