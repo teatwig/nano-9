@@ -303,7 +303,9 @@ impl Sfx {
     }
 
     pub fn with_loop(mut self, loop_start: Option<u8>, loop_end: Option<u8>) -> Self {
-        self.loop_maybe = Some(Loop::Unstoppable { start: loop_start, end: loop_end });
+        if loop_start.is_some() || loop_end.is_some() {
+            self.loop_maybe = Some(Loop::Unstoppable { start: loop_start, end: loop_end });
+        }
         self
     }
 

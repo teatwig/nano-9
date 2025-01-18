@@ -74,7 +74,7 @@ pub struct Pico8<'w, 's> {
     audio_sinks: Query<'w, 's, Option<&'static mut AudioSink>>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 enum SfxCommand {
     Play(u8),
     Release,
@@ -374,7 +374,7 @@ impl Pico8<'_, '_> {
     // sfx( n, [channel,] [offset,] [length] )
     fn sfx(&mut self, n: impl Into<SfxCommand>, channel: Option<u8>, _offset: Option<u8>, _length: Option<u8>) -> Result<(), Error> {
         let n = n.into();
-        match n {
+        match dbg!(n) {
             SfxCommand::Release => {
                 if let Some(chan) = channel {
                     let chan = self.sfx_channels[chan as usize];
@@ -473,7 +473,6 @@ impl Command for AudioCommand {
                                                                        PlaybackSettings::REMOVE));
 
                         } else {
-
                             warn!("Channels busy.");
                             // Err(Error::ChannelsBusy)?;
                         }
