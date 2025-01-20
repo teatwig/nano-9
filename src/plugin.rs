@@ -14,14 +14,12 @@ use bevy::{
 };
 use std::sync::{Arc, Mutex};
 
-use bevy_mod_scripting::{core::event::ScriptLoaded, prelude::*};
+use bevy_mod_scripting::{core::{callback_labels, bindings::script_value::ScriptValue, event::{ScriptCallbackEvent, OnScriptLoaded}}};
 
-use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::Variadic;
-// use bevy_pixel_buffer::prelude::*;
 use crate::{
-    api::{N9Arg, N9Args},
     error::ErrorState,
-    screens, DropPolicy, N9Camera, N9Sprite, N9Var,
+    screens, DropPolicy, //N9Camera, N9Sprite,
+    N9Var, N9Entity,
 };
 
 #[derive(Component)]
@@ -87,56 +85,71 @@ pub fn setup_image(
     commands.insert_resource(Nano9Screen(handle.clone()));
 }
 
+pub mod call {
+    use super::*;
+callback_labels!(
+    SetGlobal => "_set_global",
+    Update => "_update",
+    Update60 => "_update60",
+    Init => "_init",
+    Draw => "_draw"); // TODO: Should permit trailing comma
+}
+
 pub fn set_background(
     screen: Query<Entity, With<Nano9Sprite>>,
-    mut events: PriorityEventWriter<LuaEvent<N9Args>>,
+    mut writer: EventWriter<ScriptCallbackEvent>,
 ) {
     if let Ok(id) = screen.get_single() {
-        events.send(
-            LuaEvent {
-                hook_name: "_set_global".to_owned(),
-                args: {
-                    let mut args = Variadic::new();
-                    args.push(N9Arg::String("background".into()));
-                    args.push(N9Arg::Sprite(Arc::new(Mutex::new(N9Sprite {
-                        entity: id,
-                        drop: DropPolicy::Nothing,
-                    }))));
-                    // args.push(N9Arg::DropPolicy(DropPolicy::Nothing));
-                    // N9Arg::SetSprite {
-                    // name: "background".into(),
-                    // sprite: id,
-                    // drop: DropPolicy::Nothing,
-                    args
-                },
-                recipients: Recipients::All,
-            },
-            0,
-        );
+        writer.send(ScriptCallbackEvent::new_for_all(
+            call::SetGlobal,
+            vec![ScriptValue::String("background".into()),
+                 ScriptValue::Reference(Arc::new(Mutex::new(N9Entity { entity: id,
+                                                          drop: DropPolicy::Nothing })))]));
+        // events.send(
+        //     LuaEvent {
+        //         hook_name: "_set_global".to_owned(),
+        //         args: {
+        //             let mut args = Variadic::new();
+        //             args.push(N9Arg::String("background".into()));
+        //             args.push(N9Arg::Sprite(Arc::new(Mutex::new(N9Sprite {
+        //                 entity: id,
+        //                 drop: DropPolicy::Nothing,
+        //             }))));
+        //             // args.push(N9Arg::DropPolicy(DropPolicy::Nothing));
+        //             // N9Arg::SetSprite {
+        //             // name: "background".into(),
+        //             // sprite: id,
+        //             // drop: DropPolicy::Nothing,
+        //             args
+        //         },
+        //         recipients: Recipients::All,
+        //     },
+        //     0,
+        // );
     }
 }
 
-pub fn set_camera(
-    camera: Query<Entity, With<Camera>>,
-    mut events: PriorityEventWriter<LuaEvent<N9Args>>,
-) {
-    if let Ok(id) = camera.get_single() {
-        events.send(
-            LuaEvent {
-                hook_name: "_set_global".to_owned(),
-                args: {
-                    let mut args = Variadic::new();
-                    args.push(N9Arg::String("camera".into()));
-                    // args.push(N9Arg::Entity(id));
-                    args.push(N9Arg::Camera(N9Camera(id)));
-                    args
-                },
-                recipients: Recipients::All,
-            },
-            0,
-        )
-    }
-}
+// pub fn set_camera(
+//     camera: Query<Entity, With<Camera>>,
+//     mut events: PriorityEventWriter<LuaEvent<N9Args>>,
+// ) {
+//     if let Ok(id) = camera.get_single() {
+//         events.send(
+//             LuaEvent {
+//                 hook_name: "_set_global".to_owned(),
+//                 args: {
+//                     let mut args = Variadic::new();
+//                     args.push(N9Arg::String("camera".into()));
+//                     // args.push(N9Arg::Entity(id));
+//                     args.push(N9Arg::Camera(N9Camera(id)));
+//                     args
+//                 },
+//                 recipients: Recipients::All,
+//             },
+//             0,
+//         )
+//     }
+// }
 
 fn spawn_camera(mut commands: Commands, settings: Res<N9Settings>, screen: Res<Nano9Screen>) {
     let mut projection = OrthographicProjection::default_2d();
@@ -240,61 +253,63 @@ pub fn sync_window_size(
 }
 
 /// Sends events allowing scripts to drive update logic
-pub fn send_update(mut events: PriorityEventWriter<LuaEvent<N9Args>>,
+pub fn send_update(
+                   mut writer: EventWriter<ScriptCallbackEvent>,
                    frame_count: Res<bevy::core::FrameCount>) {
     if frame_count.0 % 2 == 0 {
-    events.send(
-        LuaEvent {
-            hook_name: "_update".to_owned(),
-            args: N9Args::new(),
-            recipients: Recipients::All,
-        },
-        1,
-    )
+
+        writer.send(ScriptCallbackEvent::new_for_all(
+            call::Update,
+            vec![ScriptValue::Unit]));
+    // events.send(
+    //     LuaEvent {
+    //         hook_name: "_update".to_owned(),
+    //         args: N9Args::new(),
+    //         recipients: Recipients::All,
+    //     },
+    //     1,
+    // )
     }
 }
 
-pub fn send_update60(mut events: PriorityEventWriter<LuaEvent<N9Args>>) {
-    events.send(
-        LuaEvent {
-            hook_name: "_update60".to_owned(),
-            args: N9Args::new(),
-            recipients: Recipients::All,
-        },
-        1,
-    )
+pub fn send_update60(
+    mut writer: EventWriter<ScriptCallbackEvent>,
+) {
+        writer.send(ScriptCallbackEvent::new_for_all(
+            call::Update60,
+            vec![ScriptValue::Unit]));
 }
 
 /// Sends initialization event
 pub fn send_init(
-    mut loaded: EventReader<ScriptLoaded>,
-    mut events: PriorityEventWriter<LuaEvent<N9Args>>,
+    mut writer: EventWriter<ScriptCallbackEvent>,
+    // mut loaded: EventReader<OnScriptLoaded>,
 ) {
-    for e in loaded.read() {
-        eprintln!("init {}", e.sid);
-        events.send(
-            LuaEvent {
-                hook_name: "_init".to_owned(),
-                args: N9Args::new(),
-                recipients: Recipients::ScriptID(e.sid),
-            },
-            0,
-        )
-    }
+    todo!("PUT INIT ELSEWHERE like Lua's on_script_loaded()");
+    // for e in loaded.read() {
+    //     eprintln!("init {}", e.sid);
+    //     writer.send(ScriptCallbackEvent::new_for_all(
+    //         call::Init,
+    //         vec![ScriptValue::Unit]));
+    //     // events.send(
+    //     //     LuaEvent {
+    //     //         hook_name: "_init".to_owned(),
+    //     //         args: N9Args::new(),
+    //     //         recipients: Recipients::ScriptID(e.sid),
+    //     //     },
+    //     //     0,
+    //     // )
+    // }
 }
 
 /// Sends draw event
-pub fn send_draw(mut events: PriorityEventWriter<LuaEvent<N9Args>>) {
-    events.send(
-        LuaEvent {
-            hook_name: "_draw".to_owned(),
-            args: N9Args::new(),
-            recipients: Recipients::All,
-        },
-        0,
-    )
+pub fn send_draw(
+    mut writer: EventWriter<ScriptCallbackEvent>,
+) {
+    writer.send(ScriptCallbackEvent::new_for_all(
+        call::Draw,
+        vec![ScriptValue::Unit]));
 }
-
 const UPDATE_FREQUENCY: f32 = 1.0 / 60.0;
 
 #[derive(Default)]
@@ -363,17 +378,18 @@ impl Plugin for Nano9Plugin {
         .add_plugins(crate::plugin)
         .add_plugins(bevy_ecs_tilemap::TilemapPlugin)
         // .add_systems(OnExit(screens::Screen::Loading), setup_image)
-        .add_systems(Startup, (setup_image, spawn_camera, set_camera).chain())
+        // .add_systems(Startup, (setup_image, spawn_camera, set_camera).chain())
+        .add_systems(Startup, (setup_image, spawn_camera).chain())
         // .add_systems(OnEnter(screens::Screen::Playing), send_init)
         // .add_systems(PreUpdate, send_init.run_if(on_asset_modified::<LuaFile>()))
-        .add_systems(PreUpdate, send_init.run_if(on_event::<ScriptLoaded>))
+        .add_systems(PreUpdate, send_init.run_if(on_event::<OnScriptLoaded>))
         // .add_systems(
         //     PreUpdate,
         //     (set_background, set_camera)
         //         .chain()
         //         ),
         // )
-        // .add_systems(PreUpdate, (send_init).chain().run_if(on_event::<ScriptLoaded>()))
+        // .add_systems(PreUpdate, (send_init).chain().run_if(on_event::<OnScriptLoaded>()))
         // .add_systems(Update, info_on_asset_event::<Image>())
         .add_systems(
             Update,

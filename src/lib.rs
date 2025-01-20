@@ -1,41 +1,41 @@
 #![allow(clippy::type_complexity)]
 use bevy::prelude::*;
-pub mod api;
+// pub mod api;
 mod assets;
-mod audio;
-mod camera;
+// mod audio;
+// mod camera;
 mod color;
 pub mod error;
 mod ext;
-mod image;
+// mod image;
 mod palette;
 // mod pixel;
 mod entity;
 #[cfg(feature = "level")]
 mod level;
 pub(crate) mod macros;
-mod nano9;
+// mod nano9;
 pub mod pico8;
 mod plugin;
 pub mod screens;
-mod sprite;
-mod text;
+// mod sprite;
+// mod text;
 mod var;
 pub mod minibuffer;
 
-pub use audio::*;
-pub use camera::*;
+// pub use audio::*;
+// pub use camera::*;
 pub use color::*;
 pub use entity::*;
 pub use ext::*;
-pub use image::*;
+// pub use image::*;
 #[cfg(feature = "level")]
 pub use level::*;
-pub use nano9::*;
+// pub use nano9::*;
 pub use palette::*;
 pub use plugin::*;
-pub use sprite::*;
-pub use text::*;
+// pub use sprite::*;
+// pub use text::*;
 pub use var::*;
 
 #[derive(Component, Default)]
@@ -69,11 +69,11 @@ pub(crate) fn plugin(app: &mut App) {
         screens::plugin,
         // theme::plugin,
         assets::plugin,
-        api::plugin,
-        sprite::plugin,
+        // api::plugin,
+        // sprite::plugin,
         palette::plugin,
         error::plugin,
-        text::plugin,
+        // text::plugin,
         var::plugin,
         // audio::plugin,
         // level::plugin,

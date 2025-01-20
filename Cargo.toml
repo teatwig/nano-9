@@ -5,16 +5,16 @@ edition = "2021"
 
 [dependencies]
 bevy = "0.15"
-bevy-inspector-egui = "0.28"
+# bevy-inspector-egui = "0.28"
 # bevy = { version = "0.13", default-features = false, features = [ "bevy_winit", "bevy_asset", "bevy_render" ] }
 # bevy_asset_loader = "0.21"
 bevy_ecs_ldtk = { version = "0.11", optional = true }
-bevy_mod_scripting = { version = "0.8.0", features = ["lua54", "lua_script_api", "unsafe_lua_modules"] }
+bevy_mod_scripting = { version = "0.9.0-alpha.6", features = ["lua54", "core_functions"] }
 bytemuck = "1.16.3"
 thiserror = "1.0.63"
 # bevy_pixel_buffer = "0.7.0"
 bevy_minibuffer = "0.3.0"
-bevy_minibuffer_inspector = "0.1.0"
+# bevy_minibuffer_inspector = "0.1.0"
 serde = "1.0.217"
 bevy_ecs_tilemap = "0.15.0"
 keyseq = { version = "0.5.0", features = ["bevy"] }

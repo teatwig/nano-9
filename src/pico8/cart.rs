@@ -7,7 +7,7 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
 };
-use bevy_mod_scripting::prelude::*;
+use bevy_mod_scripting::{core::{script::{Script, ScriptComponent}, asset::ScriptAsset}, lua::mlua::{prelude::LuaError}};
 use serde::{Deserialize, Serialize};
 use crate::{DrawState, pico8::{*, audio::*}};
 
@@ -47,7 +47,7 @@ pub struct CartParts {
 
 #[derive(Asset, TypePath, Debug)]
 pub struct Cart {
-    pub lua: Handle<LuaFile>,
+    pub lua: Handle<ScriptAsset>,
     pub sprites: Handle<Image>,
     pub map: Vec<u8>,
     pub flags: Vec<u8>,
@@ -102,7 +102,7 @@ fn load_cart(query: Query<(Entity, &LoadCart)>,
                 font: asset_server.load(PICO8_FONT),
             };
             commands.insert_resource(state);
-            commands.entity(id).insert(ScriptCollection::<LuaFile> {
+            commands.entity(id).insert(ScriptComponent::<ScriptAsset> {
                     scripts: vec![Script::new(
                         load_cart.0.path().map(|path| path.to_string()).unwrap_or_else(|| format!("cart {:?}", &load_cart.0)),
                         cart.lua.clone(),
@@ -301,10 +301,12 @@ impl AssetLoader for CartLoader {
         let content = String::from_utf8(bytes)?;
         let parts = CartParts::from_str(&content, settings)?;
         let code = parts.lua;
-        // cart.lua = Some(load_context.add_labeled_asset("lua".into(), LuaFile { bytes: code.into_bytes() }));
+        // cart.lua = Some(load_context.add_labeled_asset("lua".into(), ScriptAsset { bytes: code.into_bytes() }));
         let sprites = parts.sprites.unwrap_or_else(Image::default);
+        let code_path = load_context.path().into();
         Ok(Cart {
-            lua: load_context.labeled_asset_scope("lua".into(), move |_load_context| LuaFile { bytes: code.into_bytes() }),
+            lua: load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset { content: code.into_bytes().into_boxed_slice(),
+            asset_path: code_path }),
             sprites: load_context.labeled_asset_scope("sprites".into(), move |_load_context| sprites),
             map: parts.map,
             flags: parts.flags,

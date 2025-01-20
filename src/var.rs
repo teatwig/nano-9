@@ -1,7 +1,7 @@
-use crate::{api::*, *};
-use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{Variadic};
-use bevy_mod_scripting::{core::event::ScriptLoaded, prelude::*};
-use std::{borrow::Cow, sync::Arc};
+use bevy::prelude::*;
+use bevy_mod_scripting::{core::{bindings::script_value::ScriptValue, event::{ScriptCallbackEvent, OnScriptLoaded}}};
+use std::{borrow::Cow, sync::{Mutex, Arc}};
+use crate::{call, N9Entity, DropPolicy};
 
 #[derive(Component, Reflect)]
 pub struct N9Var(Cow<'static, str>);
@@ -9,7 +9,7 @@ pub struct N9Var(Cow<'static, str>);
 pub(crate) fn plugin(app: &mut App) {
     app.register_type::<N9Var>()
         .add_systems(PostStartup, set_vars)
-        .add_systems(PreUpdate, set_vars.run_if(on_event::<ScriptLoaded>));
+        .add_systems(PreUpdate, set_vars.run_if(on_event::<OnScriptLoaded>));
 }
 
 impl N9Var {
@@ -19,24 +19,32 @@ impl N9Var {
 }
 
 /// Sends initialization event
-fn set_vars(mut events: PriorityEventWriter<LuaEvent<N9Args>>, query: Query<(Entity, &N9Var)>) {
+fn set_vars(
+    mut writer: EventWriter<ScriptCallbackEvent>,
+            query: Query<(Entity, &N9Var)>) {
     for (id, var) in &query {
-        events.send(
-            LuaEvent {
-                hook_name: "_set_global".to_owned(),
-                args: {
-                    let mut args = Variadic::new();
-                    args.push(N9Arg::String(var.0.to_string()));
-                    // args.push(N9Arg::Entity(id));
-                    args.push(N9Arg::N9Entity(Arc::new(N9Entity {
-                        entity: id,
-                        drop: DropPolicy::Nothing,
-                    })));
-                    args
-                },
-                recipients: Recipients::All,
-            },
-            0,
-        );
+
+        writer.send(ScriptCallbackEvent::new_for_all(
+            call::SetGlobal,
+            vec![ScriptValue::String(var.0.to_string()),
+                 ScriptValue::Reference(Arc::new(Mutex::new(N9Entity { entity: id,
+                                                          drop: DropPolicy::Nothing })))]));
+        // events.send(
+        //     LuaEvent {
+        //         hook_name: "_set_global".to_owned(),
+        //         args: {
+        //             let mut args = Variadic::new();
+        //             args.push(N9Arg::String(var.0.to_string()));
+        //             // args.push(N9Arg::Entity(id));
+        //             args.push(N9Arg::N9Entity(Arc::new(N9Entity {
+        //                 entity: id,
+        //                 drop: DropPolicy::Nothing,
+        //             })));
+        //             args
+        //         },
+        //         recipients: Recipients::All,
+        //     },
+        //     0,
+        // );
     }
 }

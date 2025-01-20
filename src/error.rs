@@ -1,5 +1,5 @@
 use bevy::{color::palettes::css, core::FrameCount, prelude::*, window::RequestRedraw};
-use bevy_mod_scripting::{core::event::ScriptLoaded, prelude::*};
+use bevy_mod_scripting::{core::{error::ScriptError, event::ScriptErrorEvent}};
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_state::<ErrorState>()
@@ -111,10 +111,11 @@ pub fn add_messages(
             // eprintln!("XXXX\n\n err {}", e.error);
 
             let error_style = TextFont::default().with_font_size(FONT_SIZE);
-            let msg = match &e.error {
-                ScriptError::FailedToLoad { script: _, msg } => msg.clone(),
-                x => format!("{}", x),
-            };
+            // let msg = match &e.error {
+            //     ScriptError::FailedToLoad { script: _, msg } => msg.clone(),
+            //     x => format!("{}", &x.error),
+            // };
+            let msg = format!("{}", &e.error);
             // panic!("{}", msg);
             parent.spawn((Text::new(msg), error_style));
         }
@@ -126,7 +127,7 @@ pub fn add_messages(
 }
 
 pub fn clear_messages(
-    r: EventReader<ScriptLoaded>,
+    r: EventReader<ScriptErrorEvent>,
     query: Query<Entity, With<ErrorMessages>>,
     frame_count: Res<FrameCount>,
     state: Res<State<ErrorState>>,

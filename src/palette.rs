@@ -1,6 +1,6 @@
 use bevy::{ecs::system::SystemState, prelude::*};
 
-use bevy_mod_scripting::prelude::*;
+use bevy_mod_scripting::lua::mlua::prelude::LuaError;
 // use bevy_pixel_buffer::prelude::*;
 use crate::{assets::ImageHandles, DrawState, N9Color};
 

@@ -5,16 +5,16 @@ use bevy::{
     sprite::Anchor,
 };
 
-use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{
-    Function, Number
+use bevy_mod_scripting::{core::error::ScriptError,
+                         lua::mlua::{
+    Function, Number, prelude::{LuaError, LuaMultiValue, LuaString}, Lua, Value},
 };
 
-use bevy_mod_scripting::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::{
     pico8::{LoadCart, Cart, Clearable, ClearEvent, audio::{Sfx, SfxChannels}},
-    api::N9Args, N9Color, Nano9Screen, ValueExt, DrawState,
+    N9Color, Nano9Screen, ValueExt, DrawState,
 };
 
 use std::{
@@ -579,8 +579,8 @@ pub struct Pico8API;
 
 pub(crate) fn plugin(app: &mut App) {
     app
-        .init_resource::<Pico8State>()
-        .add_api_provider::<LuaScriptHost<N9Args>>(Box::new(Pico8API));
+        .init_resource::<Pico8State>();
+        // .add_api_provider::<LuaScriptHost<N9Args>>(Box::new(Pico8API));
 }
 
 fn with_pico8<X>(ctx: &Lua, f: impl FnOnce(&mut Pico8) -> Result<X, Error>) -> Result<X, LuaError> {
@@ -594,12 +594,12 @@ fn with_pico8<X>(ctx: &Lua, f: impl FnOnce(&mut Pico8) -> Result<X, Error>) -> R
     r.map_err(LuaError::from)
 }
 
-impl APIProvider for Pico8API {
-    type APITarget = Mutex<Lua>;
-    type ScriptContext = Mutex<Lua>;
-    type DocTarget = LuaDocFragment;
+// impl APIProvider for Pico8API {
+//     type APITarget = Mutex<Lua>;
+//     type ScriptContext = Mutex<Lua>;
+//     type DocTarget = LuaDocFragment;
 
-    fn attach_api(&mut self, ctx: &mut Self::APITarget) -> Result<(), ScriptError> {
+    fn attach_api(script_id: &str, ctx: &mut Lua) -> Result<(), ScriptError> {
         // callbacks can receive any `ToLuaMulti` arguments, here '()' and
         // return any `FromLuaMulti` arguments, here a `usize`
         // check the Rlua documentation for more details
@@ -789,10 +789,10 @@ impl APIProvider for Pico8API {
         Ok(())
     }
 
-    fn register_with_app(&self, _app: &mut App) {
-        // app.register_type::<Settings>();
-    }
-}
+//     fn register_with_app(&self, _app: &mut App) {
+//         // app.register_type::<Settings>();
+//     }
+// }
 
 #[cfg(test)]
 mod test {

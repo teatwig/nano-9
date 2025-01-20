@@ -2,10 +2,9 @@ use bevy::prelude::*;
 use std::sync::Arc;
 
 use crate::ValueExt;
-use bevy_mod_scripting::lua::prelude::tealr::mlu::mlua::{
-    UserData, UserDataFields, UserDataMethods,
+use bevy_mod_scripting::lua::mlua::{
+    UserData, UserDataFields, UserDataMethods, FromLua, Value, Lua, self, prelude::LuaError,
 };
-use bevy_mod_scripting::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 pub enum N9Color {
@@ -29,7 +28,7 @@ impl From<Color> for N9Color {
     }
 }
 
-impl FromLua<'_> for N9Color {
+impl FromLua for N9Color {
     fn from_lua(value: Value, _: &Lua) -> mlua::Result<Self> {
         fn bad_arg(s: &str) -> LuaError {
             LuaError::WithContext {
@@ -74,7 +73,7 @@ impl FromLua<'_> for N9Color {
 }
 
 impl UserData for N9Color {
-    fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
+    fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {
         fields.add_field_method_get("i", |_ctx, this| match this {
             Self::Palette(i) => Ok(Value::Integer(*i as i64)),
             Self::Color(_) | Self::Pen => Ok(Value::Nil),
@@ -105,7 +104,7 @@ impl UserData for N9Color {
         });
     }
 
-    fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(_methods: &mut M) {
+    fn add_methods<M: UserDataMethods<Self>>(_methods: &mut M) {
         // methods.add_method_mut(
         //     "set_grid",
         //     |ctx, this, (width, height, columns, rows): (f32, f32, usize, usize)| {
