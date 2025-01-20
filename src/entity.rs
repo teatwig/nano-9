@@ -12,7 +12,7 @@ use bevy_mod_scripting::{
 
 use std::any::TypeId;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub enum DropPolicy {
     Nothing,
     Despawn,
@@ -29,7 +29,7 @@ impl FromLua for DropPolicy {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Reflect)]
 pub struct N9Entity {
     pub entity: Entity,
     pub drop: DropPolicy,
@@ -59,7 +59,7 @@ impl UserData for N9Entity {
         fields.add_field_method_get("name", |ctx, this| {
 
             let world = ThreadWorldContainer.try_get_world()?;
-            let name = world.get_component_id(TypeId::of::<Name>()).expect("Name component id");
+            let name = world.get_component_id(TypeId::of::<Name>())?.expect("Name component id");
             if let Some(maybe_name) = world.get_component(this.entity, name).ok() {
                 if let Some(name_reflect) = maybe_name {
                     if let Ok(name) = name_reflect.downcast::<Name>(world) {

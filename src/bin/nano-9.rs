@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use bevy_minibuffer::prelude::*;
-// use bevy_minibuffer_inspector as inspector;
-use bevy_mod_scripting::prelude::*;
+use bevy_mod_scripting::core::script::ScriptComponent;
 use nano_9::{*, pico8::*, minibuffer::*, error::*};
 use bevy_ecs_tilemap::prelude::{TilePos, TilemapType};
 use std::env;
@@ -24,7 +23,7 @@ fn main() -> std::io::Result<()> {
             BasicActs::default(),
             acts::universal::UniversalArgActs::default(),
             acts::tape::TapeActs::default(),
-            bevy_minibuffer_inspector::WorldActs::default(),
+            // bevy_minibuffer_inspector::WorldActs::default(),
             crate::minibuffer::Nano9Acts::default(),
             CountComponentsActs::default()
                 .add::<Text>("text")
@@ -52,12 +51,9 @@ fn main() -> std::io::Result<()> {
         app.add_systems(
             Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
-                commands.spawn(ScriptCollection::<LuaFile> {
-                    scripts: vec![Script::new(
-                        script_path.clone(),
-                        asset_server.load(&script_path),
-                    )],
-                });
+                commands.spawn(ScriptComponent(
+                    vec![script_path.clone().into()],
+                ));
             },
         );
     }

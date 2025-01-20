@@ -906,9 +906,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting"
-version = "0.9.0-alpha.6"
+version = "0.9.0-alpha.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d9f1d2130c5ced46ccc5b5815adc863d8973a24de3a96287ca31908c76aaac3"
+checksum = "f4d1e31feb104b75d36b5064cf3b9b536b04e37460da40b606c5d472662cb87a"
 dependencies = [
  "bevy",
  "bevy_mod_scripting_core",
@@ -918,9 +918,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting_core"
-version = "0.9.0-alpha.6"
+version = "0.9.0-alpha.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6af1a980f3b3b5f0d07aee0d2d28bad7f8c5b22f43ccf0e79e25a0c55360657e"
+checksum = "8608119ad2ac661ad8def8ad68ba7332be8a738ffcdfc1ced53625ff77ff9e7f"
 dependencies = [
  "bevy",
  "dashmap",
@@ -933,9 +933,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting_functions"
-version = "0.9.0-alpha.6"
+version = "0.9.0-alpha.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18f22ca07eddeff936417e79065f5f9b8cb293e7e48e490b355de9fa1b9ab7f0"
+checksum = "94a0db4a80ec8831e461f47d4a792b1129da89c4f4d23e97167fe462e8af4a4a"
 dependencies = [
  "bevy",
  "bevy_mod_scripting_core",
@@ -945,9 +945,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting_lua"
-version = "0.9.0-alpha.6"
+version = "0.9.0-alpha.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7556051c58b4346a80b38449d441c9e8562254ed399ef314d291168e9af985e2"
+checksum = "88c65e677244ef7061c6d223981fb21407e5105ea1f00528afbbbbde5549a568"
 dependencies = [
  "bevy",
  "bevy_mod_scripting_core",

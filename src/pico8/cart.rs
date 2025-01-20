@@ -102,12 +102,14 @@ fn load_cart(query: Query<(Entity, &LoadCart)>,
                 font: asset_server.load(PICO8_FONT),
             };
             commands.insert_resource(state);
-            commands.entity(id).insert(ScriptComponent::<ScriptAsset> {
-                    scripts: vec![Script::new(
-                        load_cart.0.path().map(|path| path.to_string()).unwrap_or_else(|| format!("cart {:?}", &load_cart.0)),
-                        cart.lua.clone(),
-                    )],
-                });
+            // commands.entity(id).insert(ScriptComponent(
+            //         vec![
+            //             format!("{}#lua", load_cart.0.path())
+            //             // Script::new(
+            //             // load_cart.0.path().map(|path| path.to_string()).unwrap_or_else(|| format!("cart {:?}", &load_cart.0)),
+            //             // cart.lua.clone())
+            //         ],
+            //     ));
             commands.entity(id).remove::<LoadCart>();
         }
     }

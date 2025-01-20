@@ -5,9 +5,14 @@ use bevy::{
     sprite::Anchor,
 };
 
-use bevy_mod_scripting::{core::error::ScriptError,
-                         lua::mlua::{
-    Function, Number, prelude::{LuaError, LuaMultiValue, LuaString}, Lua, Value},
+use bevy_mod_scripting::{
+    core::{error::{ScriptError, InteropError},
+           bindings::{ReflectReference, access_map::ReflectAccessId,
+                      function::{namespace::NamespaceBuilder,
+                                 script_function::FunctionCallContext}},
+},
+    lua::mlua::{
+        Function, Number, prelude::{LuaError, LuaMultiValue, LuaString}, Lua, Value},
 };
 
 use bevy_ecs_tilemap::prelude::*;
@@ -583,15 +588,26 @@ pub(crate) fn plugin(app: &mut App) {
         // .add_api_provider::<LuaScriptHost<N9Args>>(Box::new(Pico8API));
 }
 
-fn with_pico8<X>(ctx: &Lua, f: impl FnOnce(&mut Pico8) -> Result<X, Error>) -> Result<X, LuaError> {
-    let world = ctx.get_world()?;
-    let mut world = world.write();
-    let mut system_state: SystemState<Pico8> =
-        SystemState::new(&mut world);
-    let mut pico8 = system_state.get_mut(&mut world);
-    let r = f(&mut pico8);
-    system_state.apply(&mut world);
-    r.map_err(LuaError::from)
+fn with_pico8<X>(ctx: &FunctionCallContext, f: impl FnOnce(&mut Pico8) -> Result<X, Error>) -> Result<X, InteropError> {
+    let world_guard = ctx.world()?;
+    let raid = ReflectAccessId::for_global();
+    if world_guard.claim_global_access() {
+        let world = world_guard.as_unsafe_world_cell()?;
+        let mut world = unsafe { world.world_mut() };
+        let mut system_state: SystemState<Pico8> =
+            SystemState::new(&mut world);
+        let mut pico8 = system_state.get_mut(&mut world);
+        let r = f(&mut pico8);
+        system_state.apply(&mut world);
+        unsafe { world_guard.release_global_access() };
+        r.map_err(|e| InteropError::external_error(Box::new(e)))
+    } else {
+        Err(InteropError::cannot_claim_access(
+            raid,
+            world_guard.get_access_location(raid),
+            "with_pico8",
+        ))
+    }
 }
 
 // impl APIProvider for Pico8API {
@@ -599,194 +615,206 @@ fn with_pico8<X>(ctx: &Lua, f: impl FnOnce(&mut Pico8) -> Result<X, Error>) -> R
 //     type ScriptContext = Mutex<Lua>;
 //     type DocTarget = LuaDocFragment;
 
-    fn attach_api(script_id: &str, ctx: &mut Lua) -> Result<(), ScriptError> {
+    // fn attach_api(script_id: &str, ctx: &mut Lua) -> Result<(), ScriptError> {
+    fn attach_api(app: &mut App) {
         // callbacks can receive any `ToLuaMulti` arguments, here '()' and
         // return any `FromLuaMulti` arguments, here a `usize`
         // check the Rlua documentation for more details
+        let mut world = app.world_mut();
 
-        let ctx = ctx.get_mut().unwrap();
-        crate::macros::define_globals! {
-            // XXX: This should be demoted in favor of a general `input` solution.
-            fn btnp(ctx, b: (Option<u8>)) {
-                with_pico8(ctx, |pico8| pico8.btnp(b))
-            }
+        NamespaceBuilder::<ReflectReference>::new(&mut world)
+            .register(
+                "btnp",
+                |ctx: FunctionCallContext, b: Option<u8>| {
+                    with_pico8(&ctx, |pico8| pico8.btnp(b))
+                },
+            )
+            ;
 
-            fn btn(ctx, b: (Option<u8>)) {
-                with_pico8(ctx, |pico8| pico8.btnp(b))
-            }
 
-            fn cls(ctx, value: (Option<N9Color>)) {
-                with_pico8(ctx, |pico8| pico8.cls(value))
-            }
+        // let ctx = ctx.get_mut().unwrap();
+        // crate::macros::define_globals! {
+        //     // XXX: This should be demoted in favor of a general `input` solution.
+        //     fn btnp(ctx, b: (Option<u8>)) {
+        //         with_pico8(ctx, |pico8| pico8.btnp(b))
+        //     }
 
-            fn pset(ctx, (x, y, color): (u32, u32, Option<N9Color>)) {
-                with_pico8(ctx, |pico8| {
-                    // We want to ignore out of bounds errors specifically but possibly not others.
-                    // Ok(pico8.pset(x, y, color)?)
-                    let _ = pico8.pset(UVec2::new(x, y), color);
-                    Ok(())
-                })
-            }
+        //     fn btn(ctx, b: (Option<u8>)) {
+        //         with_pico8(ctx, |pico8| pico8.btnp(b))
+        //     }
 
-            fn rectfill(ctx, (x0, y0, x1, y1, color): (u32, u32, u32, u32, Option<N9Color>)) {
-                with_pico8(ctx, |pico8| {
-                    // We want to ignore out of bounds errors specifically.
-                    // Ok(pico8.pset(x, y, color)?)
-                    let _ = pico8.rectfill(UVec2::new(x0, y0), UVec2::new(x1, y1), color);
-                    Ok(())
-                })
-            }
+        //     fn cls(ctx, value: (Option<N9Color>)) {
+        //         with_pico8(ctx, |pico8| pico8.cls(value))
+        //     }
 
-            fn rect(ctx, (x0, y0, x1, y1, color): (u32, u32, u32, u32, Option<N9Color>)) {
-                with_pico8(ctx, |pico8| {
-                    // We want to ignore out of bounds errors specifically.
-                    // Ok(pico8.pset(x, y, color)?)
-                    let _ = pico8.rect(UVec2::new(x0, y0), UVec2::new(x1, y1), color);
-                    Ok(())
-                })
-            }
+        //     fn pset(ctx, (x, y, color): (u32, u32, Option<N9Color>)) {
+        //         with_pico8(ctx, |pico8| {
+        //             // We want to ignore out of bounds errors specifically but possibly not others.
+        //             // Ok(pico8.pset(x, y, color)?)
+        //             let _ = pico8.pset(UVec2::new(x, y), color);
+        //             Ok(())
+        //         })
+        //     }
 
-            // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
-            // XXX: What's the difference between sprite and spr?
-            //
-            // Sprite uses N9Entity, which is perhaps more general and dynamic.
-            fn spr(ctx, (mut args): LuaMultiValue) {
-                let n = args.pop_front().and_then(|v| v.as_usize()).expect("sprite id");
-                let x = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
-                let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
-                let w = args.pop_front().and_then(|v| v.to_f32());
-                let h = args.pop_front().and_then(|v| v.to_f32());
-                let flip_x = args.pop_front().and_then(|v| v.as_boolean());
-                let flip_y = args.pop_front().and_then(|v| v.as_boolean());
-                let pos = Vec2::new(x, y);
-                let flip = (flip_x.is_some() || flip_y.is_some()).then(|| BVec2::new(flip_x.unwrap_or(false),flip_y.unwrap_or(false)));
-                let size = w.or(h).is_some().then(|| Vec2::new(w.unwrap_or(1.0), h.unwrap_or(1.0)));
+        //     fn rectfill(ctx, (x0, y0, x1, y1, color): (u32, u32, u32, u32, Option<N9Color>)) {
+        //         with_pico8(ctx, |pico8| {
+        //             // We want to ignore out of bounds errors specifically.
+        //             // Ok(pico8.pset(x, y, color)?)
+        //             let _ = pico8.rectfill(UVec2::new(x0, y0), UVec2::new(x1, y1), color);
+        //             Ok(())
+        //         })
+        //     }
 
-                // We get back an entity. Not doing anything with it here yet.
-                let _id = with_pico8(ctx, move |pico8| pico8.spr(n, pos, size, flip))?;
-                Ok(())
-            }
+        //     fn rect(ctx, (x0, y0, x1, y1, color): (u32, u32, u32, u32, Option<N9Color>)) {
+        //         with_pico8(ctx, |pico8| {
+        //             // We want to ignore out of bounds errors specifically.
+        //             // Ok(pico8.pset(x, y, color)?)
+        //             let _ = pico8.rect(UVec2::new(x0, y0), UVec2::new(x1, y1), color);
+        //             Ok(())
+        //         })
+        //     }
 
-            // map( celx, cely, sx, sy, celw, celh, [layer] )
-            fn map(ctx, (mut args): LuaMultiValue) {
-                let celx = args.pop_front().and_then(|v| v.as_u32()).expect("celx");
-                let cely = args.pop_front().and_then(|v| v.as_u32()).expect("cely");
-                let sx = args.pop_front().and_then(|v| v.to_f32()).expect("sx");
-                let sy = args.pop_front().and_then(|v| v.to_f32()).expect("sy");
-                let celw = args.pop_front().and_then(|v| v.as_u32()).expect("celw");
-                let celh = args.pop_front().and_then(|v| v.as_u32()).expect("celh");
-                let layer = args.pop_front().and_then(|v| v.as_u32().map(|v| v as u8));
+        //     // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
+        //     // XXX: What's the difference between sprite and spr?
+        //     //
+        //     // Sprite uses N9Entity, which is perhaps more general and dynamic.
+        //     fn spr(ctx, (mut args): LuaMultiValue) {
+        //         let n = args.pop_front().and_then(|v| v.as_usize()).expect("sprite id");
+        //         let x = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
+        //         let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
+        //         let w = args.pop_front().and_then(|v| v.to_f32());
+        //         let h = args.pop_front().and_then(|v| v.to_f32());
+        //         let flip_x = args.pop_front().and_then(|v| v.as_boolean());
+        //         let flip_y = args.pop_front().and_then(|v| v.as_boolean());
+        //         let pos = Vec2::new(x, y);
+        //         let flip = (flip_x.is_some() || flip_y.is_some()).then(|| BVec2::new(flip_x.unwrap_or(false),flip_y.unwrap_or(false)));
+        //         let size = w.or(h).is_some().then(|| Vec2::new(w.unwrap_or(1.0), h.unwrap_or(1.0)));
 
-                // We get back an entity. Not doing anything with it here yet.
-                let _id = with_pico8(ctx, move |pico8| pico8.map(UVec2::new(celx, cely), Vec2::new(sx, sy), UVec2::new(celw, celh), layer))?;
-                Ok(())
-            }
+        //         // We get back an entity. Not doing anything with it here yet.
+        //         let _id = with_pico8(ctx, move |pico8| pico8.spr(n, pos, size, flip))?;
+        //         Ok(())
+        //     }
 
-            fn tostr(ctx, v: Value) {
-                let tostring: Function = ctx.globals().get("tostring")?;
-                tostring.call::<Value,LuaString>(v)
-            }
+        //     // map( celx, cely, sx, sy, celw, celh, [layer] )
+        //     fn map(ctx, (mut args): LuaMultiValue) {
+        //         let celx = args.pop_front().and_then(|v| v.as_u32()).expect("celx");
+        //         let cely = args.pop_front().and_then(|v| v.as_u32()).expect("cely");
+        //         let sx = args.pop_front().and_then(|v| v.to_f32()).expect("sx");
+        //         let sy = args.pop_front().and_then(|v| v.to_f32()).expect("sy");
+        //         let celw = args.pop_front().and_then(|v| v.as_u32()).expect("celw");
+        //         let celh = args.pop_front().and_then(|v| v.as_u32()).expect("celh");
+        //         let layer = args.pop_front().and_then(|v| v.as_u32().map(|v| v as u8));
 
-            // print(text, [x,] [y,] [color])
-            fn print(ctx, (mut args): LuaMultiValue) {
-                let world = ctx.get_world()?;
-                let draw_state = {
-                    let world = world.read();
-                    let pico8 = world.resource::<Pico8State>();
-                    pico8.draw_state.clone()
-                };
-                let text: String = args.pop_front().map(|v| v.to_string().expect("text")).expect("text");
-                // let x = args.pop_front().and_then(|v| v.to_f32());
-                // let y = args.pop_front().and_then(|v| v.to_f32());
-                let x = args.pop_front().and_then(|v| v.as_u32());
-                let y = args.pop_front().and_then(|v| v.as_u32());
-                let c = args.pop_front().and_then(|v| v.as_usize()).map(N9Color::Palette);
-                let pos = x.map(|x| UVec2::new(x, y.unwrap_or(draw_state.print_cursor.y)));
-                with_pico8(ctx, move |pico8| pico8.print(text, pos, c))
-            }
+        //         // We get back an entity. Not doing anything with it here yet.
+        //         let _id = with_pico8(ctx, move |pico8| pico8.map(UVec2::new(celx, cely), Vec2::new(sx, sy), UVec2::new(celw, celh), layer))?;
+        //         Ok(())
+        //     }
 
-            // sfx( n, [channel,] [offset,] [length] )
-            fn sfx(ctx, (mut args): LuaMultiValue) {
-                let n: i8 = args.pop_front().and_then(|v| v.as_i32()).expect("n") as i8;
-                let channel: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
-                let offset: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
-                let length: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
-                with_pico8(ctx, move |pico8| pico8.sfx(match n {
-                    -2 => Ok(SfxCommand::Release),
-                    -1 => Ok(SfxCommand::Stop),
-                    n if n >= 0 => Ok(SfxCommand::Play(n as u8)),
-                    x => {
-                        // Maybe we should let Lua errors pass through.
-                        // Err(LuaError::BadArgument {
-                        //     to: Some("sfx".into()),
-                        //     pos: 0,
-                        //     name: Some("n".into()),
-                        //     cause: std::sync::Arc::new(
-                        // })
-                        Err(Error::InvalidArgument(format!("sfx: expected n to be -2, -1 or >= 0 but was {x}").into()))
-                    }
-                }?, channel, offset, length))
-            }
+        //     fn tostr(ctx, v: Value) {
+        //         let tostring: Function = ctx.globals().get("tostring")?;
+        //         tostring.call::<Value,LuaString>(v)
+        //     }
 
-            fn flr(ctx, v: Number) {
-                Ok(v.floor() as u32)
-            }
+        //     // print(text, [x,] [y,] [color])
+        //     fn print(ctx, (mut args): LuaMultiValue) {
+        //         let world = ctx.get_world()?;
+        //         let draw_state = {
+        //             let world = world.read();
+        //             let pico8 = world.resource::<Pico8State>();
+        //             pico8.draw_state.clone()
+        //         };
+        //         let text: String = args.pop_front().map(|v| v.to_string().expect("text")).expect("text");
+        //         // let x = args.pop_front().and_then(|v| v.to_f32());
+        //         // let y = args.pop_front().and_then(|v| v.to_f32());
+        //         let x = args.pop_front().and_then(|v| v.as_u32());
+        //         let y = args.pop_front().and_then(|v| v.as_u32());
+        //         let c = args.pop_front().and_then(|v| v.as_usize()).map(N9Color::Palette);
+        //         let pos = x.map(|x| UVec2::new(x, y.unwrap_or(draw_state.print_cursor.y)));
+        //         with_pico8(ctx, move |pico8| pico8.print(text, pos, c))
+        //     }
 
-            fn sub(ctx, (string, start, end): (LuaString, isize, Option<isize>)) {
-                let string = string.to_str()?;
-                let start = if start < 0 {
-                    (string.len() as isize - start - 1) as usize
-                } else {
-                    (start - 1) as usize
-                };
-                match end {
-                    Some(end) => {
-                        let end = if end < 0 {
-                            (string.len() as isize - end) as usize
-                        } else {
-                            end as usize
-                        };
-                        if start <= end {
-                            Ok(string.chars().skip(start).take(end - start).collect())
-                            // BUG: This cuts unicode boundaries.
-                            // Ok(string[start..end].to_string())
-                        } else {
-                            Ok(String::new())
-                        }
-                    }
-                    None => Ok(string.chars().skip(start).collect())
-                }
-            }
+        //     // sfx( n, [channel,] [offset,] [length] )
+        //     fn sfx(ctx, (mut args): LuaMultiValue) {
+        //         let n: i8 = args.pop_front().and_then(|v| v.as_i32()).expect("n") as i8;
+        //         let channel: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
+        //         let offset: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
+        //         let length: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
+        //         with_pico8(ctx, move |pico8| pico8.sfx(match n {
+        //             -2 => Ok(SfxCommand::Release),
+        //             -1 => Ok(SfxCommand::Stop),
+        //             n if n >= 0 => Ok(SfxCommand::Play(n as u8)),
+        //             x => {
+        //                 // Maybe we should let Lua errors pass through.
+        //                 // Err(LuaError::BadArgument {
+        //                 //     to: Some("sfx".into()),
+        //                 //     pos: 0,
+        //                 //     name: Some("n".into()),
+        //                 //     cause: std::sync::Arc::new(
+        //                 // })
+        //                 Err(Error::InvalidArgument(format!("sfx: expected n to be -2, -1 or >= 0 but was {x}").into()))
+        //             }
+        //         }?, channel, offset, length))
+        //     }
 
-            fn min(ctx, (x, y): (Value, Value)) {
-                Ok(if x.to_f32() < y.to_f32() {
-                    x
-                } else {
-                    y
-                })
-            }
+        //     fn flr(ctx, v: Number) {
+        //         Ok(v.floor() as u32)
+        //     }
 
-            fn max(ctx, (x, y): (Value, Value)) {
-                Ok(if x.to_f32() > y.to_f32() {
-                    x
-                } else {
-                    y
-                })
-            }
+        //     fn sub(ctx, (string, start, end): (LuaString, isize, Option<isize>)) {
+        //         let string = string.to_str()?;
+        //         let start = if start < 0 {
+        //             (string.len() as isize - start - 1) as usize
+        //         } else {
+        //             (start - 1) as usize
+        //         };
+        //         match end {
+        //             Some(end) => {
+        //                 let end = if end < 0 {
+        //                     (string.len() as isize - end) as usize
+        //                 } else {
+        //                     end as usize
+        //                 };
+        //                 if start <= end {
+        //                     Ok(string.chars().skip(start).take(end - start).collect())
+        //                     // BUG: This cuts unicode boundaries.
+        //                     // Ok(string[start..end].to_string())
+        //                 } else {
+        //                     Ok(String::new())
+        //                 }
+        //             }
+        //             None => Ok(string.chars().skip(start).collect())
+        //         }
+        //     }
 
-            fn ord(ctx, (string, index, count): (LuaString, Option<usize>, Option<usize>)) {
-                let string = string.to_str()?;
-                let index = index.map(|i| i - 1).unwrap_or(0);
-                let count = count.unwrap_or(1);
-                let mut result: Vec<Value> = Vec::with_capacity(count);
-                for c in string.chars().skip(index).take(count) {
-                    result.push(Value::Integer(c as i64));
-                }
-                Ok(LuaMultiValue::from_vec(result))
-            }
-        }
+        //     fn min(ctx, (x, y): (Value, Value)) {
+        //         Ok(if x.to_f32() < y.to_f32() {
+        //             x
+        //         } else {
+        //             y
+        //         })
+        //     }
 
-        Ok(())
+        //     fn max(ctx, (x, y): (Value, Value)) {
+        //         Ok(if x.to_f32() > y.to_f32() {
+        //             x
+        //         } else {
+        //             y
+        //         })
+        //     }
+
+        //     fn ord(ctx, (string, index, count): (LuaString, Option<usize>, Option<usize>)) {
+        //         let string = string.to_str()?;
+        //         let index = index.map(|i| i - 1).unwrap_or(0);
+        //         let count = count.unwrap_or(1);
+        //         let mut result: Vec<Value> = Vec::with_capacity(count);
+        //         for c in string.chars().skip(index).take(count) {
+        //             result.push(Value::Integer(c as i64));
+        //         }
+        //         Ok(LuaMultiValue::from_vec(result))
+        //     }
+        // }
+
+        // Ok(())
     }
 
 //     fn register_with_app(&self, _app: &mut App) {

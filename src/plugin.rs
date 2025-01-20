@@ -14,7 +14,7 @@ use bevy::{
 };
 use std::sync::{Arc, Mutex};
 
-use bevy_mod_scripting::{core::{callback_labels, bindings::script_value::ScriptValue, event::{ScriptCallbackEvent, OnScriptLoaded}}};
+use bevy_mod_scripting::{lua::LuaScriptingPlugin, core::{callback_labels, asset::ScriptAsset, bindings::script_value::ScriptValue, event::{ScriptCallbackEvent, OnScriptLoaded}}};
 
 use crate::{
     error::ErrorState,
@@ -100,11 +100,11 @@ pub fn set_background(
     mut writer: EventWriter<ScriptCallbackEvent>,
 ) {
     if let Ok(id) = screen.get_single() {
-        writer.send(ScriptCallbackEvent::new_for_all(
-            call::SetGlobal,
-            vec![ScriptValue::String("background".into()),
-                 ScriptValue::Reference(Arc::new(Mutex::new(N9Entity { entity: id,
-                                                          drop: DropPolicy::Nothing })))]));
+        // writer.send(ScriptCallbackEvent::new_for_all(
+        //     call::SetGlobal,
+        //     vec![ScriptValue::String("background".into()),
+        //          ScriptValue::Reference(Arc::new(Mutex::new(N9Entity { entity: id,
+        //                                                   drop: DropPolicy::Nothing })))]));
         // events.send(
         //     LuaEvent {
         //         hook_name: "_set_global".to_owned(),
@@ -375,14 +375,16 @@ impl Plugin for Nano9Plugin {
         .insert_resource(Time::<Fixed>::from_seconds(UPDATE_FREQUENCY.into()))
         .init_resource::<N9Settings>()
         .init_resource::<DrawState>()
-        .add_plugins(crate::plugin)
+
+        .add_plugins((LuaScriptingPlugin::default(), crate::plugin))
+
         .add_plugins(bevy_ecs_tilemap::TilemapPlugin)
         // .add_systems(OnExit(screens::Screen::Loading), setup_image)
         // .add_systems(Startup, (setup_image, spawn_camera, set_camera).chain())
         .add_systems(Startup, (setup_image, spawn_camera).chain())
         // .add_systems(OnEnter(screens::Screen::Playing), send_init)
-        // .add_systems(PreUpdate, send_init.run_if(on_asset_modified::<LuaFile>()))
-        .add_systems(PreUpdate, send_init.run_if(on_event::<OnScriptLoaded>))
+        .add_systems(PreUpdate, send_init.run_if(on_asset_modified::<ScriptAsset>()))
+        // .add_systems(PreUpdate, send_init.run_if(on_event::<OnScriptLoaded>))
         // .add_systems(
         //     PreUpdate,
         //     (set_background, set_camera)
