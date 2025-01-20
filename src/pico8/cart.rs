@@ -135,7 +135,10 @@ impl CartParts {
                 }
                 even_match = None;
             } else {
-                even_match = Some(index);
+                // first or odd match of '__'
+                if index == 0 || content.as_bytes()[index - 1] == b'\n' {
+                    even_match = Some(index);
+                }
             }
         }
         // Close the last segment.

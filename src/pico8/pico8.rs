@@ -372,9 +372,11 @@ impl Pico8<'_, '_> {
     }
 
     // sfx( n, [channel,] [offset,] [length] )
-    fn sfx(&mut self, n: impl Into<SfxCommand>, channel: Option<u8>, _offset: Option<u8>, _length: Option<u8>) -> Result<(), Error> {
+    fn sfx(&mut self, n: impl Into<SfxCommand>, channel: Option<u8>, offset: Option<u8>, length: Option<u8>) -> Result<(), Error> {
+        assert!(offset.is_none(), "offset not implemented");
+        assert!(length.is_none(), "length not implemented");
         let n = n.into();
-        match dbg!(n) {
+        match n {
             SfxCommand::Release => {
                 if let Some(chan) = channel {
                     let chan = self.sfx_channels[chan as usize];
