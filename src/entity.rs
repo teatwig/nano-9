@@ -18,6 +18,12 @@ pub enum DropPolicy {
     Despawn,
 }
 
+#[derive(Clone, Reflect)]
+pub struct N9Entity {
+    pub entity: Entity,
+    pub drop: DropPolicy,
+}
+
 impl UserData for DropPolicy {}
 
 impl FromLua for DropPolicy {
@@ -29,11 +35,6 @@ impl FromLua for DropPolicy {
     }
 }
 
-#[derive(Clone, Reflect)]
-pub struct N9Entity {
-    pub entity: Entity,
-    pub drop: DropPolicy,
-}
 
 impl Drop for N9Entity {
     fn drop(&mut self) {
