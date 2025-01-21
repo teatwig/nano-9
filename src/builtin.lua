@@ -1,0 +1,2 @@
+tostr = tostring
+-- printh = print

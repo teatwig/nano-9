@@ -1,16 +1,34 @@
 use bevy::prelude::*;
-use std::sync::Arc;
+use std::{any::TypeId, sync::Arc};
 
 use crate::ValueExt;
-use bevy_mod_scripting::lua::mlua::{
+use bevy_mod_scripting::{
+    core::{
+        error::InteropError,
+        bindings::{WorldAccessGuard, script_value::ScriptValue, function::from::FromScript},
+    },
+    lua::mlua::{
     UserData, UserDataFields, UserDataMethods, FromLua, Value, Lua, self, prelude::LuaError,
+}
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub enum N9Color {
     Pen,
     Palette(usize),
     Color(LinearRgba),
+}
+
+impl FromScript for N9Color {
+    type This<'w> = Self;
+    fn from_script(value: ScriptValue,
+                   world: WorldAccessGuard<'_>) -> Result<Self::This<'_>, InteropError> {
+        match value {
+            ScriptValue::Integer(n) => Ok(N9Color::Palette(n as usize)),
+            ScriptValue::Unit => Ok(N9Color::Pen),
+            _ => Err(InteropError::impossible_conversion(TypeId::of::<N9Color>())),
+        }
+    }
 }
 
 impl From<Option<usize>> for N9Color {
@@ -27,6 +45,7 @@ impl From<Color> for N9Color {
         N9Color::Color(c.into())
     }
 }
+
 
 impl FromLua for N9Color {
     fn from_lua(value: Value, _: &Lua) -> mlua::Result<Self> {

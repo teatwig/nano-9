@@ -116,7 +116,6 @@ pub fn add_messages(
             //     x => format!("{}", &x.error),
             // };
             let msg = format!("{}", &e.error);
-            // panic!("{}", msg);
             parent.spawn((Text::new(msg), error_style));
         }
     });

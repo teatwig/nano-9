@@ -14,7 +14,9 @@ use bevy::{
 };
 use std::sync::{Arc, Mutex};
 
-use bevy_mod_scripting::{lua::LuaScriptingPlugin, core::{callback_labels, asset::ScriptAsset, bindings::script_value::ScriptValue, event::{ScriptCallbackEvent, OnScriptLoaded}}};
+use bevy_mod_scripting::{lua::LuaScriptingPlugin, core::{handler::event_handler, callback_labels, asset::ScriptAsset,
+                                                         bindings::{function::namespace::NamespaceBuilder, script_value::ScriptValue},
+                                                         event::{ScriptCallbackEvent, OnScriptLoaded}}};
 
 use crate::{
     error::ErrorState,
@@ -362,8 +364,23 @@ impl Nano9Plugin {
     }
 }
 
+
+fn add_info(app: &mut App) {
+    let world = app.world_mut();
+    NamespaceBuilder::<World>::new_unregistered(world).register("info", |s: String| {
+        bevy::log::info!(s);
+    });
+}
+
 impl Plugin for Nano9Plugin {
     fn build(&self, app: &mut App) {
+
+        let mut lua_scripting_plugin = LuaScriptingPlugin::default();
+        lua_scripting_plugin.scripting_plugin
+                            .add_context_initializer(|script_id: &str, context: &mut bevy_mod_scripting::lua::mlua::Lua| {
+            let _ = context.load(include_str!("builtin.lua")).exec().expect("Problem in builtin.lua");
+            Ok(())
+        });
         // let resolution = settings.canvas_size.as_vec2() * settings.pixel_scale;
         app.insert_resource(bevy::winit::WinitSettings {
             // focused_mode: bevy::winit::UpdateMode::Continuous,
@@ -376,14 +393,14 @@ impl Plugin for Nano9Plugin {
         .init_resource::<N9Settings>()
         .init_resource::<DrawState>()
 
-        .add_plugins((LuaScriptingPlugin::default(), crate::plugin))
+        .add_plugins((lua_scripting_plugin, crate::plugin, add_info))
 
         .add_plugins(bevy_ecs_tilemap::TilemapPlugin)
         // .add_systems(OnExit(screens::Screen::Loading), setup_image)
         // .add_systems(Startup, (setup_image, spawn_camera, set_camera).chain())
         .add_systems(Startup, (setup_image, spawn_camera).chain())
         // .add_systems(OnEnter(screens::Screen::Playing), send_init)
-        .add_systems(PreUpdate, send_init.run_if(on_asset_modified::<ScriptAsset>()))
+        .add_systems(PreUpdate, (send_init, event_handler::<call::Init, LuaScriptingPlugin>).run_if(on_asset_modified::<ScriptAsset>()))
         // .add_systems(PreUpdate, send_init.run_if(on_event::<OnScriptLoaded>))
         // .add_systems(
         //     PreUpdate,
@@ -395,7 +412,10 @@ impl Plugin for Nano9Plugin {
         // .add_systems(Update, info_on_asset_event::<Image>())
         .add_systems(
             Update,
-            ((send_update, send_update60), send_draw)
+            ((send_update, send_update60,
+              event_handler::<call::Update, LuaScriptingPlugin>,
+              event_handler::<call::Update60, LuaScriptingPlugin>), send_draw,
+             event_handler::<call::Draw, LuaScriptingPlugin>)
                 .chain()
                 .run_if(in_state(screens::Screen::Playing)
                         .and_then(in_state(ErrorState::None))),
@@ -405,6 +425,20 @@ impl Plugin for Nano9Plugin {
             app.add_systems(Update, sync_window_size)
                 .add_systems(Update, fullscreen_key);
         }
+    }
+}
+
+pub fn on_asset_change<T: Asset>() -> impl FnMut(EventReader<AssetEvent<T>>) -> bool + Clone {
+    // The events need to be consumed, so that there are no false positives on subsequent
+    // calls of the run condition. Simply checking `is_empty` would not be enough.
+    // PERF: note that `count` is efficient (not actually looping/iterating),
+    // due to Bevy having a specialized implementation for events.
+    move |mut reader: EventReader<AssetEvent<T>>| {
+        reader
+            .read()
+            .inspect(|e| info!("asset event {e:?}"))
+            .any(|e| matches!(e, //AssetEvent::LoadedWithDependencies { .. } |
+                              AssetEvent::Added { .. } | AssetEvent::Modified { .. }))
     }
 }
 

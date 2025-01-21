@@ -1,7 +1,11 @@
 -- text:print("Hello, World!")
 
+world.info("Lua: The scratch.lua script just got loaded")
+    -- print("hr")
 c = {r = 0, g = 0, b = 1}
 function _init()
+world.info("Lua: The scratch.lua script just got INIT")
+    -- print("hi")
     -- cls({r = 0, g = 0, b = 0})
     -- background.image:set_pixel(16,32, c)
     -- pixie = nano9.image:load("images/pixie.png")
@@ -35,13 +39,13 @@ function _draw()
     cls(1)
     pset(x + 10,x, 2)
     -- background.image:set_pixel(x, x, c)
-    spr(1, x, x)
+    -- spr(1, x, x)
     -- jar = pixie:sprite()
     -- jar.one_frame = true
-    print("a", 0, 0)
+    print("a", 0, 0, 1)
     for i = 1,19 do
-        print(tostr(i))
+        -- print(tostr(i))
     end
-    print("hiHI", 64, 0)
-    print("oh")
+    print("hiHI", 64, 0, 1)
+    -- print("oh")
 end

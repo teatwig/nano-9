@@ -1,9 +1,12 @@
 use bevy::prelude::*;
 use bevy_minibuffer::prelude::*;
-use bevy_mod_scripting::core::script::ScriptComponent;
+use bevy_mod_scripting::core::{asset::ScriptAsset, script::ScriptComponent};
 use nano_9::{*, pico8::*, minibuffer::*, error::*};
 use bevy_ecs_tilemap::prelude::{TilePos, TilemapType};
 use std::env;
+
+#[derive(Resource)]
+struct MyScript(Handle<ScriptAsset>);
 
 fn main() -> std::io::Result<()> {
     let args = env::args();
@@ -33,10 +36,6 @@ fn main() -> std::io::Result<()> {
                 ,
             // inspector::AssetActs::default().add::<Image>(),
         ))
-        .add_systems(Startup,
-                     |mut state: ResMut<NextState<ErrorState>>| {
-                         state.set(ErrorState::Messages { frame: 1 });
-                     })
         // .insert_state(ErrorState::Messages { frame: 0 })
         ;
     if script_path.ends_with(".p8") {
@@ -45,12 +44,16 @@ fn main() -> std::io::Result<()> {
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
                 let cart: Handle<Cart> = asset_server.load(&script_path);
                 commands.spawn(LoadCart(cart));
+                commands.spawn(ScriptComponent(
+                    vec![format!("{}#lua", &script_path).into()],
+                ));
             },
         );
     } else {
         app.add_systems(
             Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
+                commands.insert_resource(MyScript(asset_server.load(script_path.clone())));
                 commands.spawn(ScriptComponent(
                     vec![script_path.clone().into()],
                 ));

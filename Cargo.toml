@@ -34,5 +34,5 @@ bench = false
 
 [patch.crates-io]
 bevy_minibuffer = { path = "../bevy_minibuffer" }
-# bevy_mod_scripting = { git = "https://github.com/makspll/bevy_mod_scripting.git", branch = "main" }
+bevy_mod_scripting = { path = "../bevy_mod_scripting" }
 # bevy_pixel_buffer = { path = "../bevy_pixel_buffer" }

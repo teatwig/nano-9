@@ -8,7 +8,7 @@ use bevy::{
 use bevy_mod_scripting::{
     core::{error::{ScriptError, InteropError},
            bindings::{ReflectReference, access_map::ReflectAccessId,
-                      function::{namespace::NamespaceBuilder,
+                      function::{namespace::{GlobalNamespace, NamespaceBuilder},
                                  script_function::FunctionCallContext}},
 },
     lua::mlua::{
@@ -329,6 +329,7 @@ impl Pico8<'_, '_> {
         const CHAR_WIDTH: u32 = 4;
         const NEWLINE_HEIGHT: u32 = 6;
         let mut text: &str = text.as_ref();
+        // warn!("PRINTING {}", &text);
         // info!("print {:?} start, {:?}", &text, &self.state.draw_state.print_cursor);
         let pos = pos.unwrap_or_else(|| UVec2::new(self.state.draw_state.print_cursor.x, self.state.draw_state.print_cursor.y));
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
@@ -584,7 +585,9 @@ pub struct Pico8API;
 
 pub(crate) fn plugin(app: &mut App) {
     app
-        .init_resource::<Pico8State>();
+        .init_resource::<Pico8State>()
+        .add_plugins(attach_api)
+        ;
         // .add_api_provider::<LuaScriptHost<N9Args>>(Box::new(Pico8API));
 }
 
@@ -610,150 +613,125 @@ fn with_pico8<X>(ctx: &FunctionCallContext, f: impl FnOnce(&mut Pico8) -> Result
     }
 }
 
-// impl APIProvider for Pico8API {
-//     type APITarget = Mutex<Lua>;
-//     type ScriptContext = Mutex<Lua>;
-//     type DocTarget = LuaDocFragment;
-
-    // fn attach_api(script_id: &str, ctx: &mut Lua) -> Result<(), ScriptError> {
     fn attach_api(app: &mut App) {
         // callbacks can receive any `ToLuaMulti` arguments, here '()' and
         // return any `FromLuaMulti` arguments, here a `usize`
         // check the Rlua documentation for more details
         let mut world = app.world_mut();
 
-        NamespaceBuilder::<ReflectReference>::new(&mut world)
+        NamespaceBuilder::<GlobalNamespace>::new(&mut world)
             .register(
                 "btnp",
                 |ctx: FunctionCallContext, b: Option<u8>| {
                     with_pico8(&ctx, |pico8| pico8.btnp(b))
                 },
             )
+            .register(
+                "btn",
+                |ctx: FunctionCallContext, b: Option<u8>| {
+                    with_pico8(&ctx, |pico8| pico8.btn(b))
+                },
+            )
+            .register(
+                "cls",
+                |ctx: FunctionCallContext, c: Option<N9Color>| {
+                    with_pico8(&ctx, |pico8| pico8.cls(c))
+                },
+            )
+            .register(
+                "pset",
+                |ctx: FunctionCallContext, x: u32, y: u32, color: Option<N9Color>| {
+                    with_pico8(&ctx, |pico8| {
+                        // We want to ignore out of bounds errors specifically but possibly not others.
+                        // Ok(pico8.pset(x, y, color)?)
+                        let _ = pico8.pset(UVec2::new(x, y), color);
+                        Ok(())
+                    })
+                }
+            )
+            .register(
+                "rectfill",
+                |ctx: FunctionCallContext, x0: u32, y0: u32, x1: u32, y1: u32, color: Option<N9Color>| {
+                    with_pico8(&ctx, |pico8| {
+                        // We want to ignore out of bounds errors specifically but possibly not others.
+                        // Ok(pico8.pset(x, y, color)?)
+                        let _ = pico8.rectfill(UVec2::new(x0, y0), UVec2::new(x1, y1), color);
+                        Ok(())
+                    })
+                }
+            )
+            .register(
+                "rect",
+                |ctx: FunctionCallContext, x0: u32, y0: u32, x1: u32, y1: u32, color: Option<N9Color>| {
+                    with_pico8(&ctx, |pico8| {
+                        // We want to ignore out of bounds errors specifically but possibly not others.
+                        // Ok(pico8.pset(x, y, color)?)
+                        let _ = pico8.rect(UVec2::new(x0, y0), UVec2::new(x1, y1), color);
+                        Ok(())
+                    })
+                }
+            )
+            // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
+            .register(
+                "spr",
+                |ctx: FunctionCallContext, n: usize, x: Option<f32>, y: Option<f32>, w: Option<f32>, h: Option<f32>,
+                flip_x: Option<bool>, flip_y: Option<bool>| {
+                // let n = args.pop_front().and_then(|v| v.as_usize()).expect("sprite id");
+                // let x = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
+                // let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
+                // let w = args.pop_front().and_then(|v| v.to_f32());
+                // let h = args.pop_front().and_then(|v| v.to_f32());
+                // let flip_x = args.pop_front().and_then(|v| v.as_boolean());
+                // let flip_y = args.pop_front().and_then(|v| v.as_boolean());
+                let pos = Vec2::new(x.unwrap_or(0.0), y.unwrap_or(0.0));
+                let flip = (flip_x.is_some() || flip_y.is_some()).then(|| BVec2::new(flip_x.unwrap_or(false),flip_y.unwrap_or(false)));
+                let size = w.or(h).is_some().then(|| Vec2::new(w.unwrap_or(1.0), h.unwrap_or(1.0)));
+
+                // We get back an entity. Not doing anything with it here yet.
+                let _id = with_pico8(&ctx, move |pico8| pico8.spr(n, pos, size, flip))?;
+                Ok(())
+            })
+             // map( celx, cely, sx, sy, celw, celh, [layer] )
+            .register(
+                "map",
+                |ctx: FunctionCallContext, celx: u32, cely: u32, sx: f32, sy: f32, celw: u32, celh: u32, layer: Option<u8>| {
+
+                    // We get back an entity. Not doing anything with it here yet.
+                    let _id = with_pico8(&ctx, move |pico8| pico8.map(UVec2::new(celx, cely), Vec2::new(sx, sy), UVec2::new(celw, celh), layer))?;
+                    Ok(())
+                })
+            .register(
+                "print",
+                |ctx: FunctionCallContext, text: Option<String>, x: Option<u32>, y: Option<u32>, c: Option<N9Color>| {
+                    with_pico8(&ctx, move |pico8| {
+                        let pos = x.map(|x| UVec2::new(x, y.unwrap_or(pico8.state.draw_state.print_cursor.y)));
+                        pico8.print(text.as_deref().unwrap_or(""), pos, c)
+                    })
+                })
+            .register(
+                "sfx",
+                |ctx: FunctionCallContext, n: i8, channel: Option<u8>, offset: Option<u8>, length: Option<u8>| {
+                with_pico8(&ctx, move |pico8| pico8.sfx(match n {
+                    -2 => Ok(SfxCommand::Release),
+                    -1 => Ok(SfxCommand::Stop),
+                    n if n >= 0 => Ok(SfxCommand::Play(n as u8)),
+                    x => {
+                        // Maybe we should let Lua errors pass through.
+                        // Err(LuaError::BadArgument {
+                        //     to: Some("sfx".into()),
+                        //     pos: 0,
+                        //     name: Some("n".into()),
+                        //     cause: std::sync::Arc::new(
+                        // })
+                        Err(Error::InvalidArgument(format!("sfx: expected n to be -2, -1 or >= 0 but was {x}").into()))
+                    }
+                }?, channel, offset, length))
+                })
             ;
-
-
-        // let ctx = ctx.get_mut().unwrap();
-        // crate::macros::define_globals! {
-        //     // XXX: This should be demoted in favor of a general `input` solution.
-        //     fn btnp(ctx, b: (Option<u8>)) {
-        //         with_pico8(ctx, |pico8| pico8.btnp(b))
-        //     }
-
-        //     fn btn(ctx, b: (Option<u8>)) {
-        //         with_pico8(ctx, |pico8| pico8.btnp(b))
-        //     }
-
-        //     fn cls(ctx, value: (Option<N9Color>)) {
-        //         with_pico8(ctx, |pico8| pico8.cls(value))
-        //     }
-
-        //     fn pset(ctx, (x, y, color): (u32, u32, Option<N9Color>)) {
-        //         with_pico8(ctx, |pico8| {
-        //             // We want to ignore out of bounds errors specifically but possibly not others.
-        //             // Ok(pico8.pset(x, y, color)?)
-        //             let _ = pico8.pset(UVec2::new(x, y), color);
-        //             Ok(())
-        //         })
-        //     }
-
-        //     fn rectfill(ctx, (x0, y0, x1, y1, color): (u32, u32, u32, u32, Option<N9Color>)) {
-        //         with_pico8(ctx, |pico8| {
-        //             // We want to ignore out of bounds errors specifically.
-        //             // Ok(pico8.pset(x, y, color)?)
-        //             let _ = pico8.rectfill(UVec2::new(x0, y0), UVec2::new(x1, y1), color);
-        //             Ok(())
-        //         })
-        //     }
-
-        //     fn rect(ctx, (x0, y0, x1, y1, color): (u32, u32, u32, u32, Option<N9Color>)) {
-        //         with_pico8(ctx, |pico8| {
-        //             // We want to ignore out of bounds errors specifically.
-        //             // Ok(pico8.pset(x, y, color)?)
-        //             let _ = pico8.rect(UVec2::new(x0, y0), UVec2::new(x1, y1), color);
-        //             Ok(())
-        //         })
-        //     }
-
-        //     // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
-        //     // XXX: What's the difference between sprite and spr?
-        //     //
-        //     // Sprite uses N9Entity, which is perhaps more general and dynamic.
-        //     fn spr(ctx, (mut args): LuaMultiValue) {
-        //         let n = args.pop_front().and_then(|v| v.as_usize()).expect("sprite id");
-        //         let x = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
-        //         let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
-        //         let w = args.pop_front().and_then(|v| v.to_f32());
-        //         let h = args.pop_front().and_then(|v| v.to_f32());
-        //         let flip_x = args.pop_front().and_then(|v| v.as_boolean());
-        //         let flip_y = args.pop_front().and_then(|v| v.as_boolean());
-        //         let pos = Vec2::new(x, y);
-        //         let flip = (flip_x.is_some() || flip_y.is_some()).then(|| BVec2::new(flip_x.unwrap_or(false),flip_y.unwrap_or(false)));
-        //         let size = w.or(h).is_some().then(|| Vec2::new(w.unwrap_or(1.0), h.unwrap_or(1.0)));
-
-        //         // We get back an entity. Not doing anything with it here yet.
-        //         let _id = with_pico8(ctx, move |pico8| pico8.spr(n, pos, size, flip))?;
-        //         Ok(())
-        //     }
-
-        //     // map( celx, cely, sx, sy, celw, celh, [layer] )
-        //     fn map(ctx, (mut args): LuaMultiValue) {
-        //         let celx = args.pop_front().and_then(|v| v.as_u32()).expect("celx");
-        //         let cely = args.pop_front().and_then(|v| v.as_u32()).expect("cely");
-        //         let sx = args.pop_front().and_then(|v| v.to_f32()).expect("sx");
-        //         let sy = args.pop_front().and_then(|v| v.to_f32()).expect("sy");
-        //         let celw = args.pop_front().and_then(|v| v.as_u32()).expect("celw");
-        //         let celh = args.pop_front().and_then(|v| v.as_u32()).expect("celh");
-        //         let layer = args.pop_front().and_then(|v| v.as_u32().map(|v| v as u8));
-
-        //         // We get back an entity. Not doing anything with it here yet.
-        //         let _id = with_pico8(ctx, move |pico8| pico8.map(UVec2::new(celx, cely), Vec2::new(sx, sy), UVec2::new(celw, celh), layer))?;
-        //         Ok(())
-        //     }
 
         //     fn tostr(ctx, v: Value) {
         //         let tostring: Function = ctx.globals().get("tostring")?;
         //         tostring.call::<Value,LuaString>(v)
-        //     }
-
-        //     // print(text, [x,] [y,] [color])
-        //     fn print(ctx, (mut args): LuaMultiValue) {
-        //         let world = ctx.get_world()?;
-        //         let draw_state = {
-        //             let world = world.read();
-        //             let pico8 = world.resource::<Pico8State>();
-        //             pico8.draw_state.clone()
-        //         };
-        //         let text: String = args.pop_front().map(|v| v.to_string().expect("text")).expect("text");
-        //         // let x = args.pop_front().and_then(|v| v.to_f32());
-        //         // let y = args.pop_front().and_then(|v| v.to_f32());
-        //         let x = args.pop_front().and_then(|v| v.as_u32());
-        //         let y = args.pop_front().and_then(|v| v.as_u32());
-        //         let c = args.pop_front().and_then(|v| v.as_usize()).map(N9Color::Palette);
-        //         let pos = x.map(|x| UVec2::new(x, y.unwrap_or(draw_state.print_cursor.y)));
-        //         with_pico8(ctx, move |pico8| pico8.print(text, pos, c))
-        //     }
-
-        //     // sfx( n, [channel,] [offset,] [length] )
-        //     fn sfx(ctx, (mut args): LuaMultiValue) {
-        //         let n: i8 = args.pop_front().and_then(|v| v.as_i32()).expect("n") as i8;
-        //         let channel: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
-        //         let offset: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
-        //         let length: Option<u8> = args.pop_front().and_then(|v| v.as_u32()).map(|w| w as u8);
-        //         with_pico8(ctx, move |pico8| pico8.sfx(match n {
-        //             -2 => Ok(SfxCommand::Release),
-        //             -1 => Ok(SfxCommand::Stop),
-        //             n if n >= 0 => Ok(SfxCommand::Play(n as u8)),
-        //             x => {
-        //                 // Maybe we should let Lua errors pass through.
-        //                 // Err(LuaError::BadArgument {
-        //                 //     to: Some("sfx".into()),
-        //                 //     pos: 0,
-        //                 //     name: Some("n".into()),
-        //                 //     cause: std::sync::Arc::new(
-        //                 // })
-        //                 Err(Error::InvalidArgument(format!("sfx: expected n to be -2, -1 or >= 0 but was {x}").into()))
-        //             }
-        //         }?, channel, offset, length))
         //     }
 
         //     fn flr(ctx, v: Number) {
