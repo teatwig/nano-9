@@ -7,6 +7,7 @@ use bevy::{
 
 use bevy_mod_scripting::{
     core::{error::{ScriptError, InteropError},
+           asset::{Language, ScriptAssetSettings, AssetPathToLanguageMapper},
            bindings::{ReflectReference, access_map::ReflectAccessId,
                       function::{namespace::{GlobalNamespace, NamespaceBuilder},
                                  script_function::FunctionCallContext}},
@@ -23,6 +24,7 @@ use crate::{
 };
 
 use std::{
+    path::Path,
     sync::{Arc, atomic::{AtomicBool, Ordering}, Mutex},
     borrow::Cow,
 };
@@ -587,7 +589,20 @@ pub(crate) fn plugin(app: &mut App) {
     app
         .init_resource::<Pico8State>()
         .add_plugins(attach_api)
-        ;
+        .add_systems(PreStartup, |mut asset_settings: ResMut<ScriptAssetSettings>| {
+            fn path_to_lang(path: &Path) -> Language {
+                // For carts we use cart.p8#lua, which is labeled asset, so we
+                // need to tell it what language our cart is.
+                if path.to_str().map(|s| s.ends_with("lua")).unwrap_or(false) {
+                    Language::Lua
+                } else {
+                    Language::Unknown
+                }
+            }
+            asset_settings.script_language_mappers.push(AssetPathToLanguageMapper {
+                map: path_to_lang
+            });
+        });
         // .add_api_provider::<LuaScriptHost<N9Args>>(Box::new(Pico8API));
 }
 
@@ -619,7 +634,7 @@ fn with_pico8<X>(ctx: &FunctionCallContext, f: impl FnOnce(&mut Pico8) -> Result
         // check the Rlua documentation for more details
         let mut world = app.world_mut();
 
-        NamespaceBuilder::<GlobalNamespace>::new(&mut world)
+        NamespaceBuilder::<GlobalNamespace>::new_unregistered(&mut world)
             .register(
                 "btnp",
                 |ctx: FunctionCallContext, b: Option<u8>| {

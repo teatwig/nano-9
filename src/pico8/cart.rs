@@ -3,13 +3,19 @@ use bevy::{
              render_resource::{Extent3d, TextureDimension, TextureFormat}
     },
     image::{ImageLoaderSettings, ImageSampler},
-    asset::{io::Reader, AssetLoader, LoadContext},
+    asset::{io::{VecReader, Reader}, AssetLoader, LoadContext},
     prelude::*,
     reflect::TypePath,
 };
-use bevy_mod_scripting::{core::{script::{Script, ScriptComponent}, asset::ScriptAsset}, lua::mlua::{prelude::LuaError}};
+use bevy_mod_scripting::{
+    core::{script::{Script,
+                    ScriptComponent},
+
+           asset::{AssetPathToLanguageMapper, Language, ScriptAssetSettings, ScriptAsset}},
+    lua::mlua::{prelude::LuaError}};
 use serde::{Deserialize, Serialize};
 use crate::{DrawState, pico8::{*, audio::*}};
+use std::path::{Path, PathBuf};
 
 pub(crate) fn plugin(app: &mut App) {
     app
@@ -33,7 +39,9 @@ pub enum CartLoaderError {
     #[error("Missing: {0}")]
     Missing(String),
     #[error("Sfx error: {0}")]
-    Sfx(#[from] SfxError)
+    Sfx(#[from] SfxError),
+    #[error("Load error: {0}")]
+    LoadDirect(#[from] bevy::asset::LoadDirectError),
 }
 
 #[derive(Debug)]
@@ -305,10 +313,12 @@ impl AssetLoader for CartLoader {
         let code = parts.lua;
         // cart.lua = Some(load_context.add_labeled_asset("lua".into(), ScriptAsset { bytes: code.into_bytes() }));
         let sprites = parts.sprites.unwrap_or_else(Image::default);
-        let code_path = load_context.path().into();
+        let mut code_path: PathBuf = load_context.path().into();
+        let mut path = code_path.as_mut_os_string();
+        path.push("#lua");
         Ok(Cart {
             lua: load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset { content: code.into_bytes().into_boxed_slice(),
-            asset_path: code_path }),
+                                                                                                   asset_path: code_path }),
             sprites: load_context.labeled_asset_scope("sprites".into(), move |_load_context| sprites),
             map: parts.map,
             flags: parts.flags,
