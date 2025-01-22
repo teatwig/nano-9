@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use bevy_mod_scripting::{
-    core::bindings::{ThreadWorldContainer, WorldContainer},
+    core::bindings::{ThreadWorldContainer, WorldContainer, function::{script_function::FunctionCallContext, namespace::{NamespaceBuilder}}},
     lua::mlua::{
         self, FromLua, Lua, UserData, UserDataFields, Value,
     },
@@ -13,12 +13,6 @@ use std::any::TypeId;
 pub enum DropPolicy {
     Nothing,
     Despawn,
-}
-
-#[derive(Clone, Reflect)]
-pub struct N9Entity {
-    pub entity: Entity,
-    pub drop: DropPolicy,
 }
 
 impl UserData for DropPolicy {}
@@ -40,15 +34,23 @@ impl Drop for N9Entity {
     }
 }
 
-// pub(crate) fn register_script_functions(app: &mut App) {
-//     app.world_mut();
-//     NamespaceBuilder::<N9Entity>::new_unregistered(world)
-//         .register("name", |this: CallerContext, world: WorldCallbackAccess| {
-//             world.get_component(
+#[derive(Clone, Reflect)]
+pub struct N9Entity {
+    pub entity: Entity,
+    pub drop: DropPolicy,
+}
 
-//         }
-
-// }
+pub(crate) fn register_script_functions(app: &mut App) {
+    NamespaceBuilder::<N9Entity>::new(app.world_mut())
+        .register("name", |ctx: FunctionCallContext| {
+            let world = ctx.world()?;
+            let id: Entity = Entity::PLACEHOLDER; // How do I get the N9Entity's entity field?
+            world.with_component(id, |name: Option<&Name>| {
+                name.map(|s| s.as_str().to_owned())
+            })
+        })
+        ;
+}
 
 impl UserData for N9Entity {
     fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {

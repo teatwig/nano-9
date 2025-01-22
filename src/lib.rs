@@ -13,7 +13,7 @@ mod palette;
 mod entity;
 #[cfg(feature = "level")]
 mod level;
-pub(crate) mod macros;
+// pub(crate) mod macros;
 // mod nano9;
 pub mod pico8;
 mod plugin;

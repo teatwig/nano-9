@@ -23,7 +23,7 @@ impl FromScript for N9Color {
     type This<'w> = Self;
     fn from_script(
         value: ScriptValue,
-        world: WorldAccessGuard<'_>,
+        _world: WorldAccessGuard<'_>,
     ) -> Result<Self::This<'_>, InteropError> {
         match value {
             ScriptValue::Integer(n) => Ok(N9Color::Palette(n as usize)),
