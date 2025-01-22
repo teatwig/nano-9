@@ -3,10 +3,7 @@ use crate::{
     DrawState,
 };
 use bevy::{
-    asset::{
-        io::Reader,
-        AssetLoader, LoadContext,
-    },
+    asset::{io::Reader, AssetLoader, LoadContext},
     image::{ImageLoaderSettings, ImageSampler},
     reflect::TypePath,
     render::{

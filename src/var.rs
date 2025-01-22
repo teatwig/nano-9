@@ -1,9 +1,6 @@
 use crate::on_asset_change;
 use bevy::prelude::*;
-use bevy_mod_scripting::core::{
-        asset::ScriptAsset,
-        event::ScriptCallbackEvent,
-    };
+use bevy_mod_scripting::core::{asset::ScriptAsset, event::ScriptCallbackEvent};
 use std::borrow::Cow;
 
 #[derive(Component, Reflect)]

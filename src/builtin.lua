@@ -171,6 +171,21 @@ function split(inputstr, sep, convert_numbers)
     return t
 end
 
+function ord(str, index, count)
+    if ~index then
+        index = 1
+    end
+    if count then
+        return str:byte(index)
+    else
+        local result = {}
+        for i=0,count do
+            table.insert(result, str:byte(index + i))
+        end
+        return unpack(table)
+    end
+end
+
 function stat(val)
     debug_print("STAT NOT IMPLEMENTED", val)
     return nil

@@ -1,13 +1,19 @@
 use bevy::prelude::*;
 
 use bevy_mod_scripting::{
-    core::bindings::{ThreadWorldContainer, WorldContainer, function::{script_function::FunctionCallContext, namespace::{NamespaceBuilder}}},
-    lua::mlua::{
-        self, FromLua, Lua, UserData, UserDataFields, Value,
+    core::{
+        bindings::{
+            access_map::ReflectAccessId,
+            function::{namespace::NamespaceBuilder, script_function::FunctionCallContext},
+            ThreadWorldContainer, WorldAccessGuard, WorldContainer,
+        },
+        error::InteropError,
+        with_access_write,
     },
+    lua::mlua::{self, prelude::LuaError, FromLua, Lua, UserData, UserDataFields, Value},
 };
 
-use std::any::TypeId;
+use std::{any::TypeId, sync::Arc};
 
 #[derive(Debug, Clone, Copy, Reflect)]
 pub enum DropPolicy {
@@ -41,40 +47,64 @@ pub struct N9Entity {
 }
 
 pub(crate) fn register_script_functions(app: &mut App) {
-    NamespaceBuilder::<N9Entity>::new(app.world_mut())
-        .register("name", |ctx: FunctionCallContext| {
-            let world = ctx.world()?;
-            let id: Entity = Entity::PLACEHOLDER; // How do I get the N9Entity's entity field?
-            world.with_component(id, |name: Option<&Name>| {
-                name.map(|s| s.as_str().to_owned())
-            })
-        })
-        ;
+    // NamespaceBuilder::<N9Entity>::new(app.world_mut())
+    //     .register("name", |ctx: FunctionCallContext, this: Val<N9Entity>| {
+    //         let world = ctx.world()?;
+    //         let id: Entity = Entity::PLACEHOLDER; // How do I get the N9Entity's entity field?
+    //         world.with_component(this.entity, |name: Option<&Name>| {
+    //             name.map(|s| s.as_str().to_owned())
+    //         })
+    //     })
+    //     ;
+}
+
+/// Modify or insert a component.
+pub fn with_or_insert_component_mut<F, T, O>(
+    world: &WorldAccessGuard<'_>,
+    entity: Entity,
+    f: F,
+) -> Result<O, InteropError>
+where
+    T: Component + Default,
+    F: FnOnce(&mut T) -> O,
+{
+    world.with_global_access(|world| match world.get_mut::<T>(entity) {
+        Some(mut component) => f(&mut component),
+        None => {
+            let mut component = T::default();
+            let mut commands = world.commands();
+            let result = f(&mut component);
+            commands.entity(entity).insert(component);
+            result
+        }
+    })
 }
 
 impl UserData for N9Entity {
     fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {
         fields.add_field_method_get("name", |ctx, this| {
-            let world = ThreadWorldContainer.try_get_world()?;
-            let name = world
-                .get_component_id(TypeId::of::<Name>())?
-                .expect("Name component id");
-            if let Ok(maybe_name) = world.get_component(this.entity, name) {
-                if let Some(name_reflect) = maybe_name {
-                    if let Ok(name) = name_reflect.downcast::<Name>(world) {
-                        return Ok(Some(name.as_str().to_owned()));
-                    }
-                }
-            }
-            Ok(None)
-            // let world = ctx.get_world()?;
-            // let mut world = world.write();
-            // let mut system_state: SystemState<Query<&Name>> = SystemState::new(&mut world);
-            // let items = system_state.get(&mut world);
-            // Ok(items
-            //     .get(this.entity)
-            //     .map(|name| name.as_str().to_owned())
-            //     .ok())
+            let world = ThreadWorldContainer
+                .try_get_world()
+                .map_err(|e| LuaError::ExternalError(Arc::new(e)))?;
+            world
+                .with_component(this.entity, |name: Option<&Name>| {
+                    name.map(|s| s.as_str().to_owned())
+                })
+                .map_err(|e| LuaError::ExternalError(Arc::new(e)))
+        });
+
+        fields.add_field_method_set("name", |ctx, this, value: String| {
+            let world = ThreadWorldContainer
+                .try_get_world()
+                .map_err(|e| LuaError::ExternalError(Arc::new(e)))?;
+            // with_or_insert_component_mut(&world, this.entity, |name: &mut Name| {
+            //     name.mutate(|s| *s = value);
+            // })
+            // .map_err(|e| LuaError::ExternalError(Arc::new(e)))
+            world.with_or_insert_component_mut(this.entity, |name: &mut Name| {
+                name.mutate(|s| *s = value);
+            })
+            .map_err(|e| LuaError::ExternalError(Arc::new(e)))
         });
 
         // TODO: Try to do this one later.

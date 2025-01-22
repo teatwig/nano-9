@@ -24,11 +24,7 @@ use bevy_mod_scripting::{
     lua::LuaScriptingPlugin,
 };
 
-use crate::{
-    error::ErrorState,
-    screens,
-    N9Var,
-};
+use crate::{error::ErrorState, screens, N9Var};
 
 #[derive(Component)]
 pub struct Nano9Sprite;
@@ -406,11 +402,11 @@ impl Plugin for Nano9Plugin {
         // .add_systems(Startup, (setup_image, spawn_camera, set_camera).chain())
         .add_systems(Startup, (setup_image, spawn_camera).chain())
         // .add_systems(OnEnter(screens::Screen::Playing), send_init)
-        .add_systems(
-            PreUpdate,
-            (send_init, event_handler::<call::Init, LuaScriptingPlugin>)
-                .run_if(on_asset_modified::<ScriptAsset>()),
-        )
+        // .add_systems(
+        //     PreUpdate,
+        //     (send_init, event_handler::<call::Init, LuaScriptingPlugin>)
+        //         .run_if(on_asset_modified::<ScriptAsset>()),
+        // )
         // .add_systems(PreUpdate, send_init.run_if(on_event::<OnScriptLoaded>))
         // .add_systems(
         //     PreUpdate,
@@ -424,12 +420,12 @@ impl Plugin for Nano9Plugin {
             Update,
             (
                 (
-                    send_update,
-                    send_update60,
+                    (send_update,
+                    send_update60).run_if(in_state(ErrorState::None)),
                     event_handler::<call::Update, LuaScriptingPlugin>,
                     event_handler::<call::Update60, LuaScriptingPlugin>,
                 ),
-                send_draw,
+                send_draw.run_if(in_state(ErrorState::None)),
                 event_handler::<call::Draw, LuaScriptingPlugin>,
             )
                 .chain()
