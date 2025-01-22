@@ -1,10 +1,9 @@
-use bevy::{ecs::system::SystemState, prelude::*};
+use bevy::prelude::*;
 
 use bevy_mod_scripting::{
     core::bindings::{ThreadWorldContainer, WorldContainer},
     lua::mlua::{
-        self, prelude::LuaError, FromLua, Lua, MetaMethod, UserData, UserDataFields,
-        UserDataMethods, Value,
+        self, FromLua, Lua, UserData, UserDataFields, Value,
     },
 };
 
@@ -58,7 +57,7 @@ impl UserData for N9Entity {
             let name = world
                 .get_component_id(TypeId::of::<Name>())?
                 .expect("Name component id");
-            if let Some(maybe_name) = world.get_component(this.entity, name).ok() {
+            if let Ok(maybe_name) = world.get_component(this.entity, name) {
                 if let Some(name_reflect) = maybe_name {
                     if let Ok(name) = name_reflect.downcast::<Name>(world) {
                         return Ok(Some(name.as_str().to_owned()));

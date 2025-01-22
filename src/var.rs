@@ -1,17 +1,10 @@
-use crate::{call, on_asset_change, DropPolicy, N9Entity};
+use crate::on_asset_change;
 use bevy::prelude::*;
-use bevy_mod_scripting::{
-    core::{
+use bevy_mod_scripting::core::{
         asset::ScriptAsset,
-        bindings::script_value::ScriptValue,
-        event::{OnScriptLoaded, ScriptCallbackEvent},
-    },
-    lua::mlua::{prelude::LuaValue, AnyUserData},
-};
-use std::{
-    borrow::Cow,
-    sync::{Arc, Mutex},
-};
+        event::ScriptCallbackEvent,
+    };
+use std::borrow::Cow;
 
 #[derive(Component, Reflect)]
 pub struct N9Var(Cow<'static, str>);
@@ -30,7 +23,7 @@ impl N9Var {
 }
 
 /// Sends initialization event
-fn set_vars(mut writer: EventWriter<ScriptCallbackEvent>, query: Query<(Entity, &N9Var)>) {
+fn set_vars(writer: EventWriter<ScriptCallbackEvent>, query: Query<(Entity, &N9Var)>) {
     for (id, var) in &query {
         warn!("Need to impl set_vars().");
         // todo!();

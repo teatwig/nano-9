@@ -12,14 +12,13 @@ use bevy::{
     utils::Duration,
     window::{PresentMode, PrimaryWindow, WindowMode, WindowResized},
 };
-use std::sync::{Arc, Mutex};
 
 use bevy_mod_scripting::{
     core::{
         asset::ScriptAsset,
         bindings::{function::namespace::NamespaceBuilder, script_value::ScriptValue},
         callback_labels,
-        event::{OnScriptLoaded, ScriptCallbackEvent},
+        event::ScriptCallbackEvent,
         handler::event_handler,
     },
     lua::LuaScriptingPlugin,
@@ -28,8 +27,6 @@ use bevy_mod_scripting::{
 use crate::{
     error::ErrorState,
     screens,
-    DropPolicy, //N9Camera, N9Sprite,
-    N9Entity,
     N9Var,
 };
 
@@ -108,7 +105,7 @@ pub mod call {
 
 pub fn set_background(
     screen: Query<Entity, With<Nano9Sprite>>,
-    mut writer: EventWriter<ScriptCallbackEvent>,
+    writer: EventWriter<ScriptCallbackEvent>,
 ) {
     if let Ok(id) = screen.get_single() {
         // writer.send(ScriptCallbackEvent::new_for_all(
@@ -292,7 +289,7 @@ pub fn send_update60(mut writer: EventWriter<ScriptCallbackEvent>) {
 
 /// Sends initialization event
 pub fn send_init(
-    mut writer: EventWriter<ScriptCallbackEvent>,
+    writer: EventWriter<ScriptCallbackEvent>,
     // mut loaded: EventReader<OnScriptLoaded>,
 ) {
     todo!("PUT INIT ELSEWHERE like Lua's on_script_loaded()");
@@ -385,7 +382,7 @@ impl Plugin for Nano9Plugin {
             .scripting_plugin
             .add_context_initializer(
                 |script_id: &str, context: &mut bevy_mod_scripting::lua::mlua::Lua| {
-                    let _ = context
+                    context
                         .load(include_str!("builtin.lua"))
                         .exec()
                         .expect("Problem in builtin.lua");

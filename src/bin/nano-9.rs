@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::{TilePos, TilemapType};
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::{asset::ScriptAsset, script::ScriptComponent};
-use nano_9::{error::*, minibuffer::*, pico8::*, *};
+use nano_9::{minibuffer::*, pico8::*, *};
 use std::env;
 
 #[derive(Resource)]

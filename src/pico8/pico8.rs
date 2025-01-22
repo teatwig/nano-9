@@ -14,14 +14,10 @@ use bevy_mod_scripting::{
                 namespace::{GlobalNamespace, NamespaceBuilder},
                 script_function::FunctionCallContext,
             },
-            ReflectReference,
         },
-        error::{InteropError, ScriptError},
+        error::InteropError,
     },
-    lua::mlua::{
-        prelude::{LuaError, LuaMultiValue, LuaString},
-        Function, Lua, Number, Value,
-    },
+    lua::mlua::prelude::LuaError,
 };
 
 use bevy_ecs_tilemap::prelude::*;
@@ -31,7 +27,7 @@ use crate::{
         audio::{Sfx, SfxChannels},
         Cart, ClearEvent, Clearable, LoadCart,
     },
-    DrawState, N9Color, Nano9Screen, ValueExt,
+    DrawState, N9Color, Nano9Screen,
 };
 
 use std::{
@@ -39,7 +35,7 @@ use std::{
     path::Path,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc,
     },
 };
 
@@ -544,7 +540,7 @@ impl Pico8<'_, '_> {
     }
 
     fn fset(&mut self, index: u8, flag_index: Option<u8>, value: u8) {
-        let mut cart = self
+        let cart = self
             .state
             .cart
             .as_ref()
@@ -798,11 +794,11 @@ fn with_pico8<X>(
     let raid = ReflectAccessId::for_global();
     if world_guard.claim_global_access() {
         let world = world_guard.as_unsafe_world_cell()?;
-        let mut world = unsafe { world.world_mut() };
-        let mut system_state: SystemState<Pico8> = SystemState::new(&mut world);
-        let mut pico8 = system_state.get_mut(&mut world);
+        let world = unsafe { world.world_mut() };
+        let mut system_state: SystemState<Pico8> = SystemState::new(world);
+        let mut pico8 = system_state.get_mut(world);
         let r = f(&mut pico8);
-        system_state.apply(&mut world);
+        system_state.apply(world);
         unsafe { world_guard.release_global_access() };
         r.map_err(|e| InteropError::external_error(Box::new(e)))
     } else {
@@ -818,9 +814,9 @@ fn attach_api(app: &mut App) {
     // callbacks can receive any `ToLuaMulti` arguments, here '()' and
     // return any `FromLuaMulti` arguments, here a `usize`
     // check the Rlua documentation for more details
-    let mut world = app.world_mut();
+    let world = app.world_mut();
 
-    NamespaceBuilder::<GlobalNamespace>::new_unregistered(&mut world)
+    NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
         .register("btnp", |ctx: FunctionCallContext, b: Option<u8>| {
             with_pico8(&ctx, |pico8| pico8.btnp(b))
         })
@@ -982,14 +978,20 @@ fn attach_api(app: &mut App) {
             "fset",
             |ctx: FunctionCallContext, n: u8, f_or_v: u8, v: Option<u8>| {
                 let (f, v) = v.map(|v| (Some(f_or_v), v)).unwrap_or((None, f_or_v));
-                with_pico8(&ctx, move |pico8| Ok(pico8.fset(n, f, v)))
+                with_pico8(&ctx, move |pico8| {
+                    pico8.fset(n, f, v);
+                    Ok(())
+                })
             },
         )
         .register("mget", |ctx: FunctionCallContext, x: u32, y: u32| {
             with_pico8(&ctx, move |pico8| Ok(pico8.mget(UVec2::new(x, y))))
         })
         .register("mset", |ctx: FunctionCallContext, x: u32, y: u32, v: u8| {
-            with_pico8(&ctx, move |pico8| Ok(pico8.mset(UVec2::new(x, y), v)))
+            with_pico8(&ctx, move |pico8| {
+                pico8.mset(UVec2::new(x, y), v);
+                Ok(())
+            })
         });
 
     //     fn tostr(ctx, v: Value) {

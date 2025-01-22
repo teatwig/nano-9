@@ -4,26 +4,19 @@ use crate::{
 };
 use bevy::{
     asset::{
-        io::{Reader, VecReader},
+        io::Reader,
         AssetLoader, LoadContext,
     },
     image::{ImageLoaderSettings, ImageSampler},
-    prelude::*,
     reflect::TypePath,
     render::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
 };
-use bevy_mod_scripting::{
-    core::{
-        asset::{AssetPathToLanguageMapper, Language, ScriptAsset, ScriptAssetSettings},
-        script::{Script, ScriptComponent},
-    },
-    lua::mlua::prelude::LuaError,
-};
+use bevy_mod_scripting::core::asset::ScriptAsset;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_asset::<Cart>()
@@ -374,7 +367,7 @@ impl AssetLoader for CartLoader {
         // cart.lua = Some(load_context.add_labeled_asset("lua".into(), ScriptAsset { bytes: code.into_bytes() }));
         let sprites = parts.sprites.unwrap_or_else(Image::default);
         let mut code_path: PathBuf = load_context.path().into();
-        let mut path = code_path.as_mut_os_string();
+        let path = code_path.as_mut_os_string();
         path.push("#lua");
         Ok(Cart {
             lua: load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
