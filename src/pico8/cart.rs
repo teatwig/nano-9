@@ -1,25 +1,32 @@
+use crate::{
+    pico8::{audio::*, *},
+    DrawState,
+};
 use bevy::{
-    render::{render_asset::RenderAssetUsages,
-             render_resource::{Extent3d, TextureDimension, TextureFormat}
+    asset::{
+        io::{Reader, VecReader},
+        AssetLoader, LoadContext,
     },
     image::{ImageLoaderSettings, ImageSampler},
-    asset::{io::{VecReader, Reader}, AssetLoader, LoadContext},
     prelude::*,
     reflect::TypePath,
+    render::{
+        render_asset::RenderAssetUsages,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+    },
 };
 use bevy_mod_scripting::{
-    core::{script::{Script,
-                    ScriptComponent},
-
-           asset::{AssetPathToLanguageMapper, Language, ScriptAssetSettings, ScriptAsset}},
-    lua::mlua::{prelude::LuaError}};
+    core::{
+        asset::{AssetPathToLanguageMapper, Language, ScriptAsset, ScriptAssetSettings},
+        script::{Script, ScriptComponent},
+    },
+    lua::mlua::prelude::LuaError,
+};
 use serde::{Deserialize, Serialize};
-use crate::{DrawState, pico8::{*, audio::*}};
 use std::path::{Path, PathBuf};
 
 pub(crate) fn plugin(app: &mut App) {
-    app
-        .init_asset::<Cart>()
+    app.init_asset::<Cart>()
         .init_asset_loader::<CartLoader>()
         .add_systems(PreUpdate, load_cart);
 }
@@ -63,32 +70,33 @@ pub struct Cart {
 }
 
 const PALETTE: [[u8; 3]; 16] = [
-    [0, 0, 0], // black
-    [29, 43, 83], //dark-blue
-    [126, 37, 83], //dark-purple
-    [0, 135, 81], //dark-green
-    [171, 82, 54], //brown
-    [95, 87, 79], //dark-grey
+    [0, 0, 0],       //black
+    [29, 43, 83],    //dark-blue
+    [126, 37, 83],   //dark-purple
+    [0, 135, 81],    //dark-green
+    [171, 82, 54],   //brown
+    [95, 87, 79],    //dark-grey
     [194, 195, 199], //light-grey
     [255, 241, 232], //white
-    [255, 0, 77], //red
-    [255, 163, 0], //orange
-    [255, 236, 39], //yellow
-    [0, 228, 54], //green
-    [41, 173, 255], //blue
+    [255, 0, 77],    //red
+    [255, 163, 0],   //orange
+    [255, 236, 39],  //yellow
+    [0, 228, 54],    //green
+    [41, 173, 255],  //blue
     [131, 118, 156], //lavender
     [255, 119, 168], //pink
-    [255, 204, 170], // light-peach
+    [255, 204, 170], //light-peach
 ];
 
 #[derive(Component)]
 pub struct LoadCart(pub Handle<Cart>);
 
-fn load_cart(query: Query<(Entity, &LoadCart)>,
-             carts: Res<Assets<Cart>>,
-             mut commands: Commands,
-             asset_server: Res<AssetServer>,
-             mut layouts: ResMut<Assets<TextureAtlasLayout>>,
+fn load_cart(
+    query: Query<(Entity, &LoadCart)>,
+    carts: Res<Assets<Cart>>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     for (id, load_cart) in &query {
         if let Some(cart) = carts.get(&load_cart.0) {
@@ -102,9 +110,13 @@ fn load_cart(query: Query<(Entity, &LoadCart)>,
                 border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
                 sprites: cart.sprites.clone(),
                 cart: Some(load_cart.0.clone()),
-                layout: layouts.add(TextureAtlasLayout::from_grid(UVec2::new(8, 8),
-                                                                  16, 16,
-                                                                  None, None)),
+                layout: layouts.add(TextureAtlasLayout::from_grid(
+                    UVec2::new(8, 8),
+                    16,
+                    16,
+                    None,
+                    None,
+                )),
                 sprite_size: UVec2::splat(8),
                 draw_state: DrawState::default(),
                 font: asset_server.load(PICO8_FONT),
@@ -124,21 +136,28 @@ fn load_cart(query: Query<(Entity, &LoadCart)>,
 }
 
 impl CartParts {
-    fn from_str(content: &str, settings: &CartLoaderSettings) -> Result<CartParts, CartLoaderError> {
+    fn from_str(
+        content: &str,
+        settings: &CartLoaderSettings,
+    ) -> Result<CartParts, CartLoaderError> {
         const LUA: usize = 0;
         const GFX: usize = 1;
         const GFF: usize = 2;
         const MAP: usize = 4;
         const SFX: usize = 5;
         let headers = ["lua", "gfx", "gff", "label", "map", "sfx", "music"];
-        let mut sections = [(None,None); 7];
+        let mut sections = [(None, None); 7];
         let mut even_match: Option<usize> = None;
         for (index, _) in content.match_indices("__") {
             if let Some(begin) = even_match {
                 let header = &content[begin + 2..index];
                 if let Some(h) = headers.iter().position(|word| *word == header) {
                     sections[h].0 = Some(index + 3);
-                    if let Some(last_section) = sections[0..h].iter_mut().rev().find(|(start, end)| start.is_some() && end.is_none()) {
+                    if let Some(last_section) = sections[0..h]
+                        .iter_mut()
+                        .rev()
+                        .find(|(start, end)| start.is_some() && end.is_none())
+                    {
                         last_section.1 = Some(begin - 1);
                     }
                 } else {
@@ -154,11 +173,15 @@ impl CartParts {
         }
         // Close the last segment.
         //
-        if let Some(last_section) = sections.iter_mut().rev().find(|(start, end)| start.is_some() && end.is_none()) {
+        if let Some(last_section) = sections
+            .iter_mut()
+            .rev()
+            .find(|(start, end)| start.is_some() && end.is_none())
+        {
             last_section.1 = Some(content.len());
         }
         let get_segment = |(i, j): &(Option<usize>, Option<usize>)| -> Option<&str> {
-            i.zip(*j).map(|(i,j)| &content[i..j])
+            i.zip(*j).map(|(i, j)| &content[i..j])
         };
 
         // lua
@@ -182,14 +205,19 @@ impl CartParts {
                     bytes[pixel_index * 4] = PALETTE[pi][0];
                     bytes[pixel_index * 4 + 1] = PALETTE[pi][1];
                     bytes[pixel_index * 4 + 2] = PALETTE[pi][2];
-                    bytes[pixel_index * 4 + 3] = if settings.is_transparent(pi) { 0x00 } else { 0xff };
+                    bytes[pixel_index * 4 + 3] = if settings.is_transparent(pi) {
+                        0x00
+                    } else {
+                        0xff
+                    };
                 };
                 let mut i = 0;
                 for line in content.lines() {
                     assert_eq!(columns, line.len(), "line: {}", &line);
                     for c in line.as_bytes() {
                         let c = *c as char;
-                        let digit: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                        let digit: u8 =
+                            c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
                         set_color(i, digit);
                         i += 1;
                     }
@@ -204,16 +232,16 @@ impl CartParts {
                 //     }
                 // }
                 // assert_eq!(i, columns * rows);
-                sprites = Some(Image::new(Extent3d {
-                    width: columns as u32,
-                    height: rows as u32,
-                    ..default()
-                },
-                                TextureDimension::D2,
-                                bytes,
-                                TextureFormat::Rgba8UnormSrgb,
-                                RenderAssetUsages::RENDER_WORLD |
-                                RenderAssetUsages::MAIN_WORLD,
+                sprites = Some(Image::new(
+                    Extent3d {
+                        width: columns as u32,
+                        height: rows as u32,
+                        ..default()
+                    },
+                    TextureDimension::D2,
+                    bytes,
+                    TextureFormat::Rgba8UnormSrgb,
+                    RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
                 ));
             }
         }
@@ -232,9 +260,11 @@ impl CartParts {
                     let mut j = 0;
                     while j < line_bytes.len() {
                         let c = line_bytes[j] as char;
-                        let high: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                        let high: u8 =
+                            c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
                         let c = line_bytes[j + 1] as char;
-                        let low: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                        let low: u8 =
+                            c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
                         bytes[i] = high << 4 | low;
                         i += 1;
                         j += 2;
@@ -258,9 +288,11 @@ impl CartParts {
                     let mut j = 0;
                     while j < line_bytes.len() {
                         let c = line_bytes[j] as char;
-                        let high: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                        let high: u8 =
+                            c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
                         let c = line_bytes[j + 1] as char;
-                        let low: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                        let low: u8 =
+                            c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
                         bytes[i] = high << 4 | low;
                         i += 1;
                         j += 2;
@@ -345,12 +377,22 @@ impl AssetLoader for CartLoader {
         let mut path = code_path.as_mut_os_string();
         path.push("#lua");
         Ok(Cart {
-            lua: load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset { content: code.into_bytes().into_boxed_slice(),
-                                                                                                   asset_path: code_path }),
-            sprites: load_context.labeled_asset_scope("sprites".into(), move |_load_context| sprites),
+            lua: load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
+                content: code.into_bytes().into_boxed_slice(),
+                asset_path: code_path,
+            }),
+            sprites: load_context
+                .labeled_asset_scope("sprites".into(), move |_load_context| sprites),
             map: parts.map,
             flags: parts.flags,
-            sfx: parts.sfx.into_iter().enumerate().map(|(n, sfx)| load_context.labeled_asset_scope(format!("sfx{n}"), move |_load_context| sfx)).collect(),
+            sfx: parts
+                .sfx
+                .into_iter()
+                .enumerate()
+                .map(|(n, sfx)| {
+                    load_context.labeled_asset_scope(format!("sfx{n}"), move |_load_context| sfx)
+                })
+                .collect(),
         })
     }
 
@@ -480,24 +522,50 @@ __gff__
     fn test_cart_from() {
         let settings = CartLoaderSettings::default();
         let cart = CartParts::from_str(sample_cart, &settings).unwrap();
-        assert_eq!(cart.lua, r#"function _draw()
+        assert_eq!(
+            cart.lua,
+            r#"function _draw()
  cls()
 	spr(1, 0, 0)
-end"#);
-        assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), Some(128));
-        assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), Some(8));
+end"#
+        );
+        assert_eq!(
+            cart.sprites
+                .as_ref()
+                .map(|s| s.texture_descriptor.size.width),
+            Some(128)
+        );
+        assert_eq!(
+            cart.sprites
+                .as_ref()
+                .map(|s| s.texture_descriptor.size.height),
+            Some(8)
+        );
     }
 
     #[test]
     fn test_cart_black_row() {
         let settings = CartLoaderSettings::default();
         let cart = CartParts::from_str(black_row_cart, &settings).unwrap();
-        assert_eq!(cart.lua, r#"function _draw()
+        assert_eq!(
+            cart.lua,
+            r#"function _draw()
  cls()
 	spr(1, 0, 0)
-end"#);
-        assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), Some(128));
-        assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), Some(8));
+end"#
+        );
+        assert_eq!(
+            cart.sprites
+                .as_ref()
+                .map(|s| s.texture_descriptor.size.width),
+            Some(128)
+        );
+        assert_eq!(
+            cart.sprites
+                .as_ref()
+                .map(|s| s.texture_descriptor.size.height),
+            Some(8)
+        );
     }
 
     #[test]
@@ -520,12 +588,25 @@ end"#);
     fn test_cart_map() {
         let settings = CartLoaderSettings::default();
         let cart = CartParts::from_str(test_map_cart, &settings).unwrap();
-        assert_eq!(cart.lua, r#"function _draw()
+        assert_eq!(
+            cart.lua,
+            r#"function _draw()
 cls()
 map(0, 0, 10, 10)
-end"#);
-        assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), Some(128));
-        assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), Some(8));
+end"#
+        );
+        assert_eq!(
+            cart.sprites
+                .as_ref()
+                .map(|s| s.texture_descriptor.size.width),
+            Some(128)
+        );
+        assert_eq!(
+            cart.sprites
+                .as_ref()
+                .map(|s| s.texture_descriptor.size.height),
+            Some(8)
+        );
         assert_eq!(cart.map.len(), 128 * 7);
     }
 
@@ -534,8 +615,18 @@ end"#);
         let settings = CartLoaderSettings::default();
         let cart = CartParts::from_str(test_sfx_cart, &settings).unwrap();
         assert_eq!(cart.lua, "");
-        assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), Some(128));
-        assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), Some(8));
+        assert_eq!(
+            cart.sprites
+                .as_ref()
+                .map(|s| s.texture_descriptor.size.width),
+            Some(128)
+        );
+        assert_eq!(
+            cart.sprites
+                .as_ref()
+                .map(|s| s.texture_descriptor.size.height),
+            Some(8)
+        );
         assert_eq!(cart.map.len(), 0);
         assert_eq!(cart.sfx.len(), 1);
         let sfx = &cart.sfx[0];
@@ -579,6 +670,5 @@ end"#);
         assert_eq!(cart.sfx.len(), 0);
         assert_eq!(cart.flags.len(), 256);
         assert_eq!(cart.flags[1], 8);
-
     }
 }

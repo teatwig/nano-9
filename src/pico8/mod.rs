@@ -9,8 +9,7 @@ pub use clear::*;
 pub mod audio;
 
 pub fn plugin(app: &mut App) {
-    app
-        .add_plugins(pico8::plugin)
+    app.add_plugins(pico8::plugin)
         .add_plugins(clear::plugin)
         .add_plugins(audio::plugin)
         .add_plugins(cart::plugin);

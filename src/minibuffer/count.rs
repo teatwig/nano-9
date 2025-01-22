@@ -1,5 +1,5 @@
-use bevy::{prelude::*, app::PluginGroupBuilder};
-use bevy_minibuffer::{ui::IconContainer, prelude::*};
+use bevy::{app::PluginGroupBuilder, prelude::*};
+use bevy_minibuffer::{prelude::*, ui::IconContainer};
 use std::marker::PhantomData;
 
 pub struct CountComponentsActs {
@@ -30,9 +30,7 @@ impl Default for CountComponentsActs {
     fn default() -> Self {
         Self {
             plugins: Some(PluginGroupBuilder::start::<Self>()),
-            acts: Acts::new([
-                Act::new(show_count).bind(keyseq! { Space C }),
-            ]),
+            acts: Acts::new([Act::new(show_count).bind(keyseq! { Space C })]),
         }
     }
 }
@@ -48,8 +46,7 @@ impl PluginGroup for CountComponentsActs {
 
 impl CountComponentsActs {
     pub fn add<C: Component>(mut self, name: impl Into<String>) -> Self {
-
-    // pub fn add_with_name<C: Component>(mut self, name: impl Into<String>) -> Self {
+        // pub fn add_with_name<C: Component>(mut self, name: impl Into<String>) -> Self {
         let name = name.into();
         let builder = self.plugins.take().expect("plugin group");
         self.plugins = Some(builder.add(move |app: &mut App| {
@@ -61,9 +58,11 @@ impl CountComponentsActs {
     }
 }
 
-fn update_count<C: Component>(components: Query<Entity, With<C>>,
-                              mut writer: TextUiWriter,
-                              text: Single<Entity, With<CountText<C>>>) {
+fn update_count<C: Component>(
+    components: Query<Entity, With<C>>,
+    mut writer: TextUiWriter,
+    text: Single<Entity, With<CountText<C>>>,
+) {
     let count = components.iter().count();
     *writer.text(*text, 2) = format!("{}", count);
 }
@@ -74,8 +73,8 @@ fn setup_count<C: Component>(
     mut commands: Commands,
 ) {
     commands.entity(*icon_container).with_children(|parent| {
-        parent.spawn((Text::new(name),
-                      CountText::<C>::new()))
+        parent
+            .spawn((Text::new(name), CountText::<C>::new()))
             .with_children(|p| {
                 p.spawn(TextSpan::new(" "));
                 p.spawn(TextSpan::new("N/A"));
@@ -84,6 +83,4 @@ fn setup_count<C: Component>(
     });
 }
 
-pub fn show_count(_minibuffer: Minibuffer) {
-
-}
+pub fn show_count(_minibuffer: Minibuffer) {}

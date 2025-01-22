@@ -1,32 +1,46 @@
 use bevy::{
-    ecs::{system::{SystemState, SystemParam}},
+    ecs::system::{SystemParam, SystemState},
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
     prelude::*,
     sprite::Anchor,
 };
 
 use bevy_mod_scripting::{
-    core::{error::{ScriptError, InteropError},
-           asset::{Language, ScriptAssetSettings, AssetPathToLanguageMapper},
-           bindings::{ReflectReference, access_map::ReflectAccessId,
-                      function::{namespace::{GlobalNamespace, NamespaceBuilder},
-                                 script_function::FunctionCallContext}},
-},
+    core::{
+        asset::{AssetPathToLanguageMapper, Language, ScriptAssetSettings},
+        bindings::{
+            access_map::ReflectAccessId,
+            function::{
+                namespace::{GlobalNamespace, NamespaceBuilder},
+                script_function::FunctionCallContext,
+            },
+            ReflectReference,
+        },
+        error::{InteropError, ScriptError},
+    },
     lua::mlua::{
-        Function, Number, prelude::{LuaError, LuaMultiValue, LuaString}, Lua, Value},
+        prelude::{LuaError, LuaMultiValue, LuaString},
+        Function, Lua, Number, Value,
+    },
 };
 
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::{
-    pico8::{LoadCart, Cart, Clearable, ClearEvent, audio::{Sfx, SfxChannels}},
-    N9Color, Nano9Screen, ValueExt, DrawState,
+    pico8::{
+        audio::{Sfx, SfxChannels},
+        Cart, ClearEvent, Clearable, LoadCart,
+    },
+    DrawState, N9Color, Nano9Screen, ValueExt,
 };
 
 use std::{
-    path::Path,
-    sync::{Arc, atomic::{AtomicBool, Ordering}, Mutex},
     borrow::Cow,
+    path::Path,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
 };
 
 pub const PICO8_PALETTE: &str = "images/pico-8-palette.png";
@@ -104,7 +118,13 @@ impl Pico8<'_, '_> {
     // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
     // XXX: Reconsider using args struct.
     // fn spr(&mut self, index: usize, pos: Option<Vec2>, size: Option<Vec2>, flip: Option<BVec2>) -> Result<Entity, Error> {
-    fn spr(&mut self, index: usize, pos: Vec2, size: Option<Vec2>, flip: Option<BVec2>) -> Result<Entity, Error> {
+    fn spr(
+        &mut self,
+        index: usize,
+        pos: Vec2,
+        size: Option<Vec2>,
+        flip: Option<BVec2>,
+    ) -> Result<Entity, Error> {
         let x = pos.x;
         let y = pos.y;
         let flip = flip.unwrap_or_default();
@@ -116,30 +136,37 @@ impl Pico8<'_, '_> {
             Sprite {
                 image: self.state.sprites.clone(),
                 texture_atlas: Some(atlas),
-                rect: size.map(|v|
-                                    Rect { min: Vec2::ZERO,
-                                           max: self.state.sprite_size.as_vec2() * v }),
+                rect: size.map(|v| Rect {
+                    min: Vec2::ZERO,
+                    max: self.state.sprite_size.as_vec2() * v,
+                }),
                 flip_x: flip.x,
                 flip_y: flip.y,
                 ..default()
             }
         };
         let clearable = Clearable::default();
-        Ok(self.commands.spawn((
-            Name::new("sprite"),
-            sprite,
-                        Transform::from_xyz(x, -y, clearable.suggest_z()),
-            clearable,
-        )).id())
+        Ok(self
+            .commands
+            .spawn((
+                Name::new("sprite"),
+                sprite,
+                Transform::from_xyz(x, -y, clearable.suggest_z()),
+                clearable,
+            ))
+            .id())
     }
 
     pub fn get_color(&self, c: impl Into<N9Color>) -> Result<Color, Error> {
         match c.into() {
             N9Color::Pen => Ok(self.state.draw_state.pen),
             N9Color::Palette(n) => {
-                let pal = self.images.get(&self.state.palette).ok_or(Error::NoAsset("palette".into()))?;
+                let pal = self
+                    .images
+                    .get(&self.state.palette)
+                    .ok_or(Error::NoAsset("palette".into()))?;
 
-                    // Strangely. It's not a 1d texture.
+                // Strangely. It's not a 1d texture.
                 Ok(pal.get_color_at(n as u32, 0)?)
                 //         Ok(c) => Some(c),
                 //         Err(e) => {
@@ -156,7 +183,10 @@ impl Pico8<'_, '_> {
 
     fn cls(&mut self, color: Option<N9Color>) -> Result<(), Error> {
         let c = self.get_color(color.unwrap_or(Color::BLACK.into()))?;
-        let image = self.images.get_mut(&self.background.0).ok_or(Error::NoAsset("background".into()))?;
+        let image = self
+            .images
+            .get_mut(&self.background.0)
+            .ok_or(Error::NoAsset("background".into()))?;
         for i in 0..image.width() {
             for j in 0..image.height() {
                 image.set_color_at(i, j, c)?;
@@ -168,58 +198,88 @@ impl Pico8<'_, '_> {
 
     fn pset(&mut self, pos: UVec2, color: Option<N9Color>) -> Result<(), Error> {
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
-        let image = self.images.get_mut(&self.background.0).ok_or(Error::NoAsset("background".into()))?;
+        let image = self
+            .images
+            .get_mut(&self.background.0)
+            .ok_or(Error::NoAsset("background".into()))?;
         image.set_color_at(pos.x, pos.y, c)?;
         Ok(())
     }
 
-    fn rectfill(&mut self, upper_left: UVec2, lower_right: UVec2, color: Option<N9Color>) -> Result<Entity, Error> {
+    fn rectfill(
+        &mut self,
+        upper_left: UVec2,
+        lower_right: UVec2,
+        color: Option<N9Color>,
+    ) -> Result<Entity, Error> {
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let size = lower_right - upper_left;
         let clearable = Clearable::default();
-        let id = self.commands.spawn((
-            Name::new("rectfill"),
-            Sprite {
-                color: c,
-                anchor: Anchor::TopLeft,
-                custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
-                ..default()
-            },
-            Transform::from_xyz(upper_left.x as f32, -(upper_left.y as f32), clearable.suggest_z()),
-            clearable,
-            ))
-                     .id();
-        Ok(id)
-    }
-
-    fn rect(&mut self, upper_left: UVec2, lower_right: UVec2, color: Option<N9Color>) -> Result<Entity, Error> {
-        let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
-        let size = lower_right - upper_left;
-        let clearable = Clearable::default();
-        let id = self.commands.spawn((
-            Name::new("rect"),
-            Sprite {
-                image: self.state.border.clone(),
-                color: c,
-                anchor: Anchor::TopLeft,
-                custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
-                image_mode: SpriteImageMode::Sliced(TextureSlicer {
-                    border: BorderRect::square(1.0),
-                    center_scale_mode: SliceScaleMode::Stretch,
-                    sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
+        let id = self
+            .commands
+            .spawn((
+                Name::new("rectfill"),
+                Sprite {
+                    color: c,
+                    anchor: Anchor::TopLeft,
+                    custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
                     ..default()
-                }),
-                ..default()
-            },
-            Transform::from_xyz(upper_left.x as f32, -(upper_left.y as f32), clearable.suggest_z()),
-            clearable,
+                },
+                Transform::from_xyz(
+                    upper_left.x as f32,
+                    -(upper_left.y as f32),
+                    clearable.suggest_z(),
+                ),
+                clearable,
             ))
-                     .id();
+            .id();
         Ok(id)
     }
 
+    fn rect(
+        &mut self,
+        upper_left: UVec2,
+        lower_right: UVec2,
+        color: Option<N9Color>,
+    ) -> Result<Entity, Error> {
+        let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
+        let size = lower_right - upper_left;
+        let clearable = Clearable::default();
+        let id = self
+            .commands
+            .spawn((
+                Name::new("rect"),
+                Sprite {
+                    image: self.state.border.clone(),
+                    color: c,
+                    anchor: Anchor::TopLeft,
+                    custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
+                    image_mode: SpriteImageMode::Sliced(TextureSlicer {
+                        border: BorderRect::square(1.0),
+                        center_scale_mode: SliceScaleMode::Stretch,
+                        sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
+                        ..default()
+                    }),
+                    ..default()
+                },
+                Transform::from_xyz(
+                    upper_left.x as f32,
+                    -(upper_left.y as f32),
+                    clearable.suggest_z(),
+                ),
+                clearable,
+            ))
+            .id();
+        Ok(id)
+    }
 
-    fn map(&mut self, map_pos: UVec2, screen_start: Vec2, size: UVec2, mask: Option<u8>) -> Result<Entity, Error> {
+    fn map(
+        &mut self,
+        map_pos: UVec2,
+        screen_start: Vec2,
+        size: UVec2,
+        mask: Option<u8>,
+    ) -> Result<Entity, Error> {
         let map_size = TilemapSize::from(size);
         // Create a tilemap entity a little early.
         // We want this entity early because we need to tell each tile which tilemap entity
@@ -232,62 +292,78 @@ impl Pico8<'_, '_> {
         // tiles in the world. If you have multiple layers of tiles you would have a tilemap entity
         // per layer, each with their own `TileStorage` component.
 
-        let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get(cart));
+        let cart = self
+            .state
+            .cart
+            .as_ref()
+            .and_then(|cart| self.carts.get(cart));
 
         // Spawn the elements of the tilemap.
         // Alternatively, you can use helpers::filling::fill_tilemap.
         let clearable = Clearable::default();
         let mut tile_storage = TileStorage::empty(map_size);
         let tilemap_entity = self.commands.spawn(Name::new("map")).id();
-        self.commands.entity(tilemap_entity)
+        self.commands
+            .entity(tilemap_entity)
             .with_children(|builder| {
-        for x in 0..map_size.x {
-            for y in 0..map_size.y {
-                let texture_index = cart.and_then(|cart|
-                    cart.map.get((map_pos.x + x + (map_pos.y + y) * 128) as usize)
-                        .and_then(|index|
-                                  if let Some(mask) = mask {
-                                      (cart.flags[*index as usize] & mask == mask).then_some(index)
-                                  } else {
-                                      Some(index)
-                                  }))
-                        .copied()
-                        .unwrap_or(0);
-                if texture_index != 0 {
-                    let tile_pos = TilePos { x, y: map_size.y - y - 1};
-                    let tile_entity = builder
-                                          .spawn((TileBundle {
-                                              position: tile_pos,
-                                              tilemap_id: TilemapId(tilemap_entity),
-                                              texture_index: TileTextureIndex(texture_index as u32),
-                                              ..Default::default()
-                                          },
-                                                  // clearable.clone(),
-                                          ))
-                                          .id();
-                    tile_storage.set(&tile_pos, tile_entity);
+                for x in 0..map_size.x {
+                    for y in 0..map_size.y {
+                        let texture_index = cart
+                            .and_then(|cart| {
+                                cart.map
+                                    .get((map_pos.x + x + (map_pos.y + y) * 128) as usize)
+                                    .and_then(|index| {
+                                        if let Some(mask) = mask {
+                                            (cart.flags[*index as usize] & mask == mask)
+                                                .then_some(index)
+                                        } else {
+                                            Some(index)
+                                        }
+                                    })
+                            })
+                            .copied()
+                            .unwrap_or(0);
+                        if texture_index != 0 {
+                            let tile_pos = TilePos {
+                                x,
+                                y: map_size.y - y - 1,
+                            };
+                            let tile_entity = builder
+                                .spawn((
+                                    TileBundle {
+                                        position: tile_pos,
+                                        tilemap_id: TilemapId(tilemap_entity),
+                                        texture_index: TileTextureIndex(texture_index as u32),
+                                        ..Default::default()
+                                    },
+                                    // clearable.clone(),
+                                ))
+                                .id();
+                            tile_storage.set(&tile_pos, tile_entity);
+                        }
+                    }
                 }
-            }
-        }
             });
 
         let tile_size = TilemapTileSize { x: 8.0, y: 8.0 };
         let grid_size = tile_size.into();
         let map_type = TilemapType::default();
-        let mut transform = get_tilemap_top_left_transform(&map_size, &grid_size, &map_type, clearable.suggest_z());
+        let mut transform =
+            get_tilemap_top_left_transform(&map_size, &grid_size, &map_type, clearable.suggest_z());
         transform.translation += screen_start.extend(0.0);
 
-        self.commands.entity(tilemap_entity).insert((TilemapBundle {
-            grid_size,
-            map_type,
-            size: map_size,
-            storage: tile_storage,
-            texture: TilemapTexture::Single(self.state.sprites.clone()),
-            tile_size,
-            // transform: Transform::from_xyz(screen_start.x, -screen_start.y, 0.0),//get_tilemap_center_transform(&map_size, &grid_size, &map_type, 0.0),
-            transform,
-            ..Default::default()
-        },
+        self.commands.entity(tilemap_entity).insert((
+            TilemapBundle {
+                grid_size,
+                map_type,
+                size: map_size,
+                storage: tile_storage,
+                texture: TilemapTexture::Single(self.state.sprites.clone()),
+                tile_size,
+                // transform: Transform::from_xyz(screen_start.x, -screen_start.y, 0.0),//get_tilemap_center_transform(&map_size, &grid_size, &map_type, 0.0),
+                transform,
+                ..Default::default()
+            },
             clearable,
         ));
         Ok(tilemap_entity)
@@ -305,7 +381,7 @@ impl Pico8<'_, '_> {
                 x => Err(Error::NoSuchButton(x)),
             }?)),
             // None => Ok(!self.keys.get_just_pressed().is_empty())
-            None => Ok(self.keys.get_just_pressed().len() != 0)
+            None => Ok(self.keys.get_just_pressed().len() != 0),
         }
     }
 
@@ -322,18 +398,28 @@ impl Pico8<'_, '_> {
                 x => Err(Error::NoSuchButton(x)),
             }?)),
             // None => Ok(!self.keys.get_pressed().is_empty())
-            None => Ok(self.keys.get_pressed().len() != 0)
+            None => Ok(self.keys.get_pressed().len() != 0),
         }
     }
 
     // print(text, [x,] [y,] [color])
-    fn print(&mut self, text: impl AsRef<str>, pos: Option<UVec2>, color: Option<N9Color>) -> Result<u32, Error> {
+    fn print(
+        &mut self,
+        text: impl AsRef<str>,
+        pos: Option<UVec2>,
+        color: Option<N9Color>,
+    ) -> Result<u32, Error> {
         const CHAR_WIDTH: u32 = 4;
         const NEWLINE_HEIGHT: u32 = 6;
         let mut text: &str = text.as_ref();
         // warn!("PRINTING {}", &text);
         // info!("print {:?} start, {:?}", &text, &self.state.draw_state.print_cursor);
-        let pos = pos.unwrap_or_else(|| UVec2::new(self.state.draw_state.print_cursor.x, self.state.draw_state.print_cursor.y));
+        let pos = pos.unwrap_or_else(|| {
+            UVec2::new(
+                self.state.draw_state.print_cursor.x,
+                self.state.draw_state.print_cursor.y,
+            )
+        });
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let clearable = Clearable::default();
         let add_newline = if text.ends_with('\0') {
@@ -344,28 +430,31 @@ impl Pico8<'_, '_> {
         };
         let len = text.len() as u32;
         let z = clearable.suggest_z();
-        self.commands.spawn((Name::new("print"),
-                             Transform::from_xyz(pos.x as f32, -(pos.y as f32), z),
-                             Visibility::default(),
-                             clearable))
+        self.commands
+            .spawn((
+                Name::new("print"),
+                Transform::from_xyz(pos.x as f32, -(pos.y as f32), z),
+                Visibility::default(),
+                clearable,
+            ))
             .with_children(|builder| {
                 let mut y = 0;
                 for line in text.lines() {
-                // Our font has a different height than we want. It's one pixel
-                // higher. So we can't let bevy render it one go. Bummer.
-                builder.spawn((Text2d::new(line),
-                               Transform::from_xyz(0.0, -(y as f32), z),
-
-                                    TextColor(c),
-                                    TextFont {
-                                        font: self.state.font.clone(),
-                                        font_smoothing: bevy::text::FontSmoothing::None,
-                                        font_size: 6.0,
-                                    },
-                                    // Anchor::TopLeft is (-0.5, 0.5).
-                                    Anchor::Custom(Vec2::new(-0.5, 0.3)),
-                               ));
-                               y += NEWLINE_HEIGHT;
+                    // Our font has a different height than we want. It's one pixel
+                    // higher. So we can't let bevy render it one go. Bummer.
+                    builder.spawn((
+                        Text2d::new(line),
+                        Transform::from_xyz(0.0, -(y as f32), z),
+                        TextColor(c),
+                        TextFont {
+                            font: self.state.font.clone(),
+                            font_smoothing: bevy::text::FontSmoothing::None,
+                            font_size: 6.0,
+                        },
+                        // Anchor::TopLeft is (-0.5, 0.5).
+                        Anchor::Custom(Vec2::new(-0.5, 0.3)),
+                    ));
+                    y += NEWLINE_HEIGHT;
                 }
             });
         if add_newline {
@@ -380,7 +469,13 @@ impl Pico8<'_, '_> {
     }
 
     // sfx( n, [channel,] [offset,] [length] )
-    fn sfx(&mut self, n: impl Into<SfxCommand>, channel: Option<u8>, offset: Option<u8>, length: Option<u8>) -> Result<(), Error> {
+    fn sfx(
+        &mut self,
+        n: impl Into<SfxCommand>,
+        channel: Option<u8>,
+        offset: Option<u8>,
+        length: Option<u8>,
+    ) -> Result<(), Error> {
         assert!(offset.is_none(), "offset not implemented");
         assert!(length.is_none(), "length not implemented");
         let n = n.into();
@@ -388,26 +483,38 @@ impl Pico8<'_, '_> {
             SfxCommand::Release => {
                 if let Some(chan) = channel {
                     let chan = self.sfx_channels[chan as usize];
-                    self.commands.queue(AudioCommand::Release(SfxDest::Channel(chan)));
+                    self.commands
+                        .queue(AudioCommand::Release(SfxDest::Channel(chan)));
                 } else {
                     self.commands.queue(AudioCommand::Release(SfxDest::Any));
                 }
-            },
+            }
             SfxCommand::Stop => {
                 if let Some(chan) = channel {
                     let chan = self.sfx_channels[chan as usize];
-                    self.commands.queue(AudioCommand::Stop(SfxDest::Channel(chan)));
+                    self.commands
+                        .queue(AudioCommand::Stop(SfxDest::Channel(chan)));
                 } else {
                     self.commands.queue(AudioCommand::Stop(SfxDest::All));
                 }
             }
             SfxCommand::Play(n) => {
-                let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get(cart)).expect("cart");
-                let sfx = cart.sfx.get(n as usize).ok_or(Error::NoAsset(format!("sfx {n}").into()))?.clone();
+                let cart = self
+                    .state
+                    .cart
+                    .as_ref()
+                    .and_then(|cart| self.carts.get(cart))
+                    .expect("cart");
+                let sfx = cart
+                    .sfx
+                    .get(n as usize)
+                    .ok_or(Error::NoAsset(format!("sfx {n}").into()))?
+                    .clone();
 
                 if let Some(chan) = channel {
                     let chan = self.sfx_channels[chan as usize];
-                    self.commands.queue(AudioCommand::Play(sfx, SfxDest::Channel(chan)));
+                    self.commands
+                        .queue(AudioCommand::Play(sfx, SfxDest::Channel(chan)));
                 } else {
                     self.commands.queue(AudioCommand::Play(sfx, SfxDest::Any));
                 }
@@ -417,16 +524,32 @@ impl Pico8<'_, '_> {
     }
 
     fn fget(&self, index: u8, flag_index: Option<u8>) -> u8 {
-        let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get(cart)).expect("cart");
+        let cart = self
+            .state
+            .cart
+            .as_ref()
+            .and_then(|cart| self.carts.get(cart))
+            .expect("cart");
         let v = cart.flags[index as usize];
         match flag_index {
-            Some(flag_index) => if v & (1 << flag_index) != 0 { 1 } else { 0 },
-            None => v
+            Some(flag_index) => {
+                if v & (1 << flag_index) != 0 {
+                    1
+                } else {
+                    0
+                }
+            }
+            None => v,
         }
     }
 
     fn fset(&mut self, index: u8, flag_index: Option<u8>, value: u8) {
-        let mut cart = self.state.cart.as_ref().and_then(|cart| self.carts.get_mut(cart)).expect("cart");
+        let mut cart = self
+            .state
+            .cart
+            .as_ref()
+            .and_then(|cart| self.carts.get_mut(cart))
+            .expect("cart");
         match flag_index {
             Some(flag_index) => {
                 let v = cart.flags[index as usize];
@@ -445,15 +568,24 @@ impl Pico8<'_, '_> {
     }
 
     fn mget(&self, pos: UVec2) -> u8 {
-        let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get(cart)).expect("cart");
+        let cart = self
+            .state
+            .cart
+            .as_ref()
+            .and_then(|cart| self.carts.get(cart))
+            .expect("cart");
         cart.map[(pos.x + pos.y * 128) as usize]
     }
     fn mset(&mut self, pos: UVec2, sprite_index: u8) {
-        let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get_mut(cart)).expect("cart");
+        let cart = self
+            .state
+            .cart
+            .as_ref()
+            .and_then(|cart| self.carts.get_mut(cart))
+            .expect("cart");
         cart.map[(pos.x + pos.y * 128) as usize] = sprite_index;
     }
 }
-
 
 enum SfxDest {
     Any,
@@ -494,31 +626,41 @@ impl Command for AudioCommand {
                     }
                 }
             }
-            AudioCommand::Release(sfx_channel) => {
-                match sfx_channel {
-                    SfxDest::Channel(channel) => {
-                        if let Some(sfx_release) = world.get::<SfxRelease>(channel) {
-                            sfx_release.0.store(true, Ordering::Relaxed);
-                        } else {
-                            warn!("Released a channel that did not have a sfx loop.");
-                        }
+            AudioCommand::Release(sfx_channel) => match sfx_channel {
+                SfxDest::Channel(channel) => {
+                    if let Some(sfx_release) = world.get::<SfxRelease>(channel) {
+                        sfx_release.0.store(true, Ordering::Relaxed);
+                    } else {
+                        warn!("Released a channel that did not have a sfx loop.");
                     }
-                    SfxDest::Any => { }
-                    SfxDest::All => { }
                 }
-            }
+                SfxDest::Any => {}
+                SfxDest::All => {}
+            },
             AudioCommand::Play(sfx, sfx_channel) => {
                 match sfx_channel {
                     SfxDest::Any => {
-                        if let Some(available_channel) = world.resource::<SfxChannels>().iter().find(|id| world.get::<AudioSink>(**id).map(|s| s.is_paused() || s.empty()).unwrap_or(true)).copied() {
+                        if let Some(available_channel) = world
+                            .resource::<SfxChannels>()
+                            .iter()
+                            .find(|id| {
+                                world
+                                    .get::<AudioSink>(**id)
+                                    .map(|s| s.is_paused() || s.empty())
+                                    .unwrap_or(true)
+                            })
+                            .copied()
+                        {
                             let (sfx, release) = Sfx::get_stoppable_handle(sfx, world);
                             let mut commands = world.commands();
                             if let Some(release) = release {
-                                commands.entity(available_channel).insert(SfxRelease(release));
+                                commands
+                                    .entity(available_channel)
+                                    .insert(SfxRelease(release));
                             }
-                            commands.entity(available_channel).insert((AudioPlayer(sfx),
-                                                                       PlaybackSettings::REMOVE));
-
+                            commands
+                                .entity(available_channel)
+                                .insert((AudioPlayer(sfx), PlaybackSettings::REMOVE));
                         } else {
                             warn!("Channels busy.");
                             // Err(Error::ChannelsBusy)?;
@@ -526,8 +668,9 @@ impl Command for AudioCommand {
                     }
                     SfxDest::Channel(chan) => {
                         let mut commands = world.commands();
-                        commands.entity(chan).insert((AudioPlayer(sfx.clone()),
-                                                      PlaybackSettings::REMOVE));
+                        commands
+                            .entity(chan)
+                            .insert((AudioPlayer(sfx.clone()), PlaybackSettings::REMOVE));
                     }
                     SfxDest::All => {
                         warn!("Cannot play on all channels.");
@@ -555,11 +698,13 @@ impl FromWorld for Pico8State {
     fn from_world(world: &mut World) -> Self {
         let layout = {
             let mut layouts = world.resource_mut::<Assets<TextureAtlasLayout>>();
-            layouts.add(TextureAtlasLayout::from_grid(UVec2::new(8, 8),
-                                                      16,
-                                                      16,
-                                                      None,
-                                                      None))
+            layouts.add(TextureAtlasLayout::from_grid(
+                UVec2::new(8, 8),
+                16,
+                16,
+                None,
+                None,
+            ))
         };
         let asset_server = world.resource::<AssetServer>();
 
@@ -588,18 +733,18 @@ impl Pico8State {
             N9Color::Palette(n) => {
                 let images = world.resource::<Assets<Image>>();
                 images
-                .get(&self.palette)
-                .and_then(|pal| {
-                    // Strangely. It's not a 1d texture.
-                    match pal.get_color_at(n as u32, 0) {
-                        Ok(c) => Some(c),
-                        Err(e) => {
-                            warn!("Could not look up color in palette at {n}: {e}");
-                            None
+                    .get(&self.palette)
+                    .and_then(|pal| {
+                        // Strangely. It's not a 1d texture.
+                        match pal.get_color_at(n as u32, 0) {
+                            Ok(c) => Some(c),
+                            Err(e) => {
+                                warn!("Could not look up color in palette at {n}: {e}");
+                                None
+                            }
                         }
-                    }
-                })
-                .unwrap_or(Srgba::rgb(1.0, 0.0, 1.0).into())
+                    })
+                    .unwrap_or(Srgba::rgb(1.0, 0.0, 1.0).into())
             }
             N9Color::Color(c) => c.into(),
         }
@@ -623,34 +768,38 @@ impl Pico8State {
 pub struct Pico8API;
 
 pub(crate) fn plugin(app: &mut App) {
-    app
-        .init_resource::<Pico8State>()
+    app.init_resource::<Pico8State>()
         .add_plugins(attach_api)
-        .add_systems(PreStartup, |mut asset_settings: ResMut<ScriptAssetSettings>| {
-            fn path_to_lang(path: &Path) -> Language {
-                // For carts we use cart.p8#lua, which is labeled asset, so we
-                // need to tell it what language our cart is.
-                if path.to_str().map(|s| s.ends_with("lua")).unwrap_or(false) {
-                    Language::Lua
-                } else {
-                    Language::Unknown
+        .add_systems(
+            PreStartup,
+            |mut asset_settings: ResMut<ScriptAssetSettings>| {
+                fn path_to_lang(path: &Path) -> Language {
+                    // For carts we use cart.p8#lua, which is labeled asset, so we
+                    // need to tell it what language our cart is.
+                    if path.to_str().map(|s| s.ends_with("lua")).unwrap_or(false) {
+                        Language::Lua
+                    } else {
+                        Language::Unknown
+                    }
                 }
-            }
-            asset_settings.script_language_mappers.push(AssetPathToLanguageMapper {
-                map: path_to_lang
-            });
-        });
-        // .add_api_provider::<LuaScriptHost<N9Args>>(Box::new(Pico8API));
+                asset_settings
+                    .script_language_mappers
+                    .push(AssetPathToLanguageMapper { map: path_to_lang });
+            },
+        );
+    // .add_api_provider::<LuaScriptHost<N9Args>>(Box::new(Pico8API));
 }
 
-fn with_pico8<X>(ctx: &FunctionCallContext, f: impl FnOnce(&mut Pico8) -> Result<X, Error>) -> Result<X, InteropError> {
+fn with_pico8<X>(
+    ctx: &FunctionCallContext,
+    f: impl FnOnce(&mut Pico8) -> Result<X, Error>,
+) -> Result<X, InteropError> {
     let world_guard = ctx.world()?;
     let raid = ReflectAccessId::for_global();
     if world_guard.claim_global_access() {
         let world = world_guard.as_unsafe_world_cell()?;
         let mut world = unsafe { world.world_mut() };
-        let mut system_state: SystemState<Pico8> =
-            SystemState::new(&mut world);
+        let mut system_state: SystemState<Pico8> = SystemState::new(&mut world);
         let mut pico8 = system_state.get_mut(&mut world);
         let r = f(&mut pico8);
         system_state.apply(&mut world);
@@ -665,69 +814,76 @@ fn with_pico8<X>(ctx: &FunctionCallContext, f: impl FnOnce(&mut Pico8) -> Result
     }
 }
 
-    fn attach_api(app: &mut App) {
-        // callbacks can receive any `ToLuaMulti` arguments, here '()' and
-        // return any `FromLuaMulti` arguments, here a `usize`
-        // check the Rlua documentation for more details
-        let mut world = app.world_mut();
+fn attach_api(app: &mut App) {
+    // callbacks can receive any `ToLuaMulti` arguments, here '()' and
+    // return any `FromLuaMulti` arguments, here a `usize`
+    // check the Rlua documentation for more details
+    let mut world = app.world_mut();
 
-        NamespaceBuilder::<GlobalNamespace>::new_unregistered(&mut world)
-            .register(
-                "btnp",
-                |ctx: FunctionCallContext, b: Option<u8>| {
-                    with_pico8(&ctx, |pico8| pico8.btnp(b))
-                },
-            )
-            .register(
-                "btn",
-                |ctx: FunctionCallContext, b: Option<u8>| {
-                    with_pico8(&ctx, |pico8| pico8.btn(b))
-                },
-            )
-            .register(
-                "cls",
-                |ctx: FunctionCallContext, c: Option<N9Color>| {
-                    with_pico8(&ctx, |pico8| pico8.cls(c))
-                },
-            )
-            .register(
-                "pset",
-                |ctx: FunctionCallContext, x: u32, y: u32, color: Option<N9Color>| {
-                    with_pico8(&ctx, |pico8| {
-                        // We want to ignore out of bounds errors specifically but possibly not others.
-                        // Ok(pico8.pset(x, y, color)?)
-                        let _ = pico8.pset(UVec2::new(x, y), color);
-                        Ok(())
-                    })
-                }
-            )
-            .register(
-                "rectfill",
-                |ctx: FunctionCallContext, x0: u32, y0: u32, x1: u32, y1: u32, color: Option<N9Color>| {
-                    with_pico8(&ctx, |pico8| {
-                        // We want to ignore out of bounds errors specifically but possibly not others.
-                        // Ok(pico8.pset(x, y, color)?)
-                        let _ = pico8.rectfill(UVec2::new(x0, y0), UVec2::new(x1, y1), color);
-                        Ok(())
-                    })
-                }
-            )
-            .register(
-                "rect",
-                |ctx: FunctionCallContext, x0: u32, y0: u32, x1: u32, y1: u32, color: Option<N9Color>| {
-                    with_pico8(&ctx, |pico8| {
-                        // We want to ignore out of bounds errors specifically but possibly not others.
-                        // Ok(pico8.pset(x, y, color)?)
-                        let _ = pico8.rect(UVec2::new(x0, y0), UVec2::new(x1, y1), color);
-                        Ok(())
-                    })
-                }
-            )
-            // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
-            .register(
-                "spr",
-                |ctx: FunctionCallContext, n: usize, x: Option<f32>, y: Option<f32>, w: Option<f32>, h: Option<f32>,
-                flip_x: Option<bool>, flip_y: Option<bool>| {
+    NamespaceBuilder::<GlobalNamespace>::new_unregistered(&mut world)
+        .register("btnp", |ctx: FunctionCallContext, b: Option<u8>| {
+            with_pico8(&ctx, |pico8| pico8.btnp(b))
+        })
+        .register("btn", |ctx: FunctionCallContext, b: Option<u8>| {
+            with_pico8(&ctx, |pico8| pico8.btn(b))
+        })
+        .register("cls", |ctx: FunctionCallContext, c: Option<N9Color>| {
+            with_pico8(&ctx, |pico8| pico8.cls(c))
+        })
+        .register(
+            "pset",
+            |ctx: FunctionCallContext, x: u32, y: u32, color: Option<N9Color>| {
+                with_pico8(&ctx, |pico8| {
+                    // We want to ignore out of bounds errors specifically but possibly not others.
+                    // Ok(pico8.pset(x, y, color)?)
+                    let _ = pico8.pset(UVec2::new(x, y), color);
+                    Ok(())
+                })
+            },
+        )
+        .register(
+            "rectfill",
+            |ctx: FunctionCallContext,
+             x0: u32,
+             y0: u32,
+             x1: u32,
+             y1: u32,
+             color: Option<N9Color>| {
+                with_pico8(&ctx, |pico8| {
+                    // We want to ignore out of bounds errors specifically but possibly not others.
+                    // Ok(pico8.pset(x, y, color)?)
+                    let _ = pico8.rectfill(UVec2::new(x0, y0), UVec2::new(x1, y1), color);
+                    Ok(())
+                })
+            },
+        )
+        .register(
+            "rect",
+            |ctx: FunctionCallContext,
+             x0: u32,
+             y0: u32,
+             x1: u32,
+             y1: u32,
+             color: Option<N9Color>| {
+                with_pico8(&ctx, |pico8| {
+                    // We want to ignore out of bounds errors specifically but possibly not others.
+                    // Ok(pico8.pset(x, y, color)?)
+                    let _ = pico8.rect(UVec2::new(x0, y0), UVec2::new(x1, y1), color);
+                    Ok(())
+                })
+            },
+        )
+        // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
+        .register(
+            "spr",
+            |ctx: FunctionCallContext,
+             n: usize,
+             x: Option<f32>,
+             y: Option<f32>,
+             w: Option<f32>,
+             h: Option<f32>,
+             flip_x: Option<bool>,
+             flip_y: Option<bool>| {
                 // let n = args.pop_front().and_then(|v| v.as_usize()).expect("sprite id");
                 // let x = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
                 // let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
@@ -736,137 +892,171 @@ fn with_pico8<X>(ctx: &FunctionCallContext, f: impl FnOnce(&mut Pico8) -> Result
                 // let flip_x = args.pop_front().and_then(|v| v.as_boolean());
                 // let flip_y = args.pop_front().and_then(|v| v.as_boolean());
                 let pos = Vec2::new(x.unwrap_or(0.0), y.unwrap_or(0.0));
-                let flip = (flip_x.is_some() || flip_y.is_some()).then(|| BVec2::new(flip_x.unwrap_or(false),flip_y.unwrap_or(false)));
-                let size = w.or(h).is_some().then(|| Vec2::new(w.unwrap_or(1.0), h.unwrap_or(1.0)));
+                let flip = (flip_x.is_some() || flip_y.is_some())
+                    .then(|| BVec2::new(flip_x.unwrap_or(false), flip_y.unwrap_or(false)));
+                let size = w
+                    .or(h)
+                    .is_some()
+                    .then(|| Vec2::new(w.unwrap_or(1.0), h.unwrap_or(1.0)));
 
                 // We get back an entity. Not doing anything with it here yet.
                 let _id = with_pico8(&ctx, move |pico8| pico8.spr(n, pos, size, flip))?;
                 Ok(())
-            })
-             // map( celx, cely, sx, sy, celw, celh, [layer] )
-            .register(
-                "map",
-                |ctx: FunctionCallContext, celx: u32, cely: u32, sx: f32, sy: f32, celw: u32, celh: u32, layer: Option<u8>| {
-
-                    // We get back an entity. Not doing anything with it here yet.
-                    let _id = with_pico8(&ctx, move |pico8| pico8.map(UVec2::new(celx, cely), Vec2::new(sx, sy), UVec2::new(celw, celh), layer))?;
-                    Ok(())
+            },
+        )
+        // map( celx, cely, sx, sy, celw, celh, [layer] )
+        .register(
+            "map",
+            |ctx: FunctionCallContext,
+             celx: u32,
+             cely: u32,
+             sx: f32,
+             sy: f32,
+             celw: u32,
+             celh: u32,
+             layer: Option<u8>| {
+                // We get back an entity. Not doing anything with it here yet.
+                let _id = with_pico8(&ctx, move |pico8| {
+                    pico8.map(
+                        UVec2::new(celx, cely),
+                        Vec2::new(sx, sy),
+                        UVec2::new(celw, celh),
+                        layer,
+                    )
+                })?;
+                Ok(())
+            },
+        )
+        .register(
+            "print",
+            |ctx: FunctionCallContext,
+             text: Option<String>,
+             x: Option<u32>,
+             y: Option<u32>,
+             c: Option<N9Color>| {
+                with_pico8(&ctx, move |pico8| {
+                    let pos = x
+                        .map(|x| UVec2::new(x, y.unwrap_or(pico8.state.draw_state.print_cursor.y)));
+                    pico8.print(text.as_deref().unwrap_or(""), pos, c)
                 })
-            .register(
-                "print",
-                |ctx: FunctionCallContext, text: Option<String>, x: Option<u32>, y: Option<u32>, c: Option<N9Color>| {
-                    with_pico8(&ctx, move |pico8| {
-                        let pos = x.map(|x| UVec2::new(x, y.unwrap_or(pico8.state.draw_state.print_cursor.y)));
-                        pico8.print(text.as_deref().unwrap_or(""), pos, c)
-                    })
+            },
+        )
+        .register(
+            "sfx",
+            |ctx: FunctionCallContext,
+             n: i8,
+             channel: Option<u8>,
+             offset: Option<u8>,
+             length: Option<u8>| {
+                with_pico8(&ctx, move |pico8| {
+                    pico8.sfx(
+                        match n {
+                            -2 => Ok(SfxCommand::Release),
+                            -1 => Ok(SfxCommand::Stop),
+                            n if n >= 0 => Ok(SfxCommand::Play(n as u8)),
+                            x => {
+                                // Maybe we should let Lua errors pass through.
+                                // Err(LuaError::BadArgument {
+                                //     to: Some("sfx".into()),
+                                //     pos: 0,
+                                //     name: Some("n".into()),
+                                //     cause: std::sync::Arc::new(
+                                // })
+                                Err(Error::InvalidArgument(
+                                    format!("sfx: expected n to be -2, -1 or >= 0 but was {x}")
+                                        .into(),
+                                ))
+                            }
+                        }?,
+                        channel,
+                        offset,
+                        length,
+                    )
                 })
-            .register(
-                "sfx",
-                |ctx: FunctionCallContext, n: i8, channel: Option<u8>, offset: Option<u8>, length: Option<u8>| {
-                with_pico8(&ctx, move |pico8| pico8.sfx(match n {
-                    -2 => Ok(SfxCommand::Release),
-                    -1 => Ok(SfxCommand::Stop),
-                    n if n >= 0 => Ok(SfxCommand::Play(n as u8)),
-                    x => {
-                        // Maybe we should let Lua errors pass through.
-                        // Err(LuaError::BadArgument {
-                        //     to: Some("sfx".into()),
-                        //     pos: 0,
-                        //     name: Some("n".into()),
-                        //     cause: std::sync::Arc::new(
-                        // })
-                        Err(Error::InvalidArgument(format!("sfx: expected n to be -2, -1 or >= 0 but was {x}").into()))
-                    }
-                }?, channel, offset, length))
-                })
-            .register(
-                "fget",
-                |ctx: FunctionCallContext, n: u8, f: Option<u8>| {
-                    with_pico8(&ctx, move |pico8| Ok(pico8.fget(n, f)))
-                })
-            .register(
-                "fset",
-                |ctx: FunctionCallContext, n: u8, f_or_v: u8, v: Option<u8>| {
-                    let (f, v) = v.map(|v| (Some(f_or_v), v)).unwrap_or((None, f_or_v));
-                    with_pico8(&ctx, move |pico8| Ok(pico8.fset(n, f, v)))
-                })
-            .register(
-                "mget",
-                |ctx: FunctionCallContext, x: u32, y: u32| {
-                    with_pico8(&ctx, move |pico8| Ok(pico8.mget(UVec2::new(x, y))))
-                })
-            .register(
-                "mset",
-                |ctx: FunctionCallContext, x: u32, y: u32, v: u8| {
-                    with_pico8(&ctx, move |pico8| Ok(pico8.mset(UVec2::new(x, y), v)))
-                })
-            ;
+            },
+        )
+        .register("fget", |ctx: FunctionCallContext, n: u8, f: Option<u8>| {
+            with_pico8(&ctx, move |pico8| Ok(pico8.fget(n, f)))
+        })
+        .register(
+            "fset",
+            |ctx: FunctionCallContext, n: u8, f_or_v: u8, v: Option<u8>| {
+                let (f, v) = v.map(|v| (Some(f_or_v), v)).unwrap_or((None, f_or_v));
+                with_pico8(&ctx, move |pico8| Ok(pico8.fset(n, f, v)))
+            },
+        )
+        .register("mget", |ctx: FunctionCallContext, x: u32, y: u32| {
+            with_pico8(&ctx, move |pico8| Ok(pico8.mget(UVec2::new(x, y))))
+        })
+        .register("mset", |ctx: FunctionCallContext, x: u32, y: u32, v: u8| {
+            with_pico8(&ctx, move |pico8| Ok(pico8.mset(UVec2::new(x, y), v)))
+        });
 
-        //     fn tostr(ctx, v: Value) {
-        //         let tostring: Function = ctx.globals().get("tostring")?;
-        //         tostring.call::<Value,LuaString>(v)
-        //     }
+    //     fn tostr(ctx, v: Value) {
+    //         let tostring: Function = ctx.globals().get("tostring")?;
+    //         tostring.call::<Value,LuaString>(v)
+    //     }
 
-        //     fn flr(ctx, v: Number) {
-        //         Ok(v.floor() as u32)
-        //     }
+    //     fn flr(ctx, v: Number) {
+    //         Ok(v.floor() as u32)
+    //     }
 
-        //     fn sub(ctx, (string, start, end): (LuaString, isize, Option<isize>)) {
-        //         let string = string.to_str()?;
-        //         let start = if start < 0 {
-        //             (string.len() as isize - start - 1) as usize
-        //         } else {
-        //             (start - 1) as usize
-        //         };
-        //         match end {
-        //             Some(end) => {
-        //                 let end = if end < 0 {
-        //                     (string.len() as isize - end) as usize
-        //                 } else {
-        //                     end as usize
-        //                 };
-        //                 if start <= end {
-        //                     Ok(string.chars().skip(start).take(end - start).collect())
-        //                     // BUG: This cuts unicode boundaries.
-        //                     // Ok(string[start..end].to_string())
-        //                 } else {
-        //                     Ok(String::new())
-        //                 }
-        //             }
-        //             None => Ok(string.chars().skip(start).collect())
-        //         }
-        //     }
+    //     fn sub(ctx, (string, start, end): (LuaString, isize, Option<isize>)) {
+    //         let string = string.to_str()?;
+    //         let start = if start < 0 {
+    //             (string.len() as isize - start - 1) as usize
+    //         } else {
+    //             (start - 1) as usize
+    //         };
+    //         match end {
+    //             Some(end) => {
+    //                 let end = if end < 0 {
+    //                     (string.len() as isize - end) as usize
+    //                 } else {
+    //                     end as usize
+    //                 };
+    //                 if start <= end {
+    //                     Ok(string.chars().skip(start).take(end - start).collect())
+    //                     // BUG: This cuts unicode boundaries.
+    //                     // Ok(string[start..end].to_string())
+    //                 } else {
+    //                     Ok(String::new())
+    //                 }
+    //             }
+    //             None => Ok(string.chars().skip(start).collect())
+    //         }
+    //     }
 
-        //     fn min(ctx, (x, y): (Value, Value)) {
-        //         Ok(if x.to_f32() < y.to_f32() {
-        //             x
-        //         } else {
-        //             y
-        //         })
-        //     }
+    //     fn min(ctx, (x, y): (Value, Value)) {
+    //         Ok(if x.to_f32() < y.to_f32() {
+    //             x
+    //         } else {
+    //             y
+    //         })
+    //     }
 
-        //     fn max(ctx, (x, y): (Value, Value)) {
-        //         Ok(if x.to_f32() > y.to_f32() {
-        //             x
-        //         } else {
-        //             y
-        //         })
-        //     }
+    //     fn max(ctx, (x, y): (Value, Value)) {
+    //         Ok(if x.to_f32() > y.to_f32() {
+    //             x
+    //         } else {
+    //             y
+    //         })
+    //     }
 
-        //     fn ord(ctx, (string, index, count): (LuaString, Option<usize>, Option<usize>)) {
-        //         let string = string.to_str()?;
-        //         let index = index.map(|i| i - 1).unwrap_or(0);
-        //         let count = count.unwrap_or(1);
-        //         let mut result: Vec<Value> = Vec::with_capacity(count);
-        //         for c in string.chars().skip(index).take(count) {
-        //             result.push(Value::Integer(c as i64));
-        //         }
-        //         Ok(LuaMultiValue::from_vec(result))
-        //     }
-        // }
+    //     fn ord(ctx, (string, index, count): (LuaString, Option<usize>, Option<usize>)) {
+    //         let string = string.to_str()?;
+    //         let index = index.map(|i| i - 1).unwrap_or(0);
+    //         let count = count.unwrap_or(1);
+    //         let mut result: Vec<Value> = Vec::with_capacity(count);
+    //         for c in string.chars().skip(index).take(count) {
+    //             result.push(Value::Integer(c as i64));
+    //         }
+    //         Ok(LuaMultiValue::from_vec(result))
+    //     }
+    // }
 
-        // Ok(())
-    }
+    // Ok(())
+}
 
 //     fn register_with_app(&self, _app: &mut App) {
 //         // app.register_type::<Settings>();
@@ -875,7 +1065,6 @@ fn with_pico8<X>(ctx: &FunctionCallContext, f: impl FnOnce(&mut Pico8) -> Result
 
 #[cfg(test)]
 mod test {
-
 
     #[test]
     fn test_suffix_match() {

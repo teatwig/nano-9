@@ -1,13 +1,11 @@
-use bevy::{
-    ecs::system::SystemState,
-    prelude::*,
-};
+use bevy::{ecs::system::SystemState, prelude::*};
 
 use bevy_mod_scripting::{
     core::bindings::{ThreadWorldContainer, WorldContainer},
     lua::mlua::{
-    MetaMethod, UserData, UserDataFields, UserDataMethods, Lua, Value, self, FromLua, prelude::LuaError,
-    }
+        self, prelude::LuaError, FromLua, Lua, MetaMethod, UserData, UserDataFields,
+        UserDataMethods, Value,
+    },
 };
 
 use std::any::TypeId;
@@ -35,7 +33,6 @@ impl FromLua for DropPolicy {
     }
 }
 
-
 impl Drop for N9Entity {
     fn drop(&mut self) {
         if matches!(self.drop, DropPolicy::Despawn) {
@@ -50,7 +47,6 @@ impl Drop for N9Entity {
 //         .register("name", |this: CallerContext, world: WorldCallbackAccess| {
 //             world.get_component(
 
-
 //         }
 
 // }
@@ -58,9 +54,10 @@ impl Drop for N9Entity {
 impl UserData for N9Entity {
     fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {
         fields.add_field_method_get("name", |ctx, this| {
-
             let world = ThreadWorldContainer.try_get_world()?;
-            let name = world.get_component_id(TypeId::of::<Name>())?.expect("Name component id");
+            let name = world
+                .get_component_id(TypeId::of::<Name>())?
+                .expect("Name component id");
             if let Some(maybe_name) = world.get_component(this.entity, name).ok() {
                 if let Some(name_reflect) = maybe_name {
                     if let Ok(name) = name_reflect.downcast::<Name>(world) {

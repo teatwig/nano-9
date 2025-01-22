@@ -14,14 +14,23 @@ use bevy::{
 };
 use std::sync::{Arc, Mutex};
 
-use bevy_mod_scripting::{lua::LuaScriptingPlugin, core::{handler::event_handler, callback_labels, asset::ScriptAsset,
-                                                         bindings::{function::namespace::NamespaceBuilder, script_value::ScriptValue},
-                                                         event::{ScriptCallbackEvent, OnScriptLoaded}}};
+use bevy_mod_scripting::{
+    core::{
+        asset::ScriptAsset,
+        bindings::{function::namespace::NamespaceBuilder, script_value::ScriptValue},
+        callback_labels,
+        event::{OnScriptLoaded, ScriptCallbackEvent},
+        handler::event_handler,
+    },
+    lua::LuaScriptingPlugin,
+};
 
 use crate::{
     error::ErrorState,
-    screens, DropPolicy, //N9Camera, N9Sprite,
-    N9Var, N9Entity,
+    screens,
+    DropPolicy, //N9Camera, N9Sprite,
+    N9Entity,
+    N9Var,
 };
 
 #[derive(Component)]
@@ -89,7 +98,7 @@ pub fn setup_image(
 
 pub mod call {
     use super::*;
-callback_labels!(
+    callback_labels!(
     SetGlobal => "_set_global",
     Update => "_update",
     Update60 => "_update60",
@@ -160,11 +169,10 @@ fn spawn_camera(mut commands: Commands, settings: Res<N9Settings>, screen: Res<N
     projection.scaling_mode = ScalingMode::WindowSize; //(settings.pixel_scale);
     projection.scale = 1.0 / settings.pixel_scale;
 
-
     commands
         .spawn((
             Camera2d,
-            Transform::from_xyz(64.0, -64.0, 0.0),//.looking_to(Dir3::Z, Dir3::NEG_Y),
+            Transform::from_xyz(64.0, -64.0, 0.0), //.looking_to(Dir3::Z, Dir3::NEG_Y),
             Projection::from(projection),
             IsDefaultUiCamera,
             InheritedVisibility::default(),
@@ -256,30 +264,30 @@ pub fn sync_window_size(
 
 /// Sends events allowing scripts to drive update logic
 pub fn send_update(
-                   mut writer: EventWriter<ScriptCallbackEvent>,
-                   frame_count: Res<bevy::core::FrameCount>) {
+    mut writer: EventWriter<ScriptCallbackEvent>,
+    frame_count: Res<bevy::core::FrameCount>,
+) {
     if frame_count.0 % 2 == 0 {
-
         writer.send(ScriptCallbackEvent::new_for_all(
             call::Update,
-            vec![ScriptValue::Unit]));
-    // events.send(
-    //     LuaEvent {
-    //         hook_name: "_update".to_owned(),
-    //         args: N9Args::new(),
-    //         recipients: Recipients::All,
-    //     },
-    //     1,
-    // )
+            vec![ScriptValue::Unit],
+        ));
+        // events.send(
+        //     LuaEvent {
+        //         hook_name: "_update".to_owned(),
+        //         args: N9Args::new(),
+        //         recipients: Recipients::All,
+        //     },
+        //     1,
+        // )
     }
 }
 
-pub fn send_update60(
-    mut writer: EventWriter<ScriptCallbackEvent>,
-) {
-        writer.send(ScriptCallbackEvent::new_for_all(
-            call::Update60,
-            vec![ScriptValue::Unit]));
+pub fn send_update60(mut writer: EventWriter<ScriptCallbackEvent>) {
+    writer.send(ScriptCallbackEvent::new_for_all(
+        call::Update60,
+        vec![ScriptValue::Unit],
+    ));
 }
 
 /// Sends initialization event
@@ -305,12 +313,11 @@ pub fn send_init(
 }
 
 /// Sends draw event
-pub fn send_draw(
-    mut writer: EventWriter<ScriptCallbackEvent>,
-) {
+pub fn send_draw(mut writer: EventWriter<ScriptCallbackEvent>) {
     writer.send(ScriptCallbackEvent::new_for_all(
         call::Draw,
-        vec![ScriptValue::Unit]));
+        vec![ScriptValue::Unit],
+    ));
 }
 const UPDATE_FREQUENCY: f32 = 1.0 / 60.0;
 
@@ -345,7 +352,7 @@ impl Nano9Plugin {
             })
             .set(WindowPlugin {
                 primary_window: Some(Window {
-                    resolution: resolution.into(),//WindowResolution::new(resolution.x, resolution.y),
+                    resolution: resolution.into(), //WindowResolution::new(resolution.x, resolution.y),
                     // Turn off vsync to maximize CPU/GPU usage
                     present_mode: PresentMode::AutoVsync,
                     // Let's not allow resizing.
@@ -364,7 +371,6 @@ impl Nano9Plugin {
     }
 }
 
-
 fn add_info(app: &mut App) {
     let world = app.world_mut();
     NamespaceBuilder::<World>::new_unregistered(world).register("info", |s: String| {
@@ -374,13 +380,18 @@ fn add_info(app: &mut App) {
 
 impl Plugin for Nano9Plugin {
     fn build(&self, app: &mut App) {
-
         let mut lua_scripting_plugin = LuaScriptingPlugin::default();
-        lua_scripting_plugin.scripting_plugin
-                            .add_context_initializer(|script_id: &str, context: &mut bevy_mod_scripting::lua::mlua::Lua| {
-            let _ = context.load(include_str!("builtin.lua")).exec().expect("Problem in builtin.lua");
-            Ok(())
-        });
+        lua_scripting_plugin
+            .scripting_plugin
+            .add_context_initializer(
+                |script_id: &str, context: &mut bevy_mod_scripting::lua::mlua::Lua| {
+                    let _ = context
+                        .load(include_str!("builtin.lua"))
+                        .exec()
+                        .expect("Problem in builtin.lua");
+                    Ok(())
+                },
+            );
         // let resolution = settings.canvas_size.as_vec2() * settings.pixel_scale;
         app.insert_resource(bevy::winit::WinitSettings {
             // focused_mode: bevy::winit::UpdateMode::Continuous,
@@ -392,15 +403,17 @@ impl Plugin for Nano9Plugin {
         .insert_resource(Time::<Fixed>::from_seconds(UPDATE_FREQUENCY.into()))
         .init_resource::<N9Settings>()
         .init_resource::<DrawState>()
-
         .add_plugins((lua_scripting_plugin, crate::plugin, add_info))
-
         .add_plugins(bevy_ecs_tilemap::TilemapPlugin)
         // .add_systems(OnExit(screens::Screen::Loading), setup_image)
         // .add_systems(Startup, (setup_image, spawn_camera, set_camera).chain())
         .add_systems(Startup, (setup_image, spawn_camera).chain())
         // .add_systems(OnEnter(screens::Screen::Playing), send_init)
-        .add_systems(PreUpdate, (send_init, event_handler::<call::Init, LuaScriptingPlugin>).run_if(on_asset_modified::<ScriptAsset>()))
+        .add_systems(
+            PreUpdate,
+            (send_init, event_handler::<call::Init, LuaScriptingPlugin>)
+                .run_if(on_asset_modified::<ScriptAsset>()),
+        )
         // .add_systems(PreUpdate, send_init.run_if(on_event::<OnScriptLoaded>))
         // .add_systems(
         //     PreUpdate,
@@ -412,13 +425,18 @@ impl Plugin for Nano9Plugin {
         // .add_systems(Update, info_on_asset_event::<Image>())
         .add_systems(
             Update,
-            ((send_update, send_update60,
-              event_handler::<call::Update, LuaScriptingPlugin>,
-              event_handler::<call::Update60, LuaScriptingPlugin>), send_draw,
-             event_handler::<call::Draw, LuaScriptingPlugin>)
+            (
+                (
+                    send_update,
+                    send_update60,
+                    event_handler::<call::Update, LuaScriptingPlugin>,
+                    event_handler::<call::Update60, LuaScriptingPlugin>,
+                ),
+                send_draw,
+                event_handler::<call::Draw, LuaScriptingPlugin>,
+            )
                 .chain()
-                .run_if(in_state(screens::Screen::Playing)
-                        .and_then(in_state(ErrorState::None))),
+                .run_if(in_state(screens::Screen::Playing).and_then(in_state(ErrorState::None))),
         );
 
         if app.is_plugin_added::<WindowPlugin>() {
@@ -437,8 +455,12 @@ pub fn on_asset_change<T: Asset>() -> impl FnMut(EventReader<AssetEvent<T>>) -> 
         reader
             .read()
             .inspect(|e| info!("asset event {e:?}"))
-            .any(|e| matches!(e, //AssetEvent::LoadedWithDependencies { .. } |
-                              AssetEvent::Added { .. } | AssetEvent::Modified { .. }))
+            .any(|e| {
+                matches!(
+                    e, //AssetEvent::LoadedWithDependencies { .. } |
+                    AssetEvent::Added { .. } | AssetEvent::Modified { .. }
+                )
+            })
     }
 }
 

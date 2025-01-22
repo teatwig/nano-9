@@ -20,8 +20,8 @@ mod plugin;
 pub mod screens;
 // mod sprite;
 // mod text;
-mod var;
 pub mod minibuffer;
+mod var;
 
 // pub use audio::*;
 // pub use camera::*;

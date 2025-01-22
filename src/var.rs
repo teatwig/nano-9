@@ -1,10 +1,17 @@
+use crate::{call, on_asset_change, DropPolicy, N9Entity};
 use bevy::prelude::*;
 use bevy_mod_scripting::{
-        lua::mlua::{prelude::LuaValue, AnyUserData},
-        core::{bindings::script_value::ScriptValue, asset::ScriptAsset,
-                                event::{ScriptCallbackEvent, OnScriptLoaded}}};
-use std::{borrow::Cow, sync::{Mutex, Arc}};
-use crate::{on_asset_change, call, N9Entity, DropPolicy};
+    core::{
+        asset::ScriptAsset,
+        bindings::script_value::ScriptValue,
+        event::{OnScriptLoaded, ScriptCallbackEvent},
+    },
+    lua::mlua::{prelude::LuaValue, AnyUserData},
+};
+use std::{
+    borrow::Cow,
+    sync::{Arc, Mutex},
+};
 
 #[derive(Component, Reflect)]
 pub struct N9Var(Cow<'static, str>);
@@ -13,7 +20,7 @@ pub(crate) fn plugin(app: &mut App) {
     app.register_type::<N9Var>()
         // .add_systems(PostStartup, set_vars)
         .add_systems(PreUpdate, set_vars.run_if(on_asset_change::<ScriptAsset>()));
-        // .add_systems(PreUpdate, set_vars.run_if(on_event::<OnScriptLoaded>));
+    // .add_systems(PreUpdate, set_vars.run_if(on_event::<OnScriptLoaded>));
 }
 
 impl N9Var {
@@ -23,11 +30,10 @@ impl N9Var {
 }
 
 /// Sends initialization event
-fn set_vars(mut writer: EventWriter<ScriptCallbackEvent>,
-            query: Query<(Entity, &N9Var)>) {
-        for (id, var) in &query {
-            warn!("Need to impl set_vars().");
-            // todo!();
+fn set_vars(mut writer: EventWriter<ScriptCallbackEvent>, query: Query<(Entity, &N9Var)>) {
+    for (id, var) in &query {
+        warn!("Need to impl set_vars().");
+        // todo!();
         // writer.send(ScriptCallbackEvent::new_for_all(
         //     call::SetGlobal,
         //     vec![ScriptValue::String(var.0.clone()),

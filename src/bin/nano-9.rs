@@ -1,8 +1,8 @@
 use bevy::prelude::*;
+use bevy_ecs_tilemap::prelude::{TilePos, TilemapType};
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::{asset::ScriptAsset, script::ScriptComponent};
-use nano_9::{*, pico8::*, minibuffer::*, error::*};
-use bevy_ecs_tilemap::prelude::{TilePos, TilemapType};
+use nano_9::{error::*, minibuffer::*, pico8::*, *};
 use std::env;
 
 #[derive(Resource)]
@@ -54,14 +54,11 @@ fn main() -> std::io::Result<()> {
             Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
                 commands.insert_resource(MyScript(asset_server.load(script_path.clone())));
-                commands.spawn(ScriptComponent(
-                    vec![script_path.clone().into()],
-                ));
+                commands.spawn(ScriptComponent(vec![script_path.clone().into()]));
             },
         );
     }
 
-    app
-        .run();
+    app.run();
     Ok(())
 }

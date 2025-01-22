@@ -1,14 +1,24 @@
 //! Shows how to create a custom [`Decodable`] type by implementing a Sine wave.
 
+use crate::pico8::cart::{to_byte, to_nybble};
 use bevy::{
     audio::{AddAudioSource, Source},
     prelude::*,
     reflect::TypePath,
     utils::Duration,
 };
-use crate::pico8::cart::{to_byte, to_nybble};
-use dasp::{signal::{self, Phase, Step, noise, Noise}, Signal};
-use std::{borrow::Cow, f32, sync::{Arc, atomic::{Ordering, AtomicBool}}};
+use dasp::{
+    signal::{self, noise, Noise, Phase, Step},
+    Signal,
+};
+use std::{
+    borrow::Cow,
+    f32,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 const SAMPLE_RATE: u32 = 22_050;
 
@@ -22,7 +32,7 @@ pub enum WaveForm {
     Organ,
     Noise,
     Phaser,
-    Custom(u8)
+    Custom(u8),
 }
 
 pub struct Triangle<S> {
@@ -90,7 +100,6 @@ where
     /// Make a triangle wave that starts and ends at zero.
     #[inline]
     fn next(&mut self) -> Self::Frame {
-
         let phase = self.phase.next_phase();
         phase * 2.0 - 1.0
     }
@@ -157,8 +166,7 @@ pub struct DrunkNoise {
     current: f64,
 }
 
-impl Signal for DrunkNoise
-{
+impl Signal for DrunkNoise {
     type Frame = f64;
 
     #[inline]
@@ -174,12 +182,13 @@ impl Signal for DrunkNoise
     }
 }
 
-
 #[derive(Resource, Debug, Reflect, Deref)]
 pub struct SfxChannels(pub Vec<Entity>);
 
 #[derive(Component, Debug, Reflect)]
-pub struct SfxLoop { release: AtomicBool }
+pub struct SfxLoop {
+    release: AtomicBool,
+}
 
 impl From<WaveForm> for u8 {
     fn from(wave: WaveForm) -> u8 {
@@ -193,7 +202,7 @@ impl From<WaveForm> for u8 {
             Organ => 5,
             Noise => 6,
             Phaser => 7,
-            Custom(x) => x + 7
+            Custom(x) => x + 7,
         }
     }
 }
@@ -267,8 +276,8 @@ impl From<Effect> for u8 {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Effect {
     // 0 none, 1 slide, 2 vibrato, 3 drop, 4 fade_in, 5 fade_out, 6 arp fast, 7
- // arp slow; arpeggio commands loop over groups of four notes at speed 2 (fast)
- // and 4 (slow)
+    // arp slow; arpeggio commands loop over groups of four notes at speed 2 (fast)
+    // and 4 (slow)
     None,
     Slide,
     Vibrato,
@@ -276,7 +285,7 @@ pub enum Effect {
     FadeIn,
     FadeOut,
     ArpFast,
-    ArpSlow
+    ArpSlow,
 }
 
 pub trait Note {
@@ -292,18 +301,19 @@ pub trait Note {
 pub struct Pico8Note(pub u16);
 
 impl Pico8Note {
-    pub fn new(pitch: u8,
-               wave: WaveForm,
-               volume: u8,
-               effect: Effect) -> Self {
+    pub fn new(pitch: u8, wave: WaveForm, volume: u8, effect: Effect) -> Self {
         let pitch = pitch.saturating_sub(PITCH_OFFSET);
-        assert!(volume <= 7, "expected volume was greater than 7 but was {volume}");
+        assert!(
+            volume <= 7,
+            "expected volume was greater than 7 but was {volume}"
+        );
         assert!(pitch <= 63, "expected pitch <= 63 but was {pitch}");
         Pico8Note(
-            (pitch & 0b0011_1111) as u16 |
-            (u8::from(wave) as u16) << 6 |
-            ((volume & 0b111) as u16) << 9 |
-            (u8::from(effect) as u16 & 0b111) << 12)
+            (pitch & 0b0011_1111) as u16
+                | (u8::from(wave) as u16) << 6
+                | ((volume & 0b111) as u16) << 9
+                | (u8::from(effect) as u16 & 0b111) << 12,
+        )
     }
 }
 
@@ -322,40 +332,58 @@ impl TryFrom<&str> for Sfx {
         let note_nybbles = line.len() - HEADER_NYBBLES;
         let empty_notes = {
             let line_bytes = line.as_bytes();
-            line_bytes.iter().rev().position(|a| *a != b'0').map(|index| index / NOTE_NYBBLES).unwrap_or(0)
+            line_bytes
+                .iter()
+                .rev()
+                .position(|a| *a != b'0')
+                .map(|index| index / NOTE_NYBBLES)
+                .unwrap_or(0)
         };
-        let mut notes = Vec::with_capacity(note_nybbles/NOTE_NYBBLES - empty_notes);
+        let mut notes = Vec::with_capacity(note_nybbles / NOTE_NYBBLES - empty_notes);
         let line_bytes = &line.as_bytes()[..line.len() - empty_notes * NOTE_NYBBLES];
 
-        let mut iter = line_bytes
-            .chunks(2)
-            .map(|v| to_byte(v[0], v[1]).ok_or_else(|| SfxError::InvalidHex(String::from_utf8(v.to_vec()).unwrap())));
+        let mut iter = line_bytes.chunks(2).map(|v| {
+            to_byte(v[0], v[1])
+                .ok_or_else(|| SfxError::InvalidHex(String::from_utf8(v.to_vec()).unwrap()))
+        });
 
         // Process the header first.
         let _editor_mode = iter.next().ok_or(SfxError::Missing("editor_mode".into()))?;
-        let note_duration = iter.next().ok_or(SfxError::Missing("note_duration".into()))?;
+        let note_duration = iter
+            .next()
+            .ok_or(SfxError::Missing("note_duration".into()))?;
 
-        let loop_start = iter.next().ok_or(SfxError::Missing("loop_start".into()))??;
+        let loop_start = iter
+            .next()
+            .ok_or(SfxError::Missing("loop_start".into()))??;
         let loop_end = iter.next().ok_or(SfxError::Missing("loop_end".into()))??;
 
-        let mut nybbles = line_bytes.iter().map(|a|
-                                                     to_nybble(*a).ok_or(SfxError::InvalidHex((*a as char).to_string())))
-                                    .skip(HEADER_NYBBLES);
+        let mut nybbles = line_bytes
+            .iter()
+            .map(|a| to_nybble(*a).ok_or(SfxError::InvalidHex((*a as char).to_string())))
+            .skip(HEADER_NYBBLES);
 
         while let Some(pitch_high) = nybbles.next() {
-            let pitch_low: u8 = nybbles.next().ok_or(SfxError::Missing("pitch low nybble".into()))??;
-            let wave_form: u8 = nybbles.next().ok_or(SfxError::Missing("wave form".into()))??;
+            let pitch_low: u8 = nybbles
+                .next()
+                .ok_or(SfxError::Missing("pitch low nybble".into()))??;
+            let wave_form: u8 = nybbles
+                .next()
+                .ok_or(SfxError::Missing("wave form".into()))??;
             let volume: u8 = nybbles.next().ok_or(SfxError::Missing("volume".into()))??;
             let effect: u8 = nybbles.next().ok_or(SfxError::Missing("effect".into()))??;
             // notes.push(Pico8Note::new(pitch_high << 4 | pitch_low?, WaveForm::try_from(wave_form)?,
-            notes.push(Pico8Note::new((pitch_high? << 4 | pitch_low) + PITCH_OFFSET,
-                                      WaveForm::try_from(wave_form)?,
-                                      volume,
-                                      Effect::try_from(effect)?));
+            notes.push(Pico8Note::new(
+                (pitch_high? << 4 | pitch_low) + PITCH_OFFSET,
+                WaveForm::try_from(wave_form)?,
+                volume,
+                Effect::try_from(effect)?,
+            ));
         }
-        Ok(Sfx::new(notes)
-           .with_speed(note_duration?)
-           .with_loop((loop_start != 0).then_some(loop_start), (loop_end != 0).then_some(loop_end)))
+        Ok(Sfx::new(notes).with_speed(note_duration?).with_loop(
+            (loop_start != 0).then_some(loop_start),
+            (loop_end != 0).then_some(loop_end),
+        ))
     }
 }
 
@@ -397,7 +425,6 @@ impl Note for Pico8Note {
     }
 }
 
-
 // This struct usually contains the data for the audio being played.
 // This is where data read from an audio file would be stored, for example.
 // This allows the type to be registered as an asset.
@@ -410,8 +437,15 @@ pub struct Sfx {
 
 #[derive(Debug, Clone)]
 pub enum Loop {
-    Unstoppable { start: Option<u8>, end: Option<u8> },
-    Stoppable { start: Option<u8>, end: Option<u8>, release: Arc<AtomicBool> }
+    Unstoppable {
+        start: Option<u8>,
+        end: Option<u8>,
+    },
+    Stoppable {
+        start: Option<u8>,
+        end: Option<u8>,
+        release: Arc<AtomicBool>,
+    },
 }
 
 impl Sfx {
@@ -430,12 +464,18 @@ impl Sfx {
 
     pub fn with_loop(mut self, loop_start: Option<u8>, loop_end: Option<u8>) -> Self {
         if loop_start.is_some() || loop_end.is_some() {
-            self.loop_maybe = Some(Loop::Unstoppable { start: loop_start, end: loop_end });
+            self.loop_maybe = Some(Loop::Unstoppable {
+                start: loop_start,
+                end: loop_end,
+            });
         }
         self
     }
 
-    pub fn get_stoppable_handle(handle: Handle<Sfx>, world: &mut World) -> (Handle<Sfx>, Option<Arc<AtomicBool>>) {
+    pub fn get_stoppable_handle(
+        handle: Handle<Sfx>,
+        world: &mut World,
+    ) -> (Handle<Sfx>, Option<Arc<AtomicBool>>) {
         let mut sfxs = world.resource_mut::<Assets<Sfx>>();
         let mut new_sfx = None;
         let mut new_release = None;
@@ -446,7 +486,11 @@ impl Sfx {
                         let mut sfx_stoppable = sfx.clone();
                         let release = Arc::new(AtomicBool::new(false));
                         new_release = Some(release.clone());
-                        sfx_stoppable.loop_maybe = Some(Loop::Stoppable { start, end, release });
+                        sfx_stoppable.loop_maybe = Some(Loop::Stoppable {
+                            start,
+                            end,
+                            release,
+                        });
                         new_sfx = Some(sfx_stoppable);
                     }
                     Loop::Stoppable { release, .. } => {
@@ -475,8 +519,14 @@ impl Iterator for NoteIter {
         let result = self.sfx.notes.get(self.index).copied();
         if let Some(ref loop_maybe) = self.sfx.loop_maybe {
             match loop_maybe {
-                Loop::Unstoppable { .. } => { panic!("Cannot stop a unstoppable sfx."); }
-                Loop::Stoppable { start, end, release } => 'block: {
+                Loop::Unstoppable { .. } => {
+                    panic!("Cannot stop a unstoppable sfx.");
+                }
+                Loop::Stoppable {
+                    start,
+                    end,
+                    release,
+                } => 'block: {
                     if let Some(end) = end {
                         if *end as usize == self.index && !release.load(Ordering::Relaxed) {
                             self.index = start.unwrap_or(0) as usize;
@@ -496,9 +546,13 @@ impl Iterator for NoteIter {
 impl From<Sfx> for NoteIter {
     fn from(sfx: Sfx) -> Self {
         NoteIter {
-            index: sfx.loop_maybe.as_ref().and_then(|l| match *l {
-                Loop::Unstoppable { start, .. } | Loop::Stoppable { start, .. } => start
-            }).unwrap_or(0) as usize,
+            index: sfx
+                .loop_maybe
+                .as_ref()
+                .and_then(|l| match *l {
+                    Loop::Unstoppable { start, .. } | Loop::Stoppable { start, .. } => start,
+                })
+                .unwrap_or(0) as usize,
             sfx,
         }
     }
@@ -521,11 +575,10 @@ impl Iterator for SfxDecoder {
             }
         }
         if self.samples.is_none() {
-            self.samples =
-            self.sfx_notes.next().map(|note| {
+            self.samples = self.sfx_notes.next().map(|note| {
                 // midi pitch to frequency equation.
                 // https://www.music.mcgill.ca/~gary/307/week1/node28.html
-                let freq = 440.0 * f32::exp2((note.pitch() as i8 - 69) as f32/12.0);
+                let freq = 440.0 * f32::exp2((note.pitch() as i8 - 69) as f32 / 12.0);
                 // dbg!(note.pitch(), freq);
                 let hz = signal::rate(SAMPLE_RATE as f64).const_hz(freq as f64);
                 let duration = (self.sfx_notes.sfx.speed as f32 / 120.0) * SAMPLE_RATE as f32;
@@ -535,65 +588,74 @@ impl Iterator for SfxDecoder {
                         let synth = Triangle { phase: hz.phase() }
                             .map(|x| x as f32)
                             .scale_amp(volume);
-                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                        Box::new(synth.take(duration as usize))
+                            as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
                     WaveForm::TiltedSaw => {
-                        let synth = TiltedSaw { phase: hz.phase(),
-                                                knee: DEFAULT_KNEE }
-                            .map(|x| x as f32)
-                            .scale_amp(volume);
-                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                        let synth = TiltedSaw {
+                            phase: hz.phase(),
+                            knee: DEFAULT_KNEE,
+                        }
+                        .map(|x| x as f32)
+                        .scale_amp(volume);
+                        Box::new(synth.take(duration as usize))
+                            as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
                     WaveForm::Saw => {
                         let synth = Saw { phase: hz.phase() }
                             .map(|x| x as f32)
                             .scale_amp(volume);
-                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                        Box::new(synth.take(duration as usize))
+                            as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
                     WaveForm::Square => {
                         // let synth = TiltedSaw { phase: hz.phase(),
                         //                         knee: DEFAULT_KNEE }
-                        let synth = hz
-                            .square()
-                            .map(|x| x as f32)
-                            .scale_amp(volume);
-                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                        let synth = hz.square().map(|x| x as f32).scale_amp(volume);
+                        Box::new(synth.take(duration as usize))
+                            as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
                     WaveForm::Pulse => {
-                        let synth = Pulse { phase: hz.phase(), width: PULSE_WIDTH }
-                            .map(|x| x as f32)
-                            .scale_amp(volume);
-                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                        let synth = Pulse {
+                            phase: hz.phase(),
+                            width: PULSE_WIDTH,
+                        }
+                        .map(|x| x as f32)
+                        .scale_amp(volume);
+                        Box::new(synth.take(duration as usize))
+                            as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
                     WaveForm::Organ => {
-                        let synth = Organ { phase: hz.phase(), minor_height: MINOR_HEIGHT }
-                            .map(|x| x as f32)
-                            .scale_amp(volume);
-                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                        let synth = Organ {
+                            phase: hz.phase(),
+                            minor_height: MINOR_HEIGHT,
+                        }
+                        .map(|x| x as f32)
+                        .scale_amp(volume);
+                        Box::new(synth.take(duration as usize))
+                            as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
                     WaveForm::Noise => {
                         let synth = DrunkNoise {
                             noise: noise(0),
                             pace: DRUNK_PACE,
-                            current: 0.0
+                            current: 0.0,
                         }
-                            .map(|x| x as f32)
-                            .scale_amp(volume);
-                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                        .map(|x| x as f32)
+                        .scale_amp(volume);
+                        Box::new(synth.take(duration as usize))
+                            as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
                     WaveForm::Phaser => {
-                        let synth = hz
-                            .sine()
-                            .map(|x| x as f32)
-                            .scale_amp(volume);
-                        Box::new(synth.take(duration as usize)) as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
+                        let synth = hz.sine().map(|x| x as f32).scale_amp(volume);
+                        Box::new(synth.take(duration as usize))
+                            as Box<dyn Iterator<Item = f32> + Sync + Send + 'static>
                     }
                     x => todo!("WaveForm {x:?} not supported yet"),
                 }
             });
-
         }
-        result.or_else(||self.samples.as_mut().and_then(|samples| samples.next()))
+        result.or_else(|| self.samples.as_mut().and_then(|samples| samples.next()))
     }
 }
 
@@ -629,16 +691,18 @@ impl Decodable for Sfx {
 }
 
 pub(crate) fn plugin(app: &mut App) {
-    app
-        .add_systems(Startup, add_channels)
+    app.add_systems(Startup, add_channels)
         .add_audio_source::<Sfx>();
 }
 
 fn add_channels(mut commands: Commands) {
-    let channels: Vec<Entity> = (0..4).map(|i|
-        commands.spawn((Name::new(format!("channel {i}")),
-                        PlaybackSettings::REMOVE))
-               .id()).collect();
+    let channels: Vec<Entity> = (0..4)
+        .map(|i| {
+            commands
+                .spawn((Name::new(format!("channel {i}")), PlaybackSettings::REMOVE))
+                .id()
+        })
+        .collect();
     commands.insert_resource(SfxChannels(channels));
 }
 
@@ -712,7 +776,7 @@ mod test {
         assert_eq!(note.effect(), Effect::None);
         assert_eq!(note.volume(), 0.0);
 
-        let note  = Pico8Note(0x000f);
+        let note = Pico8Note(0x000f);
         assert_eq!(note.pitch(), 50); // C1
         assert_eq!(note.wave(), WaveForm::Triangle);
         assert_eq!(note.effect(), Effect::None);
@@ -729,7 +793,12 @@ mod test {
         assert_eq!(note.volume(), 1.0 / 7.0);
         assert_eq!(note.wave(), WaveForm::Triangle);
         assert_eq!(note.effect(), Effect::None);
-        let volumes: Vec<u8> = sfx.notes.iter().take(8).map(|n| (n.volume() * 7.0) as u8).collect();
+        let volumes: Vec<u8> = sfx
+            .notes
+            .iter()
+            .take(8)
+            .map(|n| (n.volume() * 7.0) as u8)
+            .collect();
         assert_eq!(volumes, vec![0, 1, 2, 3, 4, 5, 6, 7]);
         assert_eq!(sfx.notes.len(), 8);
     }
@@ -741,54 +810,31 @@ mod test {
         let s = "001000000c050000000c150000000c250000000c350000000c450000000c550000000c650000000c7500000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
         let sfx = Sfx::try_from(s).unwrap();
         let volumes: Vec<WaveForm> = sfx.notes.iter().map(|n| n.wave()).collect();
-        assert_eq!(volumes, vec![
-    Triangle,
-    Triangle,
-    TiltedSaw,
-    Triangle,
-    Saw,
-    Triangle,
-    Square,
-    Triangle,
-    Pulse,
-    Triangle,
-    Organ,
-    Triangle,
-    Noise,
-    Triangle,
-    Phaser,
-    // Triangle,
-    //         Custom(0),
-        ]);
-    // Custom(u8)
+        assert_eq!(
+            volumes,
+            vec![
+                Triangle, Triangle, TiltedSaw, Triangle, Saw, Triangle, Square, Triangle, Pulse,
+                Triangle, Organ, Triangle, Noise, Triangle,
+                Phaser,
+                // Triangle,
+                //         Custom(0),
+            ]
+        );
+        // Custom(u8)
         assert_eq!(sfx.notes.len(), 15);
     }
 
     #[test]
     fn sfx_pitch() {
-        
         //       0 1 2 3 a    b    c    d    e    f    g    h
         let s = "001000000c050000000c150000000c250000000c350000000c450000000c550000000c650000000c7500000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
         let sfx = Sfx::try_from(s).unwrap();
         let volumes: Vec<u8> = sfx.notes.iter().take(15).map(|n| n.pitch()).collect();
-        assert_eq!(volumes, vec![
-    47,
-            35,
-    47,
-            35,
-    47,
-            35,
-    47,
-            35,
-    47,
-            35,
-    47,
-            35,
-    47,
-            35,
-    47,
-        ]);
-    // Custom(u8)
+        assert_eq!(
+            volumes,
+            vec![47, 35, 47, 35, 47, 35, 47, 35, 47, 35, 47, 35, 47, 35, 47,]
+        );
+        // Custom(u8)
         assert_eq!(sfx.notes.len(), 15);
     }
 
@@ -796,8 +842,5 @@ mod test {
     fn note_wave() {
         let note = Pico8Note::new(37, WaveForm::Noise, 7, Effect::None);
         assert_eq!(note.wave(), WaveForm::Noise);
-
     }
-
-
 }

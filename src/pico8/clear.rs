@@ -1,5 +1,8 @@
 use bevy::prelude::*;
-use std::{fmt, sync::atomic::{AtomicUsize, AtomicBool, Ordering}};
+use std::{
+    fmt,
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+};
 
 static DRAW_COUNTER: DrawCounter = DrawCounter::new(1);
 ///
@@ -61,20 +64,28 @@ impl fmt::Debug for DrawCounter {
 }
 
 #[derive(Debug, Event, Clone, Copy)]
-pub struct ClearEvent { draw_ceiling: usize }
+pub struct ClearEvent {
+    draw_ceiling: usize,
+}
 
 impl Default for ClearEvent {
     fn default() -> Self {
-        ClearEvent { draw_ceiling: DRAW_COUNTER.get() }
+        ClearEvent {
+            draw_ceiling: DRAW_COUNTER.get(),
+        }
     }
 }
 
 #[derive(Debug, Component, Clone, Copy)]
-pub struct Clearable { draw_count: usize }
+pub struct Clearable {
+    draw_count: usize,
+}
 
 impl Default for Clearable {
     fn default() -> Self {
-        Clearable { draw_count: DRAW_COUNTER.increment() }
+        Clearable {
+            draw_count: DRAW_COUNTER.increment(),
+        }
     }
 }
 
@@ -86,8 +97,7 @@ impl Clearable {
 }
 
 pub(crate) fn plugin(app: &mut App) {
-    app
-        .add_event::<ClearEvent>()
+    app.add_event::<ClearEvent>()
         .add_systems(Last, (handle_overflow, handle_clear_event).chain());
 }
 
@@ -101,17 +111,26 @@ fn handle_overflow(mut query: Query<&mut Clearable>) {
     }
 }
 
-fn handle_clear_event(mut events: EventReader<ClearEvent>,
-                      mut query: Query<(Entity, &mut Clearable, &mut Transform)>,
-                      mut commands: Commands) {
+fn handle_clear_event(
+    mut events: EventReader<ClearEvent>,
+    mut query: Query<(Entity, &mut Clearable, &mut Transform)>,
+    mut commands: Commands,
+) {
     if let Some(ceiling) = events.read().map(|e| e.draw_ceiling).max() {
-        let (less_than, mut greater_than): (Vec<_>, Vec<_>) = query.iter_mut().partition(|(_, clearable, _)| clearable.draw_count < ceiling);
+        let (less_than, mut greater_than): (Vec<_>, Vec<_>) = query
+            .iter_mut()
+            .partition(|(_, clearable, _)| clearable.draw_count < ceiling);
         for (id, _, _) in less_than {
             commands.entity(id).despawn_recursive();
         }
 
         let mut i = 1;
-        greater_than.sort_by(|(_,_,a), (_, _, b)| a.translation.z.partial_cmp(&b.translation.z).unwrap_or(std::cmp::Ordering::Equal));
+        greater_than.sort_by(|(_, _, a), (_, _, b)| {
+            a.translation
+                .z
+                .partial_cmp(&b.translation.z)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         for (_id, mut clearable, mut transform) in greater_than {
             clearable.draw_count = 0;
             transform.translation.z = i as f32 / MAX_EXPECTED_CLEARABLES;

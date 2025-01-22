@@ -1,5 +1,5 @@
 use bevy::{color::palettes::css, core::FrameCount, prelude::*, window::RequestRedraw};
-use bevy_mod_scripting::{core::{error::ScriptError, event::ScriptErrorEvent}};
+use bevy_mod_scripting::core::{error::ScriptError, event::ScriptErrorEvent};
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_state::<ErrorState>()
@@ -83,14 +83,14 @@ fn spawn_error_message_layout(mut commands: Commands) {
             ));
             // .with_children(|parent| {
 
-                //     let error_style: TextStyle = TextStyle {
-                //         font_size: FONT_SIZE,
-                //         ..default()
-                //     };
-                //     parent.spawn((
-                //         TextBundle::from_section("Test", error_style),
-                //         ErrorMessages));
-                // })
+            //     let error_style: TextStyle = TextStyle {
+            //         font_size: FONT_SIZE,
+            //         ..default()
+            //     };
+            //     parent.spawn((
+            //         TextBundle::from_section("Test", error_style),
+            //         ErrorMessages));
+            // })
             // .with_background_color(Color::RED));
         });
 }
