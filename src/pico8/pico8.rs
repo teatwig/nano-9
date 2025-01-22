@@ -415,6 +415,43 @@ impl Pico8<'_, '_> {
         }
         Ok(())
     }
+
+    fn fget(&self, index: u8, flag_index: Option<u8>) -> u8 {
+        let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get(cart)).expect("cart");
+        let v = cart.flags[index as usize];
+        match flag_index {
+            Some(flag_index) => if v & (1 << flag_index) != 0 { 1 } else { 0 },
+            None => v
+        }
+    }
+
+    fn fset(&mut self, index: u8, flag_index: Option<u8>, value: u8) {
+        let mut cart = self.state.cart.as_ref().and_then(|cart| self.carts.get_mut(cart)).expect("cart");
+        match flag_index {
+            Some(flag_index) => {
+                let v = cart.flags[index as usize];
+                if value != 0 {
+                    // Set the bit.
+                    cart.flags[index as usize] |= 1 << flag_index;
+                } else {
+                    // Unset the bit.
+                    cart.flags[index as usize] &= !(1 << flag_index);
+                }
+            }
+            None => {
+                cart.flags[index as usize] = value;
+            }
+        }
+    }
+
+    fn mget(&self, pos: UVec2) -> u8 {
+        let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get(cart)).expect("cart");
+        cart.map[(pos.x + pos.y * 128) as usize]
+    }
+    fn mset(&mut self, pos: UVec2, sprite_index: u8) {
+        let cart = self.state.cart.as_ref().and_then(|cart| self.carts.get_mut(cart)).expect("cart");
+        cart.map[(pos.x + pos.y * 128) as usize] = sprite_index;
+    }
 }
 
 
@@ -741,6 +778,27 @@ fn with_pico8<X>(ctx: &FunctionCallContext, f: impl FnOnce(&mut Pico8) -> Result
                         Err(Error::InvalidArgument(format!("sfx: expected n to be -2, -1 or >= 0 but was {x}").into()))
                     }
                 }?, channel, offset, length))
+                })
+            .register(
+                "fget",
+                |ctx: FunctionCallContext, n: u8, f: Option<u8>| {
+                    with_pico8(&ctx, move |pico8| Ok(pico8.fget(n, f)))
+                })
+            .register(
+                "fset",
+                |ctx: FunctionCallContext, n: u8, f_or_v: u8, v: Option<u8>| {
+                    let (f, v) = v.map(|v| (Some(f_or_v), v)).unwrap_or((None, f_or_v));
+                    with_pico8(&ctx, move |pico8| Ok(pico8.fset(n, f, v)))
+                })
+            .register(
+                "mget",
+                |ctx: FunctionCallContext, x: u32, y: u32| {
+                    with_pico8(&ctx, move |pico8| Ok(pico8.mget(UVec2::new(x, y))))
+                })
+            .register(
+                "mset",
+                |ctx: FunctionCallContext, x: u32, y: u32, v: u8| {
+                    with_pico8(&ctx, move |pico8| Ok(pico8.mset(UVec2::new(x, y), v)))
                 })
             ;
 

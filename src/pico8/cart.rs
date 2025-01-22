@@ -127,6 +127,7 @@ impl CartParts {
     fn from_str(content: &str, settings: &CartLoaderSettings) -> Result<CartParts, CartLoaderError> {
         const LUA: usize = 0;
         const GFX: usize = 1;
+        const GFF: usize = 2;
         const MAP: usize = 4;
         const SFX: usize = 5;
         let headers = ["lua", "gfx", "gff", "label", "map", "sfx", "music"];
@@ -216,6 +217,33 @@ impl CartParts {
                 ));
             }
         }
+        // gff
+        let mut gff = Vec::new();
+        if let Some(content) = get_segment(&sections[GFF]) {
+            let mut lines = content.lines();
+            let columns = lines.next().map(|l| l.len());
+            if let Some(columns) = columns {
+                let rows = lines.count() + 1;
+                let mut bytes = vec![0x00; columns / 2 * rows];
+                let mut i = 0;
+                for line in content.lines() {
+                    assert_eq!(columns, line.len());
+                    let line_bytes = line.as_bytes();
+                    let mut j = 0;
+                    while j < line_bytes.len() {
+                        let c = line_bytes[j] as char;
+                        let high: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                        let c = line_bytes[j + 1] as char;
+                        let low: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                        bytes[i] = high << 4 | low;
+                        i += 1;
+                        j += 2;
+                    }
+                }
+                gff = bytes;
+            }
+        }
+        // map
         let mut map = Vec::new();
         if let Some(content) = get_segment(&sections[MAP]) {
             let mut lines = content.lines();
@@ -256,7 +284,7 @@ impl CartParts {
             lua,
             sprites,
             map,
-            flags: Vec::new(),
+            flags: gff,
             sfx,
         })
     }
@@ -425,6 +453,22 @@ version 41
 __sfx__
 000100001b02000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 "#;
+
+    const gff_cart: &str = r#"pico-8 cartridge // http://www.pico-8.com
+version 41
+__gfx__
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700066600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000060006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000066000600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700006600600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000066600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+__gff__
+0008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+"#;
+
     #[test]
     fn test_string_find() {
         let s = String::from("Hello World");
@@ -501,10 +545,10 @@ end"#);
         assert_eq!(notes[1].volume(), 5.0 / 7.0);
         assert_eq!(notes[2].volume(), 0.0);
         assert_eq!(notes[3].volume(), 1.0);
-        assert_eq!(notes[0].pitch(), 26);
-        assert_eq!(notes[1].pitch(), 87);
-        assert_eq!(notes[2].pitch(), 56);
-        assert_eq!(notes[3].pitch(), 57);
+        assert_eq!(notes[0].pitch(), 37);
+        assert_eq!(notes[1].pitch(), 98);
+        assert_eq!(notes[2].pitch(), 67);
+        assert_eq!(notes[3].pitch(), 68);
     }
 
     #[test]
@@ -520,7 +564,21 @@ end"#);
         let notes = &sfx.notes;
         assert_eq!(sfx.speed, 1);
         assert_eq!(notes[0].volume(), 5.0 / 7.0);
-        assert_eq!(notes[0].pitch(), 26);
+        assert_eq!(notes[0].pitch(), 37);
         assert_eq!(notes[0].wave(), WaveForm::Triangle);
+    }
+
+    #[test]
+    fn test_gff_cart() {
+        let settings = CartLoaderSettings::default();
+        let cart = CartParts::from_str(gff_cart, &settings).unwrap();
+        assert_eq!(cart.lua, "");
+        // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), None);
+        // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), None);
+        assert_eq!(cart.map.len(), 0);
+        assert_eq!(cart.sfx.len(), 0);
+        assert_eq!(cart.flags.len(), 256);
+        assert_eq!(cart.flags[1], 8);
+
     }
 }

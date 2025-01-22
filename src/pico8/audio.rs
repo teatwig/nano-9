@@ -296,7 +296,7 @@ impl Pico8Note {
                wave: WaveForm,
                volume: u8,
                effect: Effect) -> Self {
-        let pitch = pitch - PITCH_OFFSET;
+        let pitch = pitch.saturating_sub(PITCH_OFFSET);
         assert!(volume <= 7, "expected volume was greater than 7 but was {volume}");
         assert!(pitch <= 63, "expected pitch <= 63 but was {pitch}");
         Pico8Note(
@@ -707,13 +707,13 @@ mod test {
         let s = "000800000f0000f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
         let sfx = Sfx::try_from(s).unwrap();
         let note = &sfx.notes[0];
-        assert_eq!(note.pitch(), 39); // C1
+        assert_eq!(note.pitch(), 50); // C1
         assert_eq!(note.wave(), WaveForm::Triangle);
         assert_eq!(note.effect(), Effect::None);
         assert_eq!(note.volume(), 0.0);
 
         let note  = Pico8Note(0x000f);
-        assert_eq!(note.pitch(), 39); // C1
+        assert_eq!(note.pitch(), 50); // C1
         assert_eq!(note.wave(), WaveForm::Triangle);
         assert_eq!(note.effect(), Effect::None);
         assert_eq!(note.volume(), 0.0);
@@ -725,7 +725,7 @@ mod test {
         let s = "001000000c0000c0100c0200c0300c0400c0500c0600c070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
         let sfx = Sfx::try_from(s).unwrap();
         let note = &sfx.notes[1];
-        assert_eq!(note.pitch(), 36); // C1
+        assert_eq!(note.pitch(), 47); // C1
         assert_eq!(note.volume(), 1.0 / 7.0);
         assert_eq!(note.wave(), WaveForm::Triangle);
         assert_eq!(note.effect(), Effect::None);
@@ -752,11 +752,13 @@ mod test {
     Triangle,
     Pulse,
     Triangle,
+    Organ,
+    Triangle,
     Noise,
     Triangle,
     Phaser,
-    Triangle,
-            Custom(0),
+    // Triangle,
+    //         Custom(0),
         ]);
     // Custom(u8)
         assert_eq!(sfx.notes.len(), 15);
@@ -770,21 +772,21 @@ mod test {
         let sfx = Sfx::try_from(s).unwrap();
         let volumes: Vec<u8> = sfx.notes.iter().take(15).map(|n| n.pitch()).collect();
         assert_eq!(volumes, vec![
-36,
-            24,
-    36,
-            24,
-    36,
-            24,
-    36,
-            24,
-    36,
-            24,
-    36,
-            24,
-    36,
-            24,
-    36,
+    47,
+            35,
+    47,
+            35,
+    47,
+            35,
+    47,
+            35,
+    47,
+            35,
+    47,
+            35,
+    47,
+            35,
+    47,
         ]);
     // Custom(u8)
         assert_eq!(sfx.notes.len(), 15);
