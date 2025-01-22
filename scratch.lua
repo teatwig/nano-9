@@ -37,15 +37,16 @@ end
 
 function _draw()
     cls(1)
+    -- btn()
     pset(x + 10,x, 2)
     -- background.image:set_pixel(x, x, c)
     -- spr(1, x, x)
     -- jar = pixie:sprite()
     -- jar.one_frame = true
-    print("a", 0, 0, 1)
+    print("a", 0, 0, 6)
     for i = 1,19 do
         -- print(tostr(i))
     end
-    print("hiHI", 64, 0, 1)
+    print("hiHI", 64, 0, 6)
     -- print("oh")
 end

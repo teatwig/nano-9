@@ -26,7 +26,7 @@ fn main() -> std::io::Result<()> {
             BasicActs::default(),
             acts::universal::UniversalArgActs::default(),
             acts::tape::TapeActs::default(),
-            // bevy_minibuffer_inspector::WorldActs::default(),
+            bevy_minibuffer_inspector::WorldActs::default(),
             crate::minibuffer::Nano9Acts::default(),
             CountComponentsActs::default()
                 .add::<Text>("text")

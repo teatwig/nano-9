@@ -9,6 +9,12 @@
 printh = print
 debug_print = print
 
+function on_script_loaded()
+    if _init then
+        _init()
+    end
+end
+
 function min(a,b)
     if a == nil or b == nil then
             warning("min a or b are nil returning 0")
