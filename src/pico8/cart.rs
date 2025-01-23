@@ -1,6 +1,8 @@
 use crate::{
     pico8::{audio::*, *},
+    send_init,
     DrawState,
+    call,
 };
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
@@ -11,14 +13,20 @@ use bevy::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
 };
-use bevy_mod_scripting::core::asset::ScriptAsset;
+use bevy_mod_scripting::{
+    lua::LuaScriptingPlugin,
+    core::{handler::event_handler, asset::ScriptAsset},
+};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 pub(crate) fn plugin(app: &mut App) {
-    app.init_asset::<Cart>()
+    app
+        .add_event::<LoadCart>()
+        .init_asset::<Cart>()
         .init_asset_loader::<CartLoader>()
-        .add_systems(PreUpdate, load_cart);
+        .add_systems(PostUpdate, (load_cart,
+            (send_init, event_handler::<call::Init, LuaScriptingPlugin>).run_if(on_event::<LoadCart>)).chain());
 }
 
 #[non_exhaustive]
@@ -78,17 +86,17 @@ const PALETTE: [[u8; 3]; 16] = [
     [255, 204, 170], //light-peach
 ];
 
-#[derive(Component)]
+#[derive(Event)]
 pub struct LoadCart(pub Handle<Cart>);
 
 fn load_cart(
-    query: Query<(Entity, &LoadCart)>,
+    mut reader: EventReader<LoadCart>,
     carts: Res<Assets<Cart>>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    for (id, load_cart) in &query {
+    for load_cart in reader.read() {
         if let Some(cart) = carts.get(&load_cart.0) {
             // It's available to load.
             let pixel_art_settings = |settings: &mut ImageLoaderSettings| {
@@ -120,7 +128,6 @@ fn load_cart(
             //             // cart.lua.clone())
             //         ],
             //     ));
-            commands.entity(id).remove::<LoadCart>();
         }
     }
 }
@@ -660,5 +667,12 @@ end"#
         assert_eq!(cart.sfx.len(), 0);
         assert_eq!(cart.flags.len(), 256);
         assert_eq!(cart.flags[1], 8);
+    }
+
+    #[test]
+    fn test_non_marking_space() {
+        let s = "➡️ o";
+        assert_eq!(s.len(), 8);
+        assert_eq!(s.chars().count(), 4);
     }
 }

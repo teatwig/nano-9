@@ -88,7 +88,8 @@ pub struct Pico8<'w, 's> {
     background: Res<'w, Nano9Screen>,
     keys: Res<'w, ButtonInput<KeyCode>>,
     sfx_channels: Res<'w, SfxChannels>,
-    audio_sinks: Query<'w, 's, Option<&'static mut AudioSink>>,
+    time: Res<'w, Time>,
+    // audio_sinks: Query<'w, 's, Option<&'static mut AudioSink>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -572,6 +573,7 @@ impl Pico8<'_, '_> {
             .expect("cart");
         cart.map[(pos.x + pos.y * 128) as usize]
     }
+
     fn mset(&mut self, pos: UVec2, sprite_index: u8) {
         let cart = self
             .state
@@ -580,6 +582,40 @@ impl Pico8<'_, '_> {
             .and_then(|cart| self.carts.get_mut(cart))
             .expect("cart");
         cart.map[(pos.x + pos.y * 128) as usize] = sprite_index;
+    }
+
+    fn sub(string: &str, start: isize, end: Option<isize>) -> String {
+        let count = string.chars().count() as isize;
+        let start = if start < 0 {
+            (count - start - 1) as usize
+        } else {
+            (start - 1) as usize
+        };
+        match end {
+            Some(end) => {
+                let end = if end < 0 {
+                    (count - end) as usize
+                } else {
+                    end as usize
+                };
+                if start <= end {
+                    string.chars().skip(start).take(end - start).collect()
+                    // BUG: This cuts unicode boundaries.
+                    // Ok(string[start..end].to_string())
+                } else {
+                    String::new()
+                }
+            }
+            None => string.chars().skip(start).collect()
+        }
+    }
+
+    fn time(&self) -> f32 {
+        self.time.elapsed_secs()
+    }
+
+    fn camera(&mut self, pos: UVec2) -> UVec2 {
+        std::mem::replace(&mut self.state.draw_state.camera_position, pos)
     }
 }
 
@@ -817,17 +853,17 @@ fn attach_api(app: &mut App) {
     let world = app.world_mut();
 
     NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-        .register("btnp", |ctx: FunctionCallContext, b: Option<u8>| {
+        .register("__btnp", |ctx: FunctionCallContext, b: Option<u8>| {
             with_pico8(&ctx, |pico8| pico8.btnp(b))
         })
-        .register("btn", |ctx: FunctionCallContext, b: Option<u8>| {
+        .register("__btn", |ctx: FunctionCallContext, b: Option<u8>| {
             with_pico8(&ctx, |pico8| pico8.btn(b))
         })
-        .register("cls", |ctx: FunctionCallContext, c: Option<N9Color>| {
+        .register("__cls", |ctx: FunctionCallContext, c: Option<N9Color>| {
             with_pico8(&ctx, |pico8| pico8.cls(c))
         })
         .register(
-            "pset",
+            "__pset",
             |ctx: FunctionCallContext, x: u32, y: u32, color: Option<N9Color>| {
                 with_pico8(&ctx, |pico8| {
                     // We want to ignore out of bounds errors specifically but possibly not others.
@@ -838,7 +874,7 @@ fn attach_api(app: &mut App) {
             },
         )
         .register(
-            "rectfill",
+            "__rectfill",
             |ctx: FunctionCallContext,
              x0: u32,
              y0: u32,
@@ -854,7 +890,7 @@ fn attach_api(app: &mut App) {
             },
         )
         .register(
-            "rect",
+            "__rect",
             |ctx: FunctionCallContext,
              x0: u32,
              y0: u32,
@@ -871,7 +907,7 @@ fn attach_api(app: &mut App) {
         )
         // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
         .register(
-            "spr",
+            "__spr",
             |ctx: FunctionCallContext,
              n: usize,
              x: Option<f32>,
@@ -902,7 +938,7 @@ fn attach_api(app: &mut App) {
         )
         // map( celx, cely, sx, sy, celw, celh, [layer] )
         .register(
-            "map",
+            "__map",
             |ctx: FunctionCallContext,
              celx: u32,
              cely: u32,
@@ -924,7 +960,7 @@ fn attach_api(app: &mut App) {
             },
         )
         .register(
-            "print",
+            "__print",
             |ctx: FunctionCallContext,
              text: Option<String>,
              x: Option<u32>,
@@ -938,7 +974,7 @@ fn attach_api(app: &mut App) {
             },
         )
         .register(
-            "sfx",
+            "__sfx",
             |ctx: FunctionCallContext,
              n: i8,
              channel: Option<u8>,
@@ -971,11 +1007,11 @@ fn attach_api(app: &mut App) {
                 })
             },
         )
-        .register("fget", |ctx: FunctionCallContext, n: u8, f: Option<u8>| {
+        .register("__fget", |ctx: FunctionCallContext, n: u8, f: Option<u8>| {
             with_pico8(&ctx, move |pico8| Ok(pico8.fget(n, f)))
         })
         .register(
-            "fset",
+            "__fset",
             |ctx: FunctionCallContext, n: u8, f_or_v: u8, v: Option<u8>| {
                 let (f, v) = v.map(|v| (Some(f_or_v), v)).unwrap_or((None, f_or_v));
                 with_pico8(&ctx, move |pico8| {
@@ -992,7 +1028,18 @@ fn attach_api(app: &mut App) {
                 pico8.mset(UVec2::new(x, y), v);
                 Ok(())
             })
-        });
+        })
+        .register("__sub", |s: String, start: isize, end: Option<isize>| {
+            Pico8::sub(&s, start, end)
+        })
+        .register("time", |ctx: FunctionCallContext| {
+            with_pico8(&ctx, move |pico8| Ok(pico8.time()))
+        })
+        .register("__camera", |ctx: FunctionCallContext, x: Option<u32>, y: Option<u32>| {
+            with_pico8(&ctx, move |pico8| Ok(pico8.camera(UVec2::new(x.unwrap_or(0), y.unwrap_or(0)))))
+                .map(|last_pos| (last_pos.x, last_pos.y))
+        })
+        ;
 
     //     fn tostr(ctx, v: Value) {
     //         let tostring: Function = ctx.globals().get("tostring")?;

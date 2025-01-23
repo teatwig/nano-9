@@ -40,12 +40,16 @@ function _draw()
     -- btn()
     pset(x + 10,x, 2)
     -- background.image:set_pixel(x, x, c)
-    -- spr(1, x, x)
+    spr(1, x, x)
     -- jar = pixie:sprite()
     -- jar.one_frame = true
-    print("a", 0, 0, 6)
+    s = 1 -- ok
+    --s = 2 -- fails
+    -- s = 3 -- ok
+    -- s = 0 -- ok
+    print(sub("➡️ o", s), 0, 0, 6)
     for i = 1,19 do
-        -- print(tostr(i))
+        print(tostr(i))
     end
     print("hiHI", 64, 0, 6)
     -- print("oh")

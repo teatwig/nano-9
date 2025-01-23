@@ -285,15 +285,16 @@ pub fn send_update60(mut writer: EventWriter<ScriptCallbackEvent>) {
 
 /// Sends initialization event
 pub fn send_init(
-    writer: EventWriter<ScriptCallbackEvent>,
+    mut writer: EventWriter<ScriptCallbackEvent>,
     // mut loaded: EventReader<OnScriptLoaded>,
 ) {
-    todo!("PUT INIT ELSEWHERE like Lua's on_script_loaded()");
+    // todo!("PUT INIT ELSEWHERE like Lua's on_script_loaded()");
     // for e in loaded.read() {
-    //     eprintln!("init {}", e.sid);
-    //     writer.send(ScriptCallbackEvent::new_for_all(
-    //         call::Init,
-    //         vec![ScriptValue::Unit]));
+        // eprintln!("init {}", e.sid);
+        writer.send(ScriptCallbackEvent::new_for_all(
+            call::Init,
+            vec![ScriptValue::Unit]));
+    // }
     //     // events.send(
     //     //     LuaEvent {
     //     //         hook_name: "_init".to_owned(),

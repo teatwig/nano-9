@@ -11,8 +11,64 @@ debug_print = print
 
 function on_script_loaded()
     if _init then
-        _init()
+        --_init()
     end
+end
+
+function btnp(b)
+    return __btnp(b)
+end
+
+function btn(b)
+    return __btn(b)
+end
+
+function cls(c)
+    return __cls(c)
+end
+
+function pset(x, y, c)
+    return __pset(x, y, c)
+end
+
+function rect(x0,y0,x1,y1,c)
+    return __rect(x0,y0,x1,y1,c)
+end
+
+function rectfill(x0,y0,x1,y1,c)
+    return __rectfill(x0,y0,x1,y1,c)
+end
+
+function spr(n,x,y,w,h,fx,fy)
+    return __spr(n,x,y,w,h,fx,fy)
+end
+
+function map(cx,cy,sx,sy,cw,ch,l)
+    return __map(cx or 0,cy or 0,sx or 0,sy or 0,cw or 128,ch or 64,l)
+end
+
+function print(s,x,y,c)
+    return __print(s,x,y,c)
+end
+
+function sfx(n, c, o, l)
+    return __sfx(n, c, o, l)
+end
+
+function fget(n, f)
+    return __fget(n, f)
+end
+
+function fset(n, f, v)
+    return __fset(n, f, v)
+end
+
+function sub(s, start, stop)
+    return __sub(s, start, stop)
+end
+
+function camera(x, y)
+    return __camera(x, y)
 end
 
 function min(a,b)
@@ -135,7 +191,8 @@ function all(a)
         end
     end
 end
-sub = string.sub
+-- string.sub does not respect UTF-8 boundaries.
+-- sub = string.sub
 
 function tonum(data)
     if type(data) == "number" then
@@ -172,17 +229,18 @@ function split(inputstr, sep, convert_numbers)
 end
 
 function ord(str, index, count)
-    if ~index then
+    if index == nil then
         index = 1
     end
     if count then
-        return str:byte(index)
-    else
         local result = {}
         for i=0,count do
             table.insert(result, str:byte(index + i))
         end
         return unpack(table)
+
+    else
+        return str:byte(index)
     end
 end
 

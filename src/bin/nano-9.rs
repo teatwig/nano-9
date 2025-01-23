@@ -43,7 +43,7 @@ fn main() -> std::io::Result<()> {
             Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
                 let cart: Handle<Cart> = asset_server.load(&script_path);
-                commands.spawn(LoadCart(cart));
+                commands.send_event(LoadCart(cart));
                 commands.spawn(ScriptComponent(
                     vec![format!("{}#lua", &script_path).into()],
                 ));
@@ -58,7 +58,6 @@ fn main() -> std::io::Result<()> {
             },
         );
     }
-
     app.run();
     Ok(())
 }
