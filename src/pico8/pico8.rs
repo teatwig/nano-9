@@ -1,4 +1,10 @@
 use bevy::{
+
+    render::{
+        camera::ScalingMode,
+        render_asset::RenderAssetUsages,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+    },
     ecs::system::{SystemParam, SystemState},
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
     prelude::*,
@@ -9,6 +15,7 @@ use bevy_mod_scripting::{
     core::{
         asset::{AssetPathToLanguageMapper, Language, ScriptAssetSettings},
         bindings::{
+            script_value::ScriptValue,
             access_map::ReflectAccessId,
             function::{
                 namespace::{GlobalNamespace, NamespaceBuilder},
@@ -19,6 +26,7 @@ use bevy_mod_scripting::{
     },
     lua::mlua::prelude::LuaError,
 };
+use rand::{Rng, seq::SliceRandom};
 
 use bevy_ecs_tilemap::prelude::*;
 
@@ -527,7 +535,7 @@ impl Pico8<'_, '_> {
             .as_ref()
             .and_then(|cart| self.carts.get(cart))
             .expect("cart");
-        let v = cart.flags[index as usize];
+        if let Some(v) = cart.flags.get(index as usize) {
         match flag_index {
             Some(flag_index) => {
                 if v & (1 << flag_index) != 0 {
@@ -536,7 +544,11 @@ impl Pico8<'_, '_> {
                     0
                 }
             }
-            None => v,
+            None => *v,
+        }
+        } else {
+            warn_once!("No flags present for cart.");
+            0
         }
     }
 
@@ -616,6 +628,87 @@ impl Pico8<'_, '_> {
 
     fn camera(&mut self, pos: UVec2) -> UVec2 {
         std::mem::replace(&mut self.state.draw_state.camera_position, pos)
+    }
+
+    // fn line(&mut self, pos0: UVec2, pos1: UVec2, color: Option<N9Color>) {
+
+    // }
+
+    fn line(
+        &mut self,
+        a: IVec2,
+        b: IVec2,
+        color: Option<N9Color>,
+    ) -> Result<Entity, Error> {
+        let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
+        let min = a.min(b);
+        let delta = b - a;
+        // let size = UVec2::new((a.x - b.x).abs() + 1,
+        //                       (a.y - b.y).abs() + 1);
+        let size = UVec2::new(delta.x.abs() as u32, delta.y.abs() as u32) + UVec2::ONE;
+        // dbg!(a, b, size);
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: size.x,
+                height: size.y,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0u8, 0u8, 0u8, 0u8],
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
+        );
+        let c = a - min;
+        let d = b - min;
+        for (x, y) in bresenham::Bresenham::new((c.x as isize, c.y as isize), (d.x as isize, d.y as isize)) {
+            // dbg!(x, y);
+            image.set_color_at(x as u32, y as u32, Color::WHITE)?;
+        }
+        let handle = self.images.add(image);
+        let clearable = Clearable::default();
+        let id = self
+            .commands
+            .spawn((
+                Name::new("rect"),
+                Sprite {
+                    image: self.state.border.clone(),
+                    color,
+                    anchor: Anchor::TopLeft,
+                    custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
+                    // image_mode: SpriteImageMode::Sliced(TextureSlicer {
+                    //     border: BorderRect::square(1.0),
+                    //     center_scale_mode: SliceScaleMode::Stretch,
+                    //     sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
+                    //     ..default()
+                    // }),
+                    ..default()
+                },
+                Transform::from_xyz(
+                    min.x as f32,
+                    -(min.y as f32),
+                    clearable.suggest_z(),
+                ),
+                clearable,
+            ))
+            .id();
+        Ok(id)
+    }
+
+    fn rnd(&mut self, value: ScriptValue) -> ScriptValue {
+        let mut rng = rand::thread_rng();
+        match value {
+            ScriptValue::Integer(x) => ScriptValue::from(rng.gen_range(0..=x)),
+            ScriptValue::Float(x) => ScriptValue::from(rng.gen_range(0.0..x)),
+            ScriptValue::List(mut x) => {
+                if x.is_empty() {
+                    ScriptValue::Unit
+                } else {
+                    let index = rng.gen_range(0..x.len());
+                    x.swap_remove(index)
+                }
+            }
+            _ => ScriptValue::Error(InteropError::external_error(Box::new(Error::InvalidArgument("rng expects integer, float, or list".into()))))
+        }
     }
 }
 
@@ -1035,9 +1128,24 @@ fn attach_api(app: &mut App) {
         .register("time", |ctx: FunctionCallContext| {
             with_pico8(&ctx, move |pico8| Ok(pico8.time()))
         })
+
+        .register("__rnd", |ctx: FunctionCallContext, value: ScriptValue| {
+            with_pico8(&ctx, move |pico8| Ok(pico8.rnd(value)))
+        })
         .register("__camera", |ctx: FunctionCallContext, x: Option<u32>, y: Option<u32>| {
             with_pico8(&ctx, move |pico8| Ok(pico8.camera(UVec2::new(x.unwrap_or(0), y.unwrap_or(0)))))
                 .map(|last_pos| (last_pos.x, last_pos.y))
+        })
+        .register("__line", |ctx: FunctionCallContext,
+                  x0: Option<i32>,
+                  y0: Option<i32>,
+                  x1: Option<i32>,
+                  y1: Option<i32>,
+                  c: Option<N9Color>| {
+            let _ = with_pico8(&ctx, move |pico8| pico8.line(IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
+                                                        IVec2::new(x1.unwrap_or(0), y1.unwrap_or(0)),
+                                                        c))?;
+                      Ok(())
         })
         ;
 

@@ -8,7 +8,6 @@
 
 printh = print
 debug_print = print
-
 function on_script_loaded()
     if _init then
         --_init()
@@ -69,6 +68,14 @@ end
 
 function camera(x, y)
     return __camera(x, y)
+end
+
+function line(x0,y0,x1,y1,c)
+    return __line(x0,y0,x1,y1,c)
+end
+
+function rnd(v)
+    return __rnd(v)
 end
 
 function min(a,b)
