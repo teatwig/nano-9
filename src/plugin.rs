@@ -155,6 +155,10 @@ pub fn set_background(
 //     }
 // }
 
+
+#[derive(Component, Debug, Reflect)]
+pub struct Nano9Camera;
+
 fn spawn_camera(mut commands: Commands, settings: Res<N9Settings>, screen: Res<Nano9Screen>) {
     let mut projection = OrthographicProjection::default_2d();
     // camera_bundle.transform = Transform::from_xyz(64.0, 64.0, 0.0);
@@ -163,12 +167,15 @@ fn spawn_camera(mut commands: Commands, settings: Res<N9Settings>, screen: Res<N
     projection.scale = 1.0 / settings.pixel_scale;
 
     commands
+        .spawn(Transform::from_xyz(64.0, -64.0, 0.0))
+        .with_children(|parent| {
+            parent
         .spawn((
             Camera2d,
-            Transform::from_xyz(64.0, -64.0, 0.0), //.looking_to(Dir3::Z, Dir3::NEG_Y),
             Projection::from(projection),
             IsDefaultUiCamera,
             InheritedVisibility::default(),
+            Nano9Camera,
             N9Var::new("camera"),
             Name::new("camera"),
         ))

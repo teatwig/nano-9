@@ -31,6 +31,7 @@ use rand::{Rng, seq::SliceRandom};
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::{
+    Nano9Camera,
     pico8::{
         audio::{Sfx, SfxChannels},
         Cart, ClearEvent, Clearable, LoadCart,
@@ -64,6 +65,9 @@ pub struct Pico8State {
     pub(crate) draw_state: DrawState,
     pub(crate) sprite_size: UVec2,
 }
+
+#[derive(Event,Debug)]
+struct UpdateCameraPos(UVec2);
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -140,6 +144,7 @@ impl Pico8<'_, '_> {
             };
             Sprite {
                 image: self.state.sprites.clone(),
+                anchor: Anchor::TopLeft,
                 texture_atlas: Some(atlas),
                 rect: size.map(|v| Rect {
                     min: Vec2::ZERO,
@@ -536,18 +541,22 @@ impl Pico8<'_, '_> {
             .and_then(|cart| self.carts.get(cart))
             .expect("cart");
         if let Some(v) = cart.flags.get(index as usize) {
-        match flag_index {
-            Some(flag_index) => {
-                if v & (1 << flag_index) != 0 {
-                    1
-                } else {
-                    0
+            match flag_index {
+                Some(flag_index) => {
+                    if v & (1 << flag_index) != 0 {
+                        1
+                    } else {
+                        0
+                    }
                 }
+                None => *v,
             }
-            None => *v,
-        }
         } else {
-            warn_once!("No flags present for cart.");
+            if cart.flags.is_empty() {
+                warn_once!("No flags present for cart.");
+            } else {
+                warn!("Requested flag at {index}. There are only {} flags.", cart.flags.len());
+            }
             0
         }
     }
@@ -627,7 +636,9 @@ impl Pico8<'_, '_> {
     }
 
     fn camera(&mut self, pos: UVec2) -> UVec2 {
-        std::mem::replace(&mut self.state.draw_state.camera_position, pos)
+        let result = std::mem::replace(&mut self.state.draw_state.camera_position, pos);
+        self.commands.trigger(UpdateCameraPos(pos));
+        result
     }
 
     // fn line(&mut self, pos0: UVec2, pos1: UVec2, color: Option<N9Color>) {
@@ -669,9 +680,9 @@ impl Pico8<'_, '_> {
         let id = self
             .commands
             .spawn((
-                Name::new("rect"),
+                Name::new("line"),
                 Sprite {
-                    image: self.state.border.clone(),
+                    image: handle,
                     color,
                     anchor: Anchor::TopLeft,
                     custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
@@ -911,8 +922,17 @@ pub(crate) fn plugin(app: &mut App) {
                     .script_language_mappers
                     .push(AssetPathToLanguageMapper { map: path_to_lang });
             },
-        );
-    // .add_api_provider::<LuaScriptHost<N9Args>>(Box::new(Pico8API));
+        )
+        .add_observer(
+            |trigger: Trigger<UpdateCameraPos>,
+             camera: Single<&mut Transform, With<Nano9Camera>>| {
+                let pos = trigger.event();
+                let mut camera = camera.into_inner();
+                camera.translation.x = pos.0.x as f32;
+                camera.translation.y = -(pos.0.y as f32);
+
+            })
+        ;
 }
 
 fn with_pico8<X>(
