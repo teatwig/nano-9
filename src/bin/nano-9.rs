@@ -1,4 +1,8 @@
-use bevy::prelude::*;
+use bevy::{
+    dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin},
+    text::FontSmoothing,
+   prelude::*,
+};
 use bevy_ecs_tilemap::prelude::{TilePos, TilemapType};
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::{asset::ScriptAsset, script::ScriptComponent};
@@ -22,6 +26,21 @@ fn main() -> std::io::Result<()> {
         .add_plugins(nano9_plugin)
         .add_plugins(nano_9::pico8::plugin)
         .add_plugins(MinibufferPlugins)
+        .add_plugins(FpsOverlayPlugin {
+                config: FpsOverlayConfig {
+                    text_config: TextFont {
+                        // Here we define size of our overlay
+                        font_size: 24.0,
+                        // If we want, we can use a custom font
+                        font: default(),
+                        // We could also disable font smoothing,
+                        font_smoothing: FontSmoothing::None,
+                    },
+                    // We can also change color of the overlay
+                    text_color: Color::WHITE,
+                    enabled: false,
+                },
+            })
         .add_acts((
             BasicActs::default(),
             acts::universal::UniversalArgActs::default(),
@@ -33,7 +52,8 @@ fn main() -> std::io::Result<()> {
                 .add::<TilemapType>("map")
                 .add::<TilePos>("tile")
                 .add::<Sprite>("sprite")
-                ,
+                .add::<Clearable>("clearables"),
+            toggle_fps
             // inspector::AssetActs::default().add::<Image>(),
         ))
         // .insert_state(ErrorState::Messages { frame: 0 })
@@ -60,4 +80,8 @@ fn main() -> std::io::Result<()> {
     }
     app.run();
     Ok(())
+}
+
+fn toggle_fps(mut config: ResMut<FpsOverlayConfig>) {
+    config.enabled = !config.enabled;
 }
