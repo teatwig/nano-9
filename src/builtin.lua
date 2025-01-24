@@ -80,7 +80,7 @@ end
 
 function min(a,b)
     if a == nil or b == nil then
-            warning("min a or b are nil returning 0")
+            warn("min a or b are nil returning 0")
             return 0
     end
     if a < b then
@@ -90,7 +90,7 @@ function min(a,b)
 end
 function max(a,b)
     if a == nil or b == nil then
-            warning("max a or b are nil returning 0")
+            warn("max a or b are nil returning 0")
             return 0
     end
     if a > b then
@@ -154,20 +154,16 @@ shr = function(x, y)
   return x >> y
 end
 
--- function warning(msg)
---     log(debug.traceback("WARNING: "..msg,3))
--- end
-
 function add(a,v)
     if a == nil then
-        warning("add to nil")
+        warn("add to nil")
         return
     end
     table.insert(a,v)
 end
 function del(a,dv)
     if a == nil then
-        warning("del from nil")
+        warn("del from nil")
         return
     end
     for i,v in ipairs(a) do
@@ -178,7 +174,7 @@ function del(a,dv)
 end
 function foreach(a,f)
     if not a then
-        warning("foreach got a nil value")
+        warn("foreach got a nil value")
         return
     end
     for i,v in ipairs(a) do
@@ -268,6 +264,11 @@ end
 function menuitem(index, label, callback)
     debug_print("MENUITEM NOT IMPLEMENTED", nfadems, channelmask)
 end
+
+cocreate = coroutine.create
+coresume = coroutine.resume
+costatus = coroutine.status
+yield = coroutine.yield
 
 -- function run(breadcrumb)
 -- end
