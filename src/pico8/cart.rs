@@ -3,6 +3,7 @@ use crate::{
     send_init,
     DrawState,
     call,
+    on_asset_change
 };
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
@@ -25,8 +26,9 @@ pub(crate) fn plugin(app: &mut App) {
         .add_event::<LoadCart>()
         .init_asset::<Cart>()
         .init_asset_loader::<CartLoader>()
+
         .add_systems(PostUpdate, (load_cart,
-            (send_init, event_handler::<call::Init, LuaScriptingPlugin>).run_if(on_event::<LoadCart>)).chain());
+            (send_init, event_handler::<call::Init, LuaScriptingPlugin>).run_if(on_asset_change::<Cart>())).chain());
 }
 
 #[non_exhaustive]
@@ -139,10 +141,10 @@ impl CartParts {
     ) -> Result<CartParts, CartLoaderError> {
         const LUA: usize = 0;
         const GFX: usize = 1;
-        const GFF: usize = 2;
+        const GFF: usize = 3;
         const MAP: usize = 4;
         const SFX: usize = 5;
-        let headers = ["lua", "gfx", "gff", "label", "map", "sfx", "music"];
+        let headers = ["lua", "gfx", "label", "gff", "map", "sfx", "music"];
         let mut sections = [(None, None); 7];
         let mut even_match: Option<usize> = None;
         for (index, _) in content.match_indices("__") {
@@ -270,6 +272,7 @@ impl CartParts {
                 gff = bytes;
             }
         }
+        info!("Got {} flags", gff.len());
         // map
         let mut map = Vec::new();
         if let Some(content) = get_segment(&sections[MAP]) {
