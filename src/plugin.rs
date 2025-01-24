@@ -24,7 +24,7 @@ use bevy_mod_scripting::{
     lua::LuaScriptingPlugin,
 };
 
-use crate::{error::ErrorState, screens, N9Var};
+use crate::{error::ErrorState, screens, N9Var, pico8::Cart};
 
 #[derive(Component)]
 pub struct Nano9Sprite;
@@ -182,6 +182,7 @@ fn spawn_camera(mut commands: Commands, settings: Res<N9Settings>, screen: Res<N
                 N9Var::new("background"),
                 Name::new("background"),
             ));
+        });
         });
 }
 
@@ -367,9 +368,20 @@ impl Nano9Plugin {
 
 fn add_info(app: &mut App) {
     let world = app.world_mut();
-    NamespaceBuilder::<World>::new_unregistered(world).register("info", |s: String| {
-        bevy::log::info!(s);
-    });
+    NamespaceBuilder::<World>::new_unregistered(world)
+        .register("info", |s: String| {
+            bevy::log::info!(s);
+        })
+        .register("warn", |s: String| {
+            bevy::log::warn!(s);
+        })
+        .register("error", |s: String| {
+            bevy::log::error!(s);
+        })
+        .register("debug", |s: String| {
+            bevy::log::debug!(s);
+        })
+        ;
 }
 
 impl Plugin for Nano9Plugin {
@@ -421,11 +433,12 @@ impl Plugin for Nano9Plugin {
             Update,
             (
                 (
+                    (send_init, event_handler::<call::Init, LuaScriptingPlugin>).run_if(on_asset_change::<Cart>()),
                     (send_update,
                     send_update60).run_if(in_state(ErrorState::None)),
                     event_handler::<call::Update, LuaScriptingPlugin>,
                     event_handler::<call::Update60, LuaScriptingPlugin>,
-                ),
+                ).chain(),
                 send_draw.run_if(in_state(ErrorState::None)),
                 event_handler::<call::Draw, LuaScriptingPlugin>,
             )
