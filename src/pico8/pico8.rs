@@ -10,14 +10,17 @@ use bevy::{
     prelude::*,
     sprite::Anchor,
 };
+use tiny_skia::{Pixmap, PathBuilder, Paint, FillRule, self, Stroke};
 
 use bevy_mod_scripting::{
     core::{
         asset::{AssetPathToLanguageMapper, Language, ScriptAssetSettings},
         bindings::{
+            ReflectReference,
             script_value::ScriptValue,
             access_map::ReflectAccessId,
             function::{
+                into_ref::IntoScriptRef,
                 namespace::{GlobalNamespace, NamespaceBuilder},
                 script_function::FunctionCallContext,
             },
@@ -32,6 +35,8 @@ use bevy_ecs_tilemap::prelude::*;
 
 use crate::{
     Nano9Camera,
+    N9Entity,
+    DropPolicy,
     pico8::{
         audio::{Sfx, SfxChannels},
         Cart, ClearEvent, Clearable, LoadCart,
@@ -117,6 +122,21 @@ impl From<u8> for SfxCommand {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+enum Radii {
+    Radii(u32, u32),
+    Radius(u32)
+}
+
+impl From<Radii> for UVec2 {
+    fn from(r: Radii) -> UVec2 {
+        match r {
+            Radii(r1, r2) => UVec2::new(r1, r2),
+            Radius(r) => UVec2::new(r, r),
+        }
+    }
+}
+
 impl Pico8<'_, '_> {
     #[allow(dead_code)]
     fn load_cart(&mut self, cart: Handle<Cart>) {
@@ -130,7 +150,7 @@ impl Pico8<'_, '_> {
     fn spr(
         &mut self,
         index: usize,
-        pos: Vec2,
+        pos: IVec2,
         size: Option<Vec2>,
         flip: Option<BVec2>,
     ) -> Result<Entity, Error> {
@@ -161,7 +181,7 @@ impl Pico8<'_, '_> {
             .spawn((
                 Name::new("sprite"),
                 sprite,
-                Transform::from_xyz(x, -y, clearable.suggest_z()),
+                Transform::from_xyz(x as f32, -y as f32, clearable.suggest_z()),
                 clearable,
             ))
             .id())
@@ -223,7 +243,7 @@ impl Pico8<'_, '_> {
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
-        let size = lower_right - upper_left;
+        let size = (lower_right - upper_left) + UVec2::ONE;
         let clearable = Clearable::default();
         let id = self
             .commands
@@ -253,7 +273,7 @@ impl Pico8<'_, '_> {
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
-        let size = lower_right - upper_left;
+        let size = (lower_right - upper_left) + UVec2::ONE;
         let clearable = Clearable::default();
         let id = self
             .commands
@@ -721,6 +741,149 @@ impl Pico8<'_, '_> {
             _ => ScriptValue::Error(InteropError::external_error(Box::new(Error::InvalidArgument("rng expects integer, float, or list".into()))))
         }
     }
+
+    fn circfill(
+        &mut self,
+        pos: IVec2,
+        r: impl Into<UVec2>,
+        color: Option<N9Color>,
+    ) -> Result<Entity, Error> {
+        let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
+        // let min = a.min(b);
+        let r: UVec2 = r.into();
+        let size: UVec2 = r * UVec2::splat(2) + UVec2::ONE;
+        // // let size = UVec2::new((a.x - b.x).abs() + 1,
+        // //                       (a.y - b.y).abs() + 1);
+        // let size = UVec2::new(delta.x.abs() as u32, delta.y.abs() as u32) + UVec2::ONE;
+        // dbg!(a, b, size);
+        let mut pixmap = Pixmap::new(size.x, size.y).expect("pixmap");
+        let oval = tiny_skia::Rect::from_ltrb(0.0, 0.0, size.x as f32, size.y as f32).expect("circ rect");
+        let path = PathBuilder::from_oval(oval).expect("circ path");
+        let mut paint = Paint::default();
+        paint.anti_alias = false;
+        paint.set_color_rgba8(255, 255, 255, 255);
+        pixmap.fill_path(
+                &path,
+                &paint,
+                FillRule::Winding,
+                tiny_skia::Transform::identity(),
+                None,
+        );
+
+        let mut image = Image::new(
+            Extent3d {
+                width: size.x,
+                height: size.y,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            pixmap.take(),
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::RENDER_WORLD,
+        );
+        let handle = self.images.add(image);
+        let clearable = Clearable::default();
+        let offset = 0.5;
+        let id = self
+            .commands
+            .spawn((
+                Name::new("circfill"),
+                Sprite {
+                    image: handle,
+                    color,
+                    anchor: Anchor::Custom(Vec2::new(-offset/size.x as f32, offset/size.y as f32)),
+                    custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
+                    // image_mode: SpriteImageMode::Sliced(TextureSlicer {
+                    //     border: BorderRect::square(1.0),
+                    //     center_scale_mode: SliceScaleMode::Stretch,
+                    //     sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
+                    //     ..default()
+                    // }),
+                    ..default()
+                },
+                Transform::from_xyz(
+                    pos.x as f32,
+                    -(pos.y as f32),
+                    clearable.suggest_z(),
+                ),
+                clearable,
+            ))
+            .id();
+        Ok(id)
+    }
+
+    fn circ(
+        &mut self,
+        pos: IVec2,
+        r: impl Into<UVec2>,
+        color: Option<N9Color>,
+    ) -> Result<Entity, Error> {
+        let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
+        // let min = a.min(b);
+        let r: UVec2 = r.into();
+        let size: UVec2 = r * UVec2::splat(2) + UVec2::ONE;
+        // // let size = UVec2::new((a.x - b.x).abs() + 1,
+        // //                       (a.y - b.y).abs() + 1);
+        // let size = UVec2::new(delta.x.abs() as u32, delta.y.abs() as u32) + UVec2::ONE;
+        // dbg!(a, b, size);
+        let mut pixmap = Pixmap::new(size.x, size.y).expect("pixmap");
+        let oval = tiny_skia::Rect::from_ltrb(0.0, 0.0, size.x as f32, size.y as f32).expect("circ rect");
+        let path = PathBuilder::from_oval(oval).expect("circ path");
+        let mut paint = Paint::default();
+        paint.anti_alias = false;
+        paint.set_color_rgba8(255, 255, 255, 255);
+        let mut stroke = Stroke::default();
+        stroke.width = 0.0;
+        pixmap.stroke_path(
+                &path,
+                &paint,
+            &stroke,
+                tiny_skia::Transform::identity(),
+                None,
+        );
+
+        let mut image = Image::new(
+            Extent3d {
+                width: size.x,
+                height: size.y,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            pixmap.take(),
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
+        );
+
+        let offset = 0.5;
+        let handle = self.images.add(image);
+        let clearable = Clearable::default();
+        let id = self
+            .commands
+            .spawn((
+                Name::new("circ"),
+                Sprite {
+                    image: handle,
+                    color,
+                    anchor: Anchor::Custom(Vec2::new(-offset/size.x as f32, offset/size.y as f32)),
+                    custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
+                    // image_mode: SpriteImageMode::Sliced(TextureSlicer {
+                    //     border: BorderRect::square(1.0),
+                    //     center_scale_mode: SliceScaleMode::Stretch,
+                    //     sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
+                    //     ..default()
+                    // }),
+                    ..default()
+                },
+                Transform::from_xyz(
+                    pos.x as f32,
+                    -(pos.y as f32),
+                    clearable.suggest_z(),
+                ),
+                clearable,
+            ))
+            .id();
+        Ok(id)
+    }
 }
 
 enum SfxDest {
@@ -796,7 +959,8 @@ impl Command for AudioCommand {
                             }
                             commands
                                 .entity(available_channel)
-                                .insert((AudioPlayer(sfx), PlaybackSettings::REMOVE));
+                                .insert((AudioPlayer(sfx),
+                                         PlaybackSettings::REMOVE));
                         } else {
                             warn!("Channels busy.");
                             // Err(Error::ChannelsBusy)?;
@@ -1029,14 +1193,8 @@ fn attach_api(app: &mut App) {
              h: Option<f32>,
              flip_x: Option<bool>,
              flip_y: Option<bool>| {
-                // let n = args.pop_front().and_then(|v| v.as_usize()).expect("sprite id");
-                // let x = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
-                // let y = args.pop_front().and_then(|v| v.to_f32()).unwrap_or(0.0);
-                // let w = args.pop_front().and_then(|v| v.to_f32());
-                // let h = args.pop_front().and_then(|v| v.to_f32());
-                // let flip_x = args.pop_front().and_then(|v| v.as_boolean());
-                // let flip_y = args.pop_front().and_then(|v| v.as_boolean());
-                let pos = Vec2::new(x.unwrap_or(0.0), y.unwrap_or(0.0));
+                let pos = IVec2::new(x.map(|a| a.round() as i32).unwrap_or(0),
+                                    y.map(|a| a.round() as i32).unwrap_or(0));
                 let flip = (flip_x.is_some() || flip_y.is_some())
                     .then(|| BVec2::new(flip_x.unwrap_or(false), flip_y.unwrap_or(false)));
                 let size = w
@@ -1060,8 +1218,7 @@ fn attach_api(app: &mut App) {
              celw: u32,
              celh: u32,
              layer: Option<u8>| {
-                // We get back an entity. Not doing anything with it here yet.
-                let _id = with_pico8(&ctx, move |pico8| {
+                let id = with_pico8(&ctx, move |pico8| {
                     pico8.map(
                         UVec2::new(celx, cely),
                         Vec2::new(sx, sy),
@@ -1069,7 +1226,15 @@ fn attach_api(app: &mut App) {
                         layer,
                     )
                 })?;
-                Ok(())
+
+                 let entity = N9Entity { entity: id, drop: DropPolicy::Nothing };
+                 let world = ctx.world()?;
+                 let reference = {
+                     let allocator = world.allocator();
+                     let mut allocator = allocator.write();
+                     ReflectReference::new_allocated(entity, &mut allocator)
+                 };
+                 Ok(ReflectReference::into_script_ref(reference, world)?)
             },
         )
         .register(
@@ -1164,6 +1329,27 @@ fn attach_api(app: &mut App) {
                   c: Option<N9Color>| {
             let _ = with_pico8(&ctx, move |pico8| pico8.line(IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
                                                         IVec2::new(x1.unwrap_or(0), y1.unwrap_or(0)),
+                                                        c))?;
+                      Ok(())
+        })
+        .register("__circfill", |ctx: FunctionCallContext,
+                  x0: Option<i32>,
+                  y0: Option<i32>,
+                  r: Option<u32>,
+                  c: Option<N9Color>| {
+            let _ = with_pico8(&ctx, move |pico8| pico8.circfill(IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
+                                                        UVec2::splat(r.unwrap_or(4)),
+                                                        c))?;
+                      Ok(())
+        })
+
+        .register("__circ", |ctx: FunctionCallContext,
+                  x0: Option<i32>,
+                  y0: Option<i32>,
+                  r: Option<u32>,
+                  c: Option<N9Color>| {
+            let _ = with_pico8(&ctx, move |pico8| pico8.circ(IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
+                                                        UVec2::splat(r.unwrap_or(4)),
                                                         c))?;
                       Ok(())
         })

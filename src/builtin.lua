@@ -74,6 +74,14 @@ function line(x0,y0,x1,y1,c)
     return __line(x0,y0,x1,y1,c)
 end
 
+function circfill(x0,y0,r,c)
+    return __circfill(x0,y0,r,c)
+end
+
+function circ(x0,y0,r,c)
+    return __circ(x0,y0,r,c)
+end
+
 function rnd(v)
     return __rnd(v)
 end
@@ -263,6 +271,16 @@ end
 
 function menuitem(index, label, callback)
     debug_print("MENUITEM NOT IMPLEMENTED", nfadems, channelmask)
+end
+
+function assert(test, msg)
+    if ~test then
+        world.error(msg)
+    end
+end
+
+function stop(msg,x,y,color)
+    debug_print("STOP NOT IMPLEMENTED")
 end
 
 cocreate = coroutine.create
