@@ -131,8 +131,8 @@ enum Radii {
 impl From<Radii> for UVec2 {
     fn from(r: Radii) -> UVec2 {
         match r {
-            Radii(r1, r2) => UVec2::new(r1, r2),
-            Radius(r) => UVec2::new(r, r),
+            Radii::Radii(r1, r2) => UVec2::new(r1, r2),
+            Radii::Radius(r) => UVec2::new(r, r),
         }
     }
 }
@@ -1130,17 +1130,17 @@ fn attach_api(app: &mut App) {
     let world = app.world_mut();
 
     NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-        .register("__btnp", |ctx: FunctionCallContext, b: Option<u8>| {
+        .register("btnp", |ctx: FunctionCallContext, b: Option<u8>| {
             with_pico8(&ctx, |pico8| pico8.btnp(b))
         })
-        .register("__btn", |ctx: FunctionCallContext, b: Option<u8>| {
+        .register("btn", |ctx: FunctionCallContext, b: Option<u8>| {
             with_pico8(&ctx, |pico8| pico8.btn(b))
         })
-        .register("__cls", |ctx: FunctionCallContext, c: Option<N9Color>| {
+        .register("cls", |ctx: FunctionCallContext, c: Option<N9Color>| {
             with_pico8(&ctx, |pico8| pico8.cls(c))
         })
         .register(
-            "__pset",
+            "pset",
             |ctx: FunctionCallContext, x: u32, y: u32, color: Option<N9Color>| {
                 with_pico8(&ctx, |pico8| {
                     // We want to ignore out of bounds errors specifically but possibly not others.
@@ -1151,7 +1151,7 @@ fn attach_api(app: &mut App) {
             },
         )
         .register(
-            "__rectfill",
+            "rectfill",
             |ctx: FunctionCallContext,
              x0: u32,
              y0: u32,
@@ -1167,7 +1167,7 @@ fn attach_api(app: &mut App) {
             },
         )
         .register(
-            "__rect",
+            "rect",
             |ctx: FunctionCallContext,
              x0: u32,
              y0: u32,
@@ -1184,7 +1184,7 @@ fn attach_api(app: &mut App) {
         )
         // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
         .register(
-            "__spr",
+            "spr",
             |ctx: FunctionCallContext,
              n: usize,
              x: Option<f32>,
@@ -1209,20 +1209,20 @@ fn attach_api(app: &mut App) {
         )
         // map( celx, cely, sx, sy, celw, celh, [layer] )
         .register(
-            "__map",
+            "map",
             |ctx: FunctionCallContext,
-             celx: u32,
-             cely: u32,
-             sx: f32,
-             sy: f32,
-             celw: u32,
-             celh: u32,
+             celx: Option<u32>,
+             cely: Option<u32>,
+             sx: Option<f32>,
+             sy: Option<f32>,
+             celw: Option<u32>,
+             celh: Option<u32>,
              layer: Option<u8>| {
                 let id = with_pico8(&ctx, move |pico8| {
                     pico8.map(
-                        UVec2::new(celx, cely),
-                        Vec2::new(sx, sy),
-                        UVec2::new(celw, celh),
+                        UVec2::new(celx.unwrap_or(0), cely.unwrap_or(0)),
+                        Vec2::new(sx.unwrap_or(0.0), sy.unwrap_or(0.0)),
+                        UVec2::new(celw.unwrap_or(16), celh.unwrap_or(16)),
                         layer,
                     )
                 })?;
@@ -1238,7 +1238,7 @@ fn attach_api(app: &mut App) {
             },
         )
         .register(
-            "__print",
+            "print",
             |ctx: FunctionCallContext,
              text: Option<String>,
              x: Option<u32>,
@@ -1252,7 +1252,7 @@ fn attach_api(app: &mut App) {
             },
         )
         .register(
-            "__sfx",
+            "sfx",
             |ctx: FunctionCallContext,
              n: i8,
              channel: Option<u8>,
@@ -1285,11 +1285,11 @@ fn attach_api(app: &mut App) {
                 })
             },
         )
-        .register("__fget", |ctx: FunctionCallContext, n: u8, f: Option<u8>| {
+        .register("fget", |ctx: FunctionCallContext, n: u8, f: Option<u8>| {
             with_pico8(&ctx, move |pico8| Ok(pico8.fget(n, f)))
         })
         .register(
-            "__fset",
+            "fset",
             |ctx: FunctionCallContext, n: u8, f_or_v: u8, v: Option<u8>| {
                 let (f, v) = v.map(|v| (Some(f_or_v), v)).unwrap_or((None, f_or_v));
                 with_pico8(&ctx, move |pico8| {
@@ -1307,21 +1307,21 @@ fn attach_api(app: &mut App) {
                 Ok(())
             })
         })
-        .register("__sub", |s: String, start: isize, end: Option<isize>| {
+        .register("sub", |s: String, start: isize, end: Option<isize>| {
             Pico8::sub(&s, start, end)
         })
         .register("time", |ctx: FunctionCallContext| {
             with_pico8(&ctx, move |pico8| Ok(pico8.time()))
         })
 
-        .register("__rnd", |ctx: FunctionCallContext, value: ScriptValue| {
+        .register("rnd", |ctx: FunctionCallContext, value: ScriptValue| {
             with_pico8(&ctx, move |pico8| Ok(pico8.rnd(value)))
         })
-        .register("__camera", |ctx: FunctionCallContext, x: Option<u32>, y: Option<u32>| {
+        .register("camera", |ctx: FunctionCallContext, x: Option<u32>, y: Option<u32>| {
             with_pico8(&ctx, move |pico8| Ok(pico8.camera(UVec2::new(x.unwrap_or(0), y.unwrap_or(0)))))
                 .map(|last_pos| (last_pos.x, last_pos.y))
         })
-        .register("__line", |ctx: FunctionCallContext,
+        .register("line", |ctx: FunctionCallContext,
                   x0: Option<i32>,
                   y0: Option<i32>,
                   x1: Option<i32>,
@@ -1332,7 +1332,7 @@ fn attach_api(app: &mut App) {
                                                         c))?;
                       Ok(())
         })
-        .register("__circfill", |ctx: FunctionCallContext,
+        .register("circfill", |ctx: FunctionCallContext,
                   x0: Option<i32>,
                   y0: Option<i32>,
                   r: Option<u32>,
@@ -1343,7 +1343,7 @@ fn attach_api(app: &mut App) {
                       Ok(())
         })
 
-        .register("__circ", |ctx: FunctionCallContext,
+        .register("circ", |ctx: FunctionCallContext,
                   x0: Option<i32>,
                   y0: Option<i32>,
                   r: Option<u32>,
