@@ -52,12 +52,21 @@ pub enum CartLoaderError {
 }
 
 #[derive(Debug)]
+pub struct MusicParts {
+    begin: bool,
+    end: bool,
+    stop: bool,
+    patterns: Vec<u8>,
+}
+
+#[derive(Debug)]
 pub struct CartParts {
     pub lua: String,
     pub sprites: Option<Image>,
     pub map: Vec<u8>,
     pub flags: Vec<u8>,
     pub sfx: Vec<Sfx>,
+    pub music: Vec<MusicParts>,
 }
 
 #[derive(Asset, TypePath, Debug)]
@@ -70,22 +79,22 @@ pub struct Cart {
 }
 
 const PALETTE: [[u8; 3]; 16] = [
-    [0, 0, 0],       //black
-    [29, 43, 83],    //dark-blue
-    [126, 37, 83],   //dark-purple
-    [0, 135, 81],    //dark-green
-    [171, 82, 54],   //brown
-    [95, 87, 79],    //dark-grey
-    [194, 195, 199], //light-grey
-    [255, 241, 232], //white
-    [255, 0, 77],    //red
-    [255, 163, 0],   //orange
-    [255, 236, 39],  //yellow
-    [0, 228, 54],    //green
-    [41, 173, 255],  //blue
-    [131, 118, 156], //lavender
-    [255, 119, 168], //pink
-    [255, 204, 170], //light-peach
+    [0x00, 0x00, 0x00],       //black
+    [0x1d, 0x2b, 0x53],    //dark-blue
+    [0x7e, 0x25, 0x53],   //dark-purple
+    [0x00, 0x87, 0x51],    //dark-green
+    [0xab, 0x52, 0x36],   //brown
+    [0x5f, 0x57, 0x4f],    //dark-grey
+    [0xc2, 0xc3, 0xc7], //light-grey
+    [0xff, 0xf1, 0xe8], //white
+    [0xff, 0x00, 0x4d],    //red
+    [0xff, 0xa3, 0x00],   //orange
+    [0xff, 0xec, 0x27],  //yellow
+    [0x00, 0xe4, 0x36],    //green
+    [0x29, 0xad, 0xff],  //blue
+    [0x83, 0x76, 0x9c], //lavender
+    [0xff, 0x77, 0xa8], //pink
+    [0xff, 0xcc, 0xaa], //light-peach
 ];
 
 #[derive(Event)]
@@ -144,6 +153,7 @@ impl CartParts {
         const GFF: usize = 3;
         const MAP: usize = 4;
         const SFX: usize = 5;
+        const MUSIC: usize = 6;
         let headers = ["lua", "gfx", "label", "gff", "map", "sfx", "music"];
         let mut sections = [(None, None); 7];
         let mut even_match: Option<usize> = None;
@@ -302,6 +312,50 @@ impl CartParts {
             }
         }
 
+        // music
+        let mut music = Vec::new();
+        if let Some(content) = get_segment(&sections[MUSIC]) {
+            let mut lines = content.lines();
+            let columns = lines.next().map(|l| l.len());
+            if let Some(columns) = columns {
+                let rows = lines.count() + 1;
+                for line in content.lines() {
+                    assert_eq!(columns, line.len());
+                    let line_bytes = line.as_bytes();
+                    let mut j = 0;
+                    let c = line_bytes[j] as char;
+                    let high: u8 =
+                        c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                    let c = line_bytes[j + 1] as char;
+                    let low: u8 =
+                        c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                    let lead_byte = high << 4 | low;
+                    j += 3;
+
+                    let mut i = 0;
+                    let mut patterns = [0u8; 4];
+                    while j < line_bytes.len() {
+                        let c = line_bytes[j] as char;
+                        let high: u8 =
+                            c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                        let c = line_bytes[j + 1] as char;
+                        let low: u8 =
+                            c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                        patterns[i] = high << 4 | low;
+                        i += 1;
+                        j += 2;
+                    }
+                    music.push(MusicParts {
+                        begin: lead_byte & 1 != 0,
+                        end: lead_byte & 2 != 0,
+                        stop: lead_byte & 4 != 0,
+                        patterns: patterns.into_iter().filter(|p| p & 64 != 0).collect(),
+                    })
+
+                }
+            }
+        }
+
         let sfx = if let Some(content) = get_segment(&sections[SFX]) {
             let count = content.lines().count();
             let mut sfxs = Vec::with_capacity(count);
@@ -318,6 +372,7 @@ impl CartParts {
             map,
             flags: gff,
             sfx,
+            music,
         })
     }
 }

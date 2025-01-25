@@ -118,7 +118,7 @@ where
 {
     type Frame = f64;
 
-    /// Make a triangle wave that starts and ends at zero.
+    /// Make a major and minor triangle wave.
     #[inline]
     fn next(&mut self) -> Self::Frame {
         let phase = self.phase.next_phase();
