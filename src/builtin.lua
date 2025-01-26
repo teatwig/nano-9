@@ -201,11 +201,11 @@ function menuitem(index, label, callback)
     debug_print("MENUITEM NOT IMPLEMENTED", nfadems, channelmask)
 end
 
-function assert(test, msg)
-    if ~test then
-        world.error(msg)
-    end
-end
+-- function assert(test, msg)
+--     if ~test then
+--         world.error(msg)
+--     end
+-- end
 
 function stop(msg,x,y,color)
     debug_print("STOP NOT IMPLEMENTED")

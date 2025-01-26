@@ -5,6 +5,7 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 struct N9Config {
     name: Option<String>,
+    frames_per_second: Option<u8>,
     description: Option<String>,
     author: Option<String>,
     license: Option<String>,
@@ -19,7 +20,9 @@ struct N9Config {
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 enum AudioBank {
+    #[serde(rename = "p8")]
     P8(PathBuf),
+    #[serde(rename = "paths")]
     Paths(Vec<PathBuf>)
 }
 
@@ -80,7 +83,7 @@ sprite_size = [8, 8]
     fn test_config_3() {
         let config: N9Config = toml::from_str(r#"
 [[audio_bank]]
-P8 = "blah.p8"
+p8 = "blah.p8"
 "#).unwrap();
         assert_eq!(config.audio_banks.len(), 1);
         assert_eq!(config.audio_banks[0], AudioBank::P8("blah.p8".into()));
@@ -90,7 +93,7 @@ P8 = "blah.p8"
     fn test_config_4() {
         let config: N9Config = toml::from_str(r#"
 [[audio_bank]]
-Paths = [
+paths = [
 "blah.mp3"
 ]
 "#).unwrap();

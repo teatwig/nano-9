@@ -67,7 +67,7 @@ pub(crate) fn plugin(app: &mut App) {
     app.add_plugins((
         // demo::plugin,
         screens::plugin,
-        // theme::plugin,
+        entity::plugin,
         assets::plugin,
         // api::plugin,
         // sprite::plugin,

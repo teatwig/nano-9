@@ -325,6 +325,9 @@ impl CartParts {
             if let Some(columns) = columns {
                 let rows = lines.count() + 1;
                 for line in content.lines() {
+                    if line.len() == 0 {
+                        continue;
+                    }
                     assert_eq!(columns, line.len());
                     let line_bytes = line.as_bytes();
                     let mut j = 0;
