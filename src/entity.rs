@@ -1,10 +1,15 @@
 use bevy::prelude::*;
 
+use crate::pico8::Clearable;
 use bevy_mod_scripting::{
     core::{
         bindings::{
             access_map::ReflectAccessId,
-            function::{namespace::NamespaceBuilder, from::{Val,Ref}, script_function::FunctionCallContext},
+            function::{
+                from::{Ref, Val},
+                namespace::NamespaceBuilder,
+                script_function::FunctionCallContext,
+            },
             ThreadWorldContainer, WorldAccessGuard, WorldContainer,
         },
         error::InteropError,
@@ -12,7 +17,6 @@ use bevy_mod_scripting::{
     },
     lua::mlua::{self, prelude::LuaError, FromLua, Lua, UserData, UserDataFields, Value},
 };
-use crate::pico8::Clearable;
 
 use std::{any::TypeId, sync::Arc};
 
@@ -48,16 +52,17 @@ pub struct N9Entity {
 }
 
 pub(crate) fn register_script_functions(app: &mut App) {
-    NamespaceBuilder::<N9Entity>::new(app.world_mut())
-        .register("retain", |ctx: FunctionCallContext, this: Val<N9Entity>| {
+    NamespaceBuilder::<N9Entity>::new(app.world_mut()).register(
+        "retain",
+        |ctx: FunctionCallContext, this: Val<N9Entity>| {
             let world = ctx.world()?;
             world.with_global_access(|world| {
                 let mut commands = world.commands();
                 commands.entity(this.entity).remove::<Clearable>();
             })?;
             Ok(this)
-        })
-        ;
+        },
+    );
 }
 // // ...
 // .register(

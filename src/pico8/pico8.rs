@@ -1,47 +1,43 @@
 use bevy::{
-
+    ecs::system::{SystemParam, SystemState},
+    image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
+    prelude::*,
     render::{
         camera::ScalingMode,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
-    ecs::system::{SystemParam, SystemState},
-    image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
-    prelude::*,
     sprite::Anchor,
 };
-use tiny_skia::{Pixmap, PathBuilder, Paint, FillRule, self, Stroke};
+use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 
 use bevy_mod_scripting::{
     core::{
         asset::{AssetPathToLanguageMapper, Language, ScriptAssetSettings},
         bindings::{
-            ReflectReference,
-            script_value::ScriptValue,
             access_map::ReflectAccessId,
             function::{
                 into_ref::IntoScriptRef,
                 namespace::{GlobalNamespace, NamespaceBuilder},
                 script_function::FunctionCallContext,
             },
+            script_value::ScriptValue,
+            ReflectReference,
         },
         error::InteropError,
     },
     lua::mlua::prelude::LuaError,
 };
-use rand::{Rng, seq::SliceRandom};
+use rand::{seq::SliceRandom, Rng};
 
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::{
-    Nano9Camera,
-    N9Entity,
-    DropPolicy,
     pico8::{
         audio::{Sfx, SfxChannels},
         Cart, ClearEvent, Clearable, LoadCart,
     },
-    DrawState, N9Color, Nano9Screen,
+    DrawState, DropPolicy, N9Color, N9Entity, Nano9Camera, Nano9Screen,
 };
 
 use std::{
@@ -79,7 +75,7 @@ pub struct SpriteSheet {
     pub size: UVec2,
 }
 
-#[derive(Event,Debug)]
+#[derive(Event, Debug)]
 struct UpdateCameraPos(UVec2);
 
 #[derive(thiserror::Error, Debug)]
@@ -133,7 +129,7 @@ impl From<u8> for SfxCommand {
 #[derive(Debug, Clone, Copy)]
 enum Radii {
     Radii(u32, u32),
-    Radius(u32)
+    Radius(u32),
 }
 
 impl From<Radii> for UVec2 {
@@ -583,7 +579,10 @@ impl Pico8<'_, '_> {
             if cart.flags.is_empty() {
                 warn_once!("No flags present for cart.");
             } else {
-                warn!("Requested flag at {index}. There are only {} flags.", cart.flags.len());
+                warn!(
+                    "Requested flag at {index}. There are only {} flags.",
+                    cart.flags.len()
+                );
             }
             0
         }
@@ -655,7 +654,7 @@ impl Pico8<'_, '_> {
                     String::new()
                 }
             }
-            None => string.chars().skip(start).collect()
+            None => string.chars().skip(start).collect(),
         }
     }
 
@@ -673,12 +672,7 @@ impl Pico8<'_, '_> {
 
     // }
 
-    fn line(
-        &mut self,
-        a: IVec2,
-        b: IVec2,
-        color: Option<N9Color>,
-    ) -> Result<Entity, Error> {
+    fn line(&mut self, a: IVec2, b: IVec2, color: Option<N9Color>) -> Result<Entity, Error> {
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let min = a.min(b);
         let delta = b - a;
@@ -699,7 +693,9 @@ impl Pico8<'_, '_> {
         );
         let c = a - min;
         let d = b - min;
-        for (x, y) in bresenham::Bresenham::new((c.x as isize, c.y as isize), (d.x as isize, d.y as isize)) {
+        for (x, y) in
+            bresenham::Bresenham::new((c.x as isize, c.y as isize), (d.x as isize, d.y as isize))
+        {
             // dbg!(x, y);
             image.set_color_at(x as u32, y as u32, Color::WHITE)?;
         }
@@ -722,11 +718,7 @@ impl Pico8<'_, '_> {
                     // }),
                     ..default()
                 },
-                Transform::from_xyz(
-                    min.x as f32,
-                    -(min.y as f32),
-                    clearable.suggest_z(),
-                ),
+                Transform::from_xyz(min.x as f32, -(min.y as f32), clearable.suggest_z()),
                 clearable,
             ))
             .id();
@@ -746,7 +738,9 @@ impl Pico8<'_, '_> {
                     x.swap_remove(index)
                 }
             }
-            _ => ScriptValue::Error(InteropError::external_error(Box::new(Error::InvalidArgument("rng expects integer, float, or list".into()))))
+            _ => ScriptValue::Error(InteropError::external_error(Box::new(
+                Error::InvalidArgument("rng expects integer, float, or list".into()),
+            ))),
         }
     }
 
@@ -765,17 +759,18 @@ impl Pico8<'_, '_> {
         // let size = UVec2::new(delta.x.abs() as u32, delta.y.abs() as u32) + UVec2::ONE;
         // dbg!(a, b, size);
         let mut pixmap = Pixmap::new(size.x, size.y).expect("pixmap");
-        let oval = tiny_skia::Rect::from_ltrb(0.0, 0.0, size.x as f32, size.y as f32).expect("circ rect");
+        let oval =
+            tiny_skia::Rect::from_ltrb(0.0, 0.0, size.x as f32, size.y as f32).expect("circ rect");
         let path = PathBuilder::from_oval(oval).expect("circ path");
         let mut paint = Paint::default();
         paint.anti_alias = false;
         paint.set_color_rgba8(255, 255, 255, 255);
         pixmap.fill_path(
-                &path,
-                &paint,
-                FillRule::Winding,
-                tiny_skia::Transform::identity(),
-                None,
+            &path,
+            &paint,
+            FillRule::Winding,
+            tiny_skia::Transform::identity(),
+            None,
         );
 
         let mut image = Image::new(
@@ -799,7 +794,10 @@ impl Pico8<'_, '_> {
                 Sprite {
                     image: handle,
                     color,
-                    anchor: Anchor::Custom(Vec2::new(-offset/size.x as f32, offset/size.y as f32)),
+                    anchor: Anchor::Custom(Vec2::new(
+                        -offset / size.x as f32,
+                        offset / size.y as f32,
+                    )),
                     custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
                     // image_mode: SpriteImageMode::Sliced(TextureSlicer {
                     //     border: BorderRect::square(1.0),
@@ -809,11 +807,7 @@ impl Pico8<'_, '_> {
                     // }),
                     ..default()
                 },
-                Transform::from_xyz(
-                    pos.x as f32,
-                    -(pos.y as f32),
-                    clearable.suggest_z(),
-                ),
+                Transform::from_xyz(pos.x as f32, -(pos.y as f32), clearable.suggest_z()),
                 clearable,
             ))
             .id();
@@ -835,7 +829,8 @@ impl Pico8<'_, '_> {
         // let size = UVec2::new(delta.x.abs() as u32, delta.y.abs() as u32) + UVec2::ONE;
         // dbg!(a, b, size);
         let mut pixmap = Pixmap::new(size.x, size.y).expect("pixmap");
-        let oval = tiny_skia::Rect::from_ltrb(0.0, 0.0, size.x as f32, size.y as f32).expect("circ rect");
+        let oval =
+            tiny_skia::Rect::from_ltrb(0.0, 0.0, size.x as f32, size.y as f32).expect("circ rect");
         let path = PathBuilder::from_oval(oval).expect("circ path");
         let mut paint = Paint::default();
         paint.anti_alias = false;
@@ -843,11 +838,11 @@ impl Pico8<'_, '_> {
         let mut stroke = Stroke::default();
         stroke.width = 0.0;
         pixmap.stroke_path(
-                &path,
-                &paint,
+            &path,
+            &paint,
             &stroke,
-                tiny_skia::Transform::identity(),
-                None,
+            tiny_skia::Transform::identity(),
+            None,
         );
 
         let mut image = Image::new(
@@ -872,7 +867,10 @@ impl Pico8<'_, '_> {
                 Sprite {
                     image: handle,
                     color,
-                    anchor: Anchor::Custom(Vec2::new(-offset/size.x as f32, offset/size.y as f32)),
+                    anchor: Anchor::Custom(Vec2::new(
+                        -offset / size.x as f32,
+                        offset / size.y as f32,
+                    )),
                     custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
                     // image_mode: SpriteImageMode::Sliced(TextureSlicer {
                     //     border: BorderRect::square(1.0),
@@ -882,11 +880,7 @@ impl Pico8<'_, '_> {
                     // }),
                     ..default()
                 },
-                Transform::from_xyz(
-                    pos.x as f32,
-                    -(pos.y as f32),
-                    clearable.suggest_z(),
-                ),
+                Transform::from_xyz(pos.x as f32, -(pos.y as f32), clearable.suggest_z()),
                 clearable,
             ))
             .id();
@@ -967,8 +961,7 @@ impl Command for AudioCommand {
                             }
                             commands
                                 .entity(available_channel)
-                                .insert((AudioPlayer(sfx),
-                                         PlaybackSettings::REMOVE));
+                                .insert((AudioPlayer(sfx), PlaybackSettings::REMOVE));
                         } else {
                             warn!("Channels busy.");
                             // Err(Error::ChannelsBusy)?;
@@ -1104,9 +1097,8 @@ pub(crate) fn plugin(app: &mut App) {
                 let mut camera = camera.into_inner();
                 camera.translation.x = pos.0.x as f32;
                 camera.translation.y = -(pos.0.y as f32);
-
-            })
-        ;
+            },
+        );
 }
 
 fn with_pico8<X>(
@@ -1203,8 +1195,10 @@ fn attach_api(app: &mut App) {
              h: Option<f32>,
              flip_x: Option<bool>,
              flip_y: Option<bool>| {
-                let pos = IVec2::new(x.map(|a| a.round() as i32).unwrap_or(0),
-                                    y.map(|a| a.round() as i32).unwrap_or(0));
+                let pos = IVec2::new(
+                    x.map(|a| a.round() as i32).unwrap_or(0),
+                    y.map(|a| a.round() as i32).unwrap_or(0),
+                );
                 let flip = (flip_x.is_some() || flip_y.is_some())
                     .then(|| BVec2::new(flip_x.unwrap_or(false), flip_y.unwrap_or(false)));
                 let size = w
@@ -1237,14 +1231,17 @@ fn attach_api(app: &mut App) {
                     )
                 })?;
 
-                 let entity = N9Entity { entity: id, drop: DropPolicy::Nothing };
-                 let world = ctx.world()?;
-                 let reference = {
-                     let allocator = world.allocator();
-                     let mut allocator = allocator.write();
-                     ReflectReference::new_allocated(entity, &mut allocator)
-                 };
-                 Ok(ReflectReference::into_script_ref(reference, world)?)
+                let entity = N9Entity {
+                    entity: id,
+                    drop: DropPolicy::Nothing,
+                };
+                let world = ctx.world()?;
+                let reference = {
+                    let allocator = world.allocator();
+                    let mut allocator = allocator.write();
+                    ReflectReference::new_allocated(entity, &mut allocator)
+                };
+                Ok(ReflectReference::into_script_ref(reference, world)?)
             },
         )
         .register(
@@ -1323,47 +1320,70 @@ fn attach_api(app: &mut App) {
         .register("time", |ctx: FunctionCallContext| {
             with_pico8(&ctx, move |pico8| Ok(pico8.time()))
         })
-
         .register("rnd", |ctx: FunctionCallContext, value: ScriptValue| {
             with_pico8(&ctx, move |pico8| Ok(pico8.rnd(value)))
         })
-        .register("camera", |ctx: FunctionCallContext, x: Option<u32>, y: Option<u32>| {
-            with_pico8(&ctx, move |pico8| Ok(pico8.camera(UVec2::new(x.unwrap_or(0), y.unwrap_or(0)))))
+        .register(
+            "camera",
+            |ctx: FunctionCallContext, x: Option<u32>, y: Option<u32>| {
+                with_pico8(&ctx, move |pico8| {
+                    Ok(pico8.camera(UVec2::new(x.unwrap_or(0), y.unwrap_or(0))))
+                })
                 .map(|last_pos| (last_pos.x, last_pos.y))
-        })
-        .register("line", |ctx: FunctionCallContext,
-                  x0: Option<i32>,
-                  y0: Option<i32>,
-                  x1: Option<i32>,
-                  y1: Option<i32>,
-                  c: Option<N9Color>| {
-            let _ = with_pico8(&ctx, move |pico8| pico8.line(IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
-                                                        IVec2::new(x1.unwrap_or(0), y1.unwrap_or(0)),
-                                                        c))?;
-                      Ok(())
-        })
-        .register("circfill", |ctx: FunctionCallContext,
-                  x0: Option<i32>,
-                  y0: Option<i32>,
-                  r: Option<u32>,
-                  c: Option<N9Color>| {
-            let _ = with_pico8(&ctx, move |pico8| pico8.circfill(IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
-                                                        UVec2::splat(r.unwrap_or(4)),
-                                                        c))?;
-                      Ok(())
-        })
-
-        .register("circ", |ctx: FunctionCallContext,
-                  x0: Option<i32>,
-                  y0: Option<i32>,
-                  r: Option<u32>,
-                  c: Option<N9Color>| {
-            let _ = with_pico8(&ctx, move |pico8| pico8.circ(IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
-                                                        UVec2::splat(r.unwrap_or(4)),
-                                                        c))?;
-                      Ok(())
-        })
-        ;
+            },
+        )
+        .register(
+            "line",
+            |ctx: FunctionCallContext,
+             x0: Option<i32>,
+             y0: Option<i32>,
+             x1: Option<i32>,
+             y1: Option<i32>,
+             c: Option<N9Color>| {
+                let _ = with_pico8(&ctx, move |pico8| {
+                    pico8.line(
+                        IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
+                        IVec2::new(x1.unwrap_or(0), y1.unwrap_or(0)),
+                        c,
+                    )
+                })?;
+                Ok(())
+            },
+        )
+        .register(
+            "circfill",
+            |ctx: FunctionCallContext,
+             x0: Option<i32>,
+             y0: Option<i32>,
+             r: Option<u32>,
+             c: Option<N9Color>| {
+                let _ = with_pico8(&ctx, move |pico8| {
+                    pico8.circfill(
+                        IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
+                        UVec2::splat(r.unwrap_or(4)),
+                        c,
+                    )
+                })?;
+                Ok(())
+            },
+        )
+        .register(
+            "circ",
+            |ctx: FunctionCallContext,
+             x0: Option<i32>,
+             y0: Option<i32>,
+             r: Option<u32>,
+             c: Option<N9Color>| {
+                let _ = with_pico8(&ctx, move |pico8| {
+                    pico8.circ(
+                        IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
+                        UVec2::splat(r.unwrap_or(4)),
+                        c,
+                    )
+                })?;
+                Ok(())
+            },
+        );
 
     //     fn tostr(ctx, v: Value) {
     //         let tostring: Function = ctx.globals().get("tostring")?;

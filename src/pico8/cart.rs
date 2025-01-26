@@ -1,9 +1,7 @@
 use crate::{
+    call, on_asset_change,
     pico8::{audio::*, *},
-    send_init,
-    DrawState,
-    call,
-    on_asset_change
+    send_init, DrawState,
 };
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
@@ -15,20 +13,25 @@ use bevy::{
     },
 };
 use bevy_mod_scripting::{
+    core::{asset::ScriptAsset, handler::event_handler},
     lua::LuaScriptingPlugin,
-    core::{handler::event_handler, asset::ScriptAsset},
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 pub(crate) fn plugin(app: &mut App) {
-    app
-        .add_event::<LoadCart>()
+    app.add_event::<LoadCart>()
         .init_asset::<Cart>()
         .init_asset_loader::<CartLoader>()
-
-        .add_systems(PostUpdate, (load_cart,
-            (send_init, event_handler::<call::Init, LuaScriptingPlugin>).run_if(on_asset_change::<Cart>())).chain());
+        .add_systems(
+            PostUpdate,
+            (
+                load_cart,
+                (send_init, event_handler::<call::Init, LuaScriptingPlugin>)
+                    .run_if(on_asset_change::<Cart>()),
+            )
+                .chain(),
+        );
 }
 
 #[non_exhaustive]
@@ -79,19 +82,19 @@ pub struct Cart {
 }
 
 const PALETTE: [[u8; 3]; 16] = [
-    [0x00, 0x00, 0x00],       //black
-    [0x1d, 0x2b, 0x53],    //dark-blue
-    [0x7e, 0x25, 0x53],   //dark-purple
-    [0x00, 0x87, 0x51],    //dark-green
-    [0xab, 0x52, 0x36],   //brown
-    [0x5f, 0x57, 0x4f],    //dark-grey
+    [0x00, 0x00, 0x00], //black
+    [0x1d, 0x2b, 0x53], //dark-blue
+    [0x7e, 0x25, 0x53], //dark-purple
+    [0x00, 0x87, 0x51], //dark-green
+    [0xab, 0x52, 0x36], //brown
+    [0x5f, 0x57, 0x4f], //dark-grey
     [0xc2, 0xc3, 0xc7], //light-grey
     [0xff, 0xf1, 0xe8], //white
-    [0xff, 0x00, 0x4d],    //red
-    [0xff, 0xa3, 0x00],   //orange
-    [0xff, 0xec, 0x27],  //yellow
-    [0x00, 0xe4, 0x36],    //green
-    [0x29, 0xad, 0xff],  //blue
+    [0xff, 0x00, 0x4d], //red
+    [0xff, 0xa3, 0x00], //orange
+    [0xff, 0xec, 0x27], //yellow
+    [0x00, 0xe4, 0x36], //green
+    [0x29, 0xad, 0xff], //blue
     [0x83, 0x76, 0x9c], //lavender
     [0xff, 0x77, 0xa8], //pink
     [0xff, 0xcc, 0xaa], //light-peach
@@ -326,11 +329,9 @@ impl CartParts {
                     let line_bytes = line.as_bytes();
                     let mut j = 0;
                     let c = line_bytes[j] as char;
-                    let high: u8 =
-                        c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                    let high: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
                     let c = line_bytes[j + 1] as char;
-                    let low: u8 =
-                        c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                    let low: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
                     let lead_byte = high << 4 | low;
                     j += 3;
 
@@ -353,7 +354,6 @@ impl CartParts {
                         stop: lead_byte & 4 != 0,
                         patterns: patterns.into_iter().filter(|p| p & 64 != 0).collect(),
                     })
-
                 }
             }
         }

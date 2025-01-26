@@ -24,7 +24,7 @@ use bevy_mod_scripting::{
     lua::LuaScriptingPlugin,
 };
 
-use crate::{error::ErrorState, screens, N9Var, pico8::Cart};
+use crate::{error::ErrorState, pico8::Cart, screens, N9Var};
 
 #[derive(Component)]
 pub struct Nano9Sprite;
@@ -155,7 +155,6 @@ pub fn set_background(
 //     }
 // }
 
-
 #[derive(Component, Debug, Reflect)]
 pub struct Nano9Camera;
 
@@ -170,26 +169,26 @@ fn spawn_camera(mut commands: Commands, settings: Res<N9Settings>, screen: Res<N
         .spawn(Transform::from_xyz(64.0, -64.0, 0.0))
         .with_children(|parent| {
             parent
-        .spawn((
-            Camera2d,
-            Projection::from(projection),
-            IsDefaultUiCamera,
-            InheritedVisibility::default(),
-            Nano9Camera,
-            N9Var::new("camera"),
-            Name::new("camera"),
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                Sprite::from_image(screen.0.clone()),
-                // transform: Transform::from_xyz(64.0, 64.0, -1.0),
-                Transform::from_xyz(0.0, 0.0, -100.0),
-                //.with_scale(Vec3::splat(settings.pixel_scale)),
-                Nano9Sprite,
-                N9Var::new("background"),
-                Name::new("background"),
-            ));
-        });
+                .spawn((
+                    Camera2d,
+                    Projection::from(projection),
+                    IsDefaultUiCamera,
+                    InheritedVisibility::default(),
+                    Nano9Camera,
+                    N9Var::new("camera"),
+                    Name::new("camera"),
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Sprite::from_image(screen.0.clone()),
+                        // transform: Transform::from_xyz(64.0, 64.0, -1.0),
+                        Transform::from_xyz(0.0, 0.0, -100.0),
+                        //.with_scale(Vec3::splat(settings.pixel_scale)),
+                        Nano9Sprite,
+                        N9Var::new("background"),
+                        Name::new("background"),
+                    ));
+                });
         });
 }
 
@@ -298,10 +297,11 @@ pub fn send_init(
 ) {
     // todo!("PUT INIT ELSEWHERE like Lua's on_script_loaded()");
     // for e in loaded.read() {
-        // eprintln!("init {}", e.sid);
-        writer.send(ScriptCallbackEvent::new_for_all(
-            call::Init,
-            vec![ScriptValue::Unit]));
+    // eprintln!("init {}", e.sid);
+    writer.send(ScriptCallbackEvent::new_for_all(
+        call::Init,
+        vec![ScriptValue::Unit],
+    ));
     // }
     //     // events.send(
     //     //     LuaEvent {
@@ -387,8 +387,7 @@ fn add_info(app: &mut App) {
         })
         .register("debug", |s: String| {
             bevy::log::debug!(s);
-        })
-        ;
+        });
 }
 
 impl Plugin for Nano9Plugin {
@@ -440,12 +439,13 @@ impl Plugin for Nano9Plugin {
             Update,
             (
                 (
-                    (send_init, event_handler::<call::Init, LuaScriptingPlugin>).run_if(on_asset_change::<Cart>()),
-                    (send_update,
-                    send_update60).run_if(in_state(ErrorState::None)),
+                    (send_init, event_handler::<call::Init, LuaScriptingPlugin>)
+                        .run_if(on_asset_change::<Cart>()),
+                    (send_update, send_update60).run_if(in_state(ErrorState::None)),
                     event_handler::<call::Update, LuaScriptingPlugin>,
                     event_handler::<call::Update60, LuaScriptingPlugin>,
-                ).chain(),
+                )
+                    .chain(),
                 send_draw.run_if(in_state(ErrorState::None)),
                 event_handler::<call::Draw, LuaScriptingPlugin>,
             )

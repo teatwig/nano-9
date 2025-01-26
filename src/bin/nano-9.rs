@@ -1,7 +1,7 @@
 use bevy::{
     dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin},
+    prelude::*,
     text::FontSmoothing,
-   prelude::*,
 };
 use bevy_ecs_tilemap::prelude::{TilePos, TilemapType};
 use bevy_minibuffer::prelude::*;
