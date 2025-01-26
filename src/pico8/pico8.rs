@@ -57,18 +57,26 @@ pub const PICO8_PALETTE: &str = "images/pico-8-palette.png";
 pub const PICO8_SPRITES: &str = "images/pooh-book-sprites.png";
 pub const PICO8_BORDER: &str = "images/rect-border.png";
 pub const PICO8_FONT: &str = "fonts/pico-8.ttf";
+pub const MAP_COLUMNS: u32 = 128;
+pub const PICO8_SPRITE_SIZE: UVec2 = UVec2::new(8, 8);
+pub const PICO8_TILE_COUNT: UVec2 = UVec2::new(16, 16);
 
 /// Pico8State's state.
 #[derive(Resource, Clone)]
 pub struct Pico8State {
     pub(crate) palette: Handle<Image>,
     pub(crate) border: Handle<Image>,
-    pub(crate) sprites: Handle<Image>,
+    pub(crate) sprites: SpriteSheet,
     pub(crate) cart: Option<Handle<Cart>>,
     pub(crate) layout: Handle<TextureAtlasLayout>,
     pub(crate) font: Handle<Font>,
     pub(crate) draw_state: DrawState,
-    pub(crate) sprite_size: UVec2,
+}
+
+#[derive(Debug, Clone)]
+pub struct SpriteSheet {
+    pub handle: Handle<Image>,
+    pub size: UVec2,
 }
 
 #[derive(Event,Debug)]
@@ -163,12 +171,12 @@ impl Pico8<'_, '_> {
                 index,
             };
             Sprite {
-                image: self.state.sprites.clone(),
+                image: self.state.sprites.handle.clone(),
                 anchor: Anchor::TopLeft,
                 texture_atlas: Some(atlas),
                 rect: size.map(|v| Rect {
                     min: Vec2::ZERO,
-                    max: self.state.sprite_size.as_vec2() * v,
+                    max: self.state.sprites.size.as_vec2() * v,
                 }),
                 flip_x: flip.x,
                 flip_y: flip.y,
@@ -341,7 +349,7 @@ impl Pico8<'_, '_> {
                         let texture_index = cart
                             .and_then(|cart| {
                                 cart.map
-                                    .get((map_pos.x + x + (map_pos.y + y) * 128) as usize)
+                                    .get((map_pos.x + x + (map_pos.y + y) * MAP_COLUMNS) as usize)
                                     .and_then(|index| {
                                         if let Some(mask) = mask {
                                             (cart.flags[*index as usize] & mask == mask)
@@ -375,7 +383,7 @@ impl Pico8<'_, '_> {
                 }
             });
 
-        let tile_size = TilemapTileSize { x: 8.0, y: 8.0 };
+        let tile_size: TilemapTileSize = self.state.sprites.size.as_vec2().into();
         let grid_size = tile_size.into();
         let map_type = TilemapType::default();
         let mut transform =
@@ -388,7 +396,7 @@ impl Pico8<'_, '_> {
                 map_type,
                 size: map_size,
                 storage: tile_storage,
-                texture: TilemapTexture::Single(self.state.sprites.clone()),
+                texture: TilemapTexture::Single(self.state.sprites.handle.clone()),
                 tile_size,
                 // transform: Transform::from_xyz(screen_start.x, -screen_start.y, 0.0),//get_tilemap_center_transform(&map_size, &grid_size, &map_type, 0.0),
                 transform,
@@ -612,7 +620,7 @@ impl Pico8<'_, '_> {
             .as_ref()
             .and_then(|cart| self.carts.get(cart))
             .expect("cart");
-        cart.map[(pos.x + pos.y * 128) as usize]
+        cart.map[(pos.x + pos.y * MAP_COLUMNS) as usize]
     }
 
     fn mset(&mut self, pos: UVec2, sprite_index: u8) {
@@ -622,7 +630,7 @@ impl Pico8<'_, '_> {
             .as_ref()
             .and_then(|cart| self.carts.get_mut(cart))
             .expect("cart");
-        cart.map[(pos.x + pos.y * 128) as usize] = sprite_index;
+        cart.map[(pos.x + pos.y * MAP_COLUMNS) as usize] = sprite_index;
     }
 
     fn sub(string: &str, start: isize, end: Option<isize>) -> String {
@@ -999,9 +1007,9 @@ impl FromWorld for Pico8State {
         let layout = {
             let mut layouts = world.resource_mut::<Assets<TextureAtlasLayout>>();
             layouts.add(TextureAtlasLayout::from_grid(
-                UVec2::new(8, 8),
-                16,
-                16,
+                PICO8_SPRITE_SIZE,
+                PICO8_TILE_COUNT.x,
+                PICO8_TILE_COUNT.y,
                 None,
                 None,
             ))
@@ -1015,9 +1023,11 @@ impl FromWorld for Pico8State {
 
         Pico8State {
             palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
-            sprites: asset_server.load_with_settings(PICO8_SPRITES, pixel_art_settings),
+            sprites: SpriteSheet {
+                handle: asset_server.load_with_settings(PICO8_SPRITES, pixel_art_settings),
+                size: PICO8_SPRITE_SIZE,
+            },
             border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
-            sprite_size: UVec2::splat(8),
             cart: None,
             layout,
             font: asset_server.load(PICO8_FONT),

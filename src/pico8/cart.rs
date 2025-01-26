@@ -117,16 +117,18 @@ fn load_cart(
             let state = Pico8State {
                 palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
                 border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
-                sprites: cart.sprites.clone(),
+                sprites: SpriteSheet {
+                    handle: cart.sprites.clone(),
+                    size: PICO8_SPRITE_SIZE,
+                },
                 cart: Some(load_cart.0.clone()),
                 layout: layouts.add(TextureAtlasLayout::from_grid(
-                    UVec2::new(8, 8),
-                    16,
-                    16,
+                    PICO8_SPRITE_SIZE,
+                    PICO8_TILE_COUNT.x,
+                    PICO8_TILE_COUNT.y,
                     None,
                     None,
                 )),
-                sprite_size: UVec2::splat(8),
                 draw_state: DrawState::default(),
                 font: asset_server.load(PICO8_FONT),
             };
