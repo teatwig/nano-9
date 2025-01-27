@@ -35,7 +35,7 @@ pub struct Nano9SpriteSheet(pub Handle<Image>, pub Handle<TextureAtlasLayout>);
 #[derive(Resource)]
 pub struct Nano9Screen(pub Handle<Image>);
 
-#[derive(Resource, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct DrawState {
     pub pen: Color,
     pub camera_position: UVec2,
@@ -414,7 +414,6 @@ impl Plugin for Nano9Plugin {
         })
         .insert_resource(Time::<Fixed>::from_seconds(UPDATE_FREQUENCY.into()))
         .init_resource::<N9Settings>()
-        .init_resource::<DrawState>()
         .add_plugins((lua_scripting_plugin, crate::plugin, add_info))
         .add_plugins(bevy_ecs_tilemap::TilemapPlugin)
         // .add_systems(OnExit(screens::Screen::Loading), setup_image)

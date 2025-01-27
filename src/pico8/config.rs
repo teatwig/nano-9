@@ -1,8 +1,9 @@
 use bevy::prelude::*;
 use serde::Deserialize;
 use std::path::PathBuf;
+use crate::pico8::PICO8_PALETTE;
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Deserialize, PartialEq, Eq)]
 struct N9Config {
     name: Option<String>,
     frames_per_second: Option<u8>,
@@ -16,6 +17,31 @@ struct N9Config {
     code: Option<PathBuf>,
     #[serde(default, rename = "audio_bank")]
     audio_banks: Vec<AudioBank>,
+}
+
+impl N9Config {
+    fn pico8() -> Self {
+        Self {
+            frames_per_second: Some(30),
+            screen: Some(Screen {
+                pixel_count: UVec2::splat(128),
+                screen_size: Some(UVec2::splat(512)),
+            }),
+            palette: Some(PICO8_PALETTE.into()),
+            ..default()
+        }
+    }
+
+    fn gameboy() -> Self {
+        Self {
+            frames_per_second: Some(60),
+            screen: Some(Screen {
+                pixel_count: UVec2::new(240, 160),
+                screen_size: Some(UVec2::new(480, 320)),
+            }),
+            // palette: Some(PICO8_PALETTE.into()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
