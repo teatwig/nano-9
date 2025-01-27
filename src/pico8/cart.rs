@@ -123,6 +123,7 @@ fn load_cart(
                 sprites: SpriteSheet {
                     handle: cart.sprites.clone(),
                     size: PICO8_SPRITE_SIZE,
+                    flags: Vec::new(), // TODO: These flags should be populated by the cart, I guess.
                 },
                 cart: Some(load_cart.0.clone()),
                 layout: layouts.add(TextureAtlasLayout::from_grid(

@@ -1,51 +1,71 @@
 use bevy::prelude::*;
 use serde::Deserialize;
 use std::path::PathBuf;
-use crate::pico8::PICO8_PALETTE;
+use crate::pico8;
+
+pub const DEFAULT_CANVAS_SIZE: UVec2 = UVec2::splat(128);
+pub const DEFAULT_SCREEN_SIZE: UVec2 = UVec2::splat(512);
 
 #[derive(Default, Debug, Clone, Deserialize, PartialEq, Eq)]
-struct N9Config {
-    name: Option<String>,
-    frames_per_second: Option<u8>,
-    description: Option<String>,
-    author: Option<String>,
-    license: Option<String>,
-    screen: Option<Screen>,
-    palette: Option<PathBuf>,
+pub struct N9Config {
+    pub name: Option<String>,
+    pub frames_per_second: Option<u8>,
+    pub description: Option<String>,
+    pub author: Option<String>,
+    pub license: Option<String>,
+    pub screen: Option<Screen>,
+    pub palette: Option<String>,
     #[serde(default, rename = "sprite_sheet")]
-    sprite_sheets: Vec<SpriteSheet>,
-    code: Option<PathBuf>,
+    pub sprite_sheets: Vec<SpriteSheet>,
+    pub code: Option<PathBuf>,
     #[serde(default, rename = "audio_bank")]
-    audio_banks: Vec<AudioBank>,
+    pub audio_banks: Vec<AudioBank>,
+    // TODO: Add font
 }
 
 impl N9Config {
-    fn pico8() -> Self {
+    pub fn pico8() -> Self {
         Self {
             frames_per_second: Some(30),
             screen: Some(Screen {
-                pixel_count: UVec2::splat(128),
+                canvas_size: UVec2::splat(128),
                 screen_size: Some(UVec2::splat(512)),
             }),
-            palette: Some(PICO8_PALETTE.into()),
+            palette: Some(pico8::PICO8_PALETTE.into()),
             ..default()
         }
     }
 
-    fn gameboy() -> Self {
+    pub fn gameboy() -> Self {
         Self {
             frames_per_second: Some(60),
             screen: Some(Screen {
-                pixel_count: UVec2::new(240, 160),
+                canvas_size: UVec2::new(240, 160),
                 screen_size: Some(UVec2::new(480, 320)),
             }),
+            ..default()
             // palette: Some(PICO8_PALETTE.into()),
         }
+    }
+
+    pub fn load_config(&self, asset_server: Res<AssetServer>, mut commands: Commands) {
+        let palette: Option<Handle<Image>> = self.palette.as_deref().map(|path| asset_server.load(path));
+        let sprite_sheets: Vec<pico8::SpriteSheet> = self.sprite_sheets.iter().map(|sprite_sheet| pico8::SpriteSheet {
+            handle: asset_server.load(&sprite_sheet.path),
+            size: sprite_sheet.sprite_size,
+            flags: Vec::new(),
+        }).collect();
+
+        // let cart: Handle<Cart> = asset_server.load(&script_path);
+        // commands.send_event(LoadCart(cart));
+        // commands.spawn(ScriptComponent(
+        //     vec![format!("{}#lua", &script_path).into()],
+        // ));
     }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-enum AudioBank {
+pub enum AudioBank {
     #[serde(rename = "p8")]
     P8(PathBuf),
     #[serde(rename = "paths")]
@@ -53,16 +73,16 @@ enum AudioBank {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-struct Screen {
-    pixel_count: UVec2,
-    screen_size: Option<UVec2>,
+pub struct Screen {
+    pub canvas_size: UVec2,
+    pub screen_size: Option<UVec2>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-struct SpriteSheet {
-    path: PathBuf,
-    sprite_size: UVec2,
-    sprite_counts: Option<UVec2>,
+pub struct SpriteSheet {
+    pub path: String,
+    pub sprite_size: UVec2,
+    pub sprite_counts: Option<UVec2>,
 }
 
 #[cfg(test)]
@@ -94,12 +114,12 @@ sprite_size = [8, 8]
     fn test_config_2() {
         let config: N9Config = toml::from_str(r#"
 [screen]
-pixel_count = [128,128]
+canvas_size = [128,128]
 [[sprite_sheet]]
 path = "sprites.png"
 sprite_size = [8, 8]
 "#).unwrap();
-        assert_eq!(config.screen.map(|s| s.pixel_count), Some(UVec2::splat(128)));
+        assert_eq!(config.screen.map(|s| s.canvas_size), Some(UVec2::splat(128)));
         assert_eq!(config.sprite_sheets.len(), 1);
         assert_eq!(config.sprite_sheets[0].path.to_str(), Some("sprites.png"));
         assert_eq!(config.sprite_sheets[0].sprite_size, UVec2::splat(8));

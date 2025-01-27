@@ -17,8 +17,8 @@ fn setup(mut commands: Commands, image_handles: Res<ImageHandles>) {
     ));
 }
 
-#[derive(Resource)]
-pub struct Nano9Palette(pub Handle<Image>);
+// #[derive(Resource)]
+// pub struct Nano9Palette(pub Handle<Image>);
 
 impl Nano9Palette {
     // pub fn get_color_or_pen(c: impl Into<N9Color>, world: &mut World) -> Color {

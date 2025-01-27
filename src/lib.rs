@@ -8,7 +8,7 @@ mod color;
 pub mod error;
 mod ext;
 // mod image;
-mod palette;
+// mod palette;
 // mod pixel;
 mod entity;
 #[cfg(feature = "level")]
@@ -32,11 +32,12 @@ pub use ext::*;
 #[cfg(feature = "level")]
 pub use level::*;
 // pub use nano9::*;
-pub use palette::*;
+// pub use palette::*;
 pub use plugin::*;
 // pub use sprite::*;
 // pub use text::*;
 pub use var::*;
+pub mod config;
 
 #[derive(Component, Default)]
 pub enum OneFrame {
@@ -71,7 +72,7 @@ pub(crate) fn plugin(app: &mut App) {
         assets::plugin,
         // api::plugin,
         // sprite::plugin,
-        palette::plugin,
+        // palette::plugin,
         error::plugin,
         // text::plugin,
         var::plugin,

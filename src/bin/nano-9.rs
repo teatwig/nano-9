@@ -1,4 +1,5 @@
 use bevy::{
+    audio::AudioPlugin,
     dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin},
     prelude::*,
     text::FontSmoothing,
@@ -6,23 +7,57 @@ use bevy::{
 use bevy_ecs_tilemap::prelude::{TilePos, TilemapType};
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::{asset::ScriptAsset, script::ScriptComponent};
-use nano_9::{minibuffer::*, pico8::*, *};
-use std::env;
+use nano_9::{minibuffer::*, pico8::*, *, config::N9Config};
+use std::{fs, env, io};
 
 #[derive(Resource)]
 struct MyScript(Handle<ScriptAsset>);
 
-fn main() -> std::io::Result<()> {
+fn main() -> io::Result<()> {
     let args = env::args();
     let script_path: String = args
         .skip(1)
         .next()
         .map(|s| format!("../{s}"))
         .unwrap_or("scripts/main.lua".into());
-    let nano9_plugin = Nano9Plugin::default();
     let mut app = App::new();
+    let nano9_plugin;
+    if script_path.ends_with(".toml") {
+        let content = fs::read_to_string(script_path)?;
+        let config: N9Config = toml::from_str(&content).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
+        nano9_plugin = Nano9Plugin {
+            config
+        };
+    } else if script_path.ends_with(".p8") {
+        app.add_systems(
+            Startup,
+            move |asset_server: Res<AssetServer>, mut commands: Commands| {
+                let cart: Handle<Cart> = asset_server.load(&script_path);
+                commands.send_event(LoadCart(cart));
+                commands.spawn(ScriptComponent(
+                    vec![format!("{}#lua", &script_path).into()],
+                ));
+            },
+        );
+        nano9_plugin = Nano9Plugin::default();
+    } else {
+        app.add_systems(
+            Startup,
+            move |asset_server: Res<AssetServer>, mut commands: Commands| {
+                commands.insert_resource(MyScript(asset_server.load(script_path.clone())));
+                commands.spawn(ScriptComponent(vec![script_path.clone().into()]));
+            },
+        );
+        nano9_plugin = Nano9Plugin::default();
+    }
+
     app
-        .add_plugins(nano9_plugin.default_plugins())
+        .add_plugins(DefaultPlugins
+            .set(AudioPlugin {
+                global_volume: GlobalVolume::new(0.4),
+                ..default()
+            })
+                     .set(nano9_plugin.window_plugin()))
         .add_plugins(nano9_plugin)
         .add_plugins(nano_9::pico8::plugin)
         .add_plugins(MinibufferPlugins)
@@ -58,26 +93,6 @@ fn main() -> std::io::Result<()> {
         ))
         // .insert_state(ErrorState::Messages { frame: 0 })
         ;
-    if script_path.ends_with(".p8") {
-        app.add_systems(
-            Startup,
-            move |asset_server: Res<AssetServer>, mut commands: Commands| {
-                let cart: Handle<Cart> = asset_server.load(&script_path);
-                commands.send_event(LoadCart(cart));
-                commands.spawn(ScriptComponent(
-                    vec![format!("{}#lua", &script_path).into()],
-                ));
-            },
-        );
-    } else {
-        app.add_systems(
-            Startup,
-            move |asset_server: Res<AssetServer>, mut commands: Commands| {
-                commands.insert_resource(MyScript(asset_server.load(script_path.clone())));
-                commands.spawn(ScriptComponent(vec![script_path.clone().into()]));
-            },
-        );
-    }
     app.run();
     Ok(())
 }

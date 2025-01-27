@@ -63,16 +63,20 @@ pub struct Pico8State {
     pub(crate) palette: Handle<Image>,
     pub(crate) border: Handle<Image>,
     pub(crate) sprites: SpriteSheet,
+    // TODO: Let's try to get rid of CART
     pub(crate) cart: Option<Handle<Cart>>,
     pub(crate) layout: Handle<TextureAtlasLayout>,
     pub(crate) font: Handle<Font>,
     pub(crate) draw_state: DrawState,
 }
 
+
+
 #[derive(Debug, Clone)]
 pub struct SpriteSheet {
     pub handle: Handle<Image>,
     pub size: UVec2,
+    pub flags: Vec<u8>,
 }
 
 #[derive(Event, Debug)]
@@ -1154,6 +1158,7 @@ impl FromWorld for Pico8State {
             sprites: SpriteSheet {
                 handle: asset_server.load_with_settings(PICO8_SPRITES, pixel_art_settings),
                 size: PICO8_SPRITE_SIZE,
+                flags: Vec::new(),
             },
             border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
             cart: None,

@@ -24,7 +24,7 @@ use bevy_mod_scripting::{
     lua::LuaScriptingPlugin,
 };
 
-use crate::{error::ErrorState, pico8::Cart, screens, N9Var};
+use crate::{error::ErrorState, pico8::Cart, screens, N9Var, config::*};
 
 #[derive(Component)]
 pub struct Nano9Sprite;
@@ -325,7 +325,7 @@ const UPDATE_FREQUENCY: f32 = 1.0 / 60.0;
 
 #[derive(Default)]
 pub struct Nano9Plugin {
-    settings: N9Settings,
+    pub config: N9Config,
 }
 
 #[derive(Resource)]
@@ -344,32 +344,25 @@ impl Default for N9Settings {
 }
 
 impl Nano9Plugin {
-    pub fn default_plugins(&self) -> bevy::app::PluginGroupBuilder {
-        let settings = &self.settings;
-        let resolution = settings.canvas_size.as_vec2() * settings.pixel_scale;
-        DefaultPlugins
-            .set(AudioPlugin {
-                global_volume: GlobalVolume::new(0.4),
+    pub fn window_plugin(&self) -> WindowPlugin {
+        let screen_size = self.config.screen.as_ref().and_then(|s| s.screen_size).unwrap_or(DEFAULT_SCREEN_SIZE);
+        WindowPlugin {
+            primary_window: Some(Window {
+                resolution: screen_size.as_vec2().into(), //WindowResolution::new(resolution.x, resolution.y),
+                title: self.config.name.as_deref().unwrap_or_else(|| "Nano-9").into(),
+                // Turn off vsync to maximize CPU/GPU usage
+                present_mode: PresentMode::AutoVsync,
+                // Let's not allow resizing.
+                // resize_constraints: WindowResizeConstraints {
+                //     min_width: resolution.x,
+                //     max_width: resolution.x,
+                //     min_height: resolution.y,
+                //     max_height: resolution.y,
+                // },
                 ..default()
-            })
-            .set(WindowPlugin {
-                primary_window: Some(Window {
-                    resolution: resolution.into(), //WindowResolution::new(resolution.x, resolution.y),
-                    // Turn off vsync to maximize CPU/GPU usage
-                    present_mode: PresentMode::AutoVsync,
-                    // Let's not allow resizing.
-                    // resize_constraints: WindowResizeConstraints {
-                    //     min_width: resolution.x,
-                    //     max_width: resolution.x,
-                    //     min_height: resolution.y,
-                    //     max_height: resolution.y,
-                    // },
-                    ..default()
-                }),
-                ..default()
-            })
-            .set(ImagePlugin::default_nearest())
-            .build()
+            }),
+            ..default()
+        }
     }
 }
 
