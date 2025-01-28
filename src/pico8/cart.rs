@@ -125,7 +125,10 @@ fn load_cart(
                     size: PICO8_SPRITE_SIZE,
                     flags: Vec::new(), // TODO: These flags should be populated by the cart, I guess.
                 },
-                cart: Some(load_cart.0.clone()),
+                maps: vec![Map { entries: cart.map.clone(), sheet_index: 0 }],
+                audio_banks: vec![AudioBank(cart.sfx.clone().into_iter().map(Audio::Sfx).collect())],
+                sprite_sheets: vec![SpriteSheet { handle: cart.sprites.clone(), size: UVec2::splat(8), flags: cart.flags.clone() }],
+                // cart: Some(load_cart.0.clone()),
                 layout: layouts.add(TextureAtlasLayout::from_grid(
                     PICO8_SPRITE_SIZE,
                     PICO8_TILE_COUNT.x,
@@ -133,6 +136,7 @@ fn load_cart(
                     None,
                     None,
                 )),
+                code: cart.lua.clone(),
                 draw_state: DrawState::default(),
                 font: asset_server.load(PICO8_FONT),
             };

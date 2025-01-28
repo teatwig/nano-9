@@ -39,7 +39,7 @@ fn main() -> io::Result<()> {
                 ));
             },
         );
-        nano9_plugin = Nano9Plugin::default();
+        nano9_plugin = Nano9Plugin { config: N9Config::pico8() };
     } else {
         app.add_systems(
             Startup,
@@ -48,7 +48,7 @@ fn main() -> io::Result<()> {
                 commands.spawn(ScriptComponent(vec![script_path.clone().into()]));
             },
         );
-        nano9_plugin = Nano9Plugin::default();
+        nano9_plugin = Nano9Plugin { config: N9Config::pico8() };
     }
 
     app

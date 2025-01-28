@@ -13,7 +13,7 @@ use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 
 use bevy_mod_scripting::{
     core::{
-        asset::{AssetPathToLanguageMapper, Language, ScriptAssetSettings},
+        asset::{AssetPathToLanguageMapper, Language, ScriptAssetSettings, ScriptAsset},
         bindings::{
             access_map::ReflectAccessId,
             function::{
@@ -57,19 +57,39 @@ pub const MAP_COLUMNS: u32 = 128;
 pub const PICO8_SPRITE_SIZE: UVec2 = UVec2::new(8, 8);
 pub const PICO8_TILE_COUNT: UVec2 = UVec2::new(16, 16);
 
+#[derive(Clone, Debug, Deref, DerefMut)]
+pub struct Map {
+    #[deref]
+    pub entries: Vec<u8>,
+    pub sheet_index: u8,
+}
+
+#[derive(Clone, Debug, Deref, DerefMut)]
+pub struct AudioBank(pub Vec<Audio>);
+
+#[derive(Debug, Clone)]
+pub enum Audio {
+    Sfx(Handle<Sfx>),
+    AudioSource(Handle<AudioSource>),
+}
+
+
 /// Pico8State's state.
 #[derive(Resource, Clone)]
 pub struct Pico8State {
+    pub(crate) code: Handle<ScriptAsset>,
     pub(crate) palette: Handle<Image>,
     pub(crate) border: Handle<Image>,
     pub(crate) sprites: SpriteSheet,
+    pub(crate) sprite_sheets: Vec<SpriteSheet>,
+    pub(crate) maps: Vec<Map>,
     // TODO: Let's try to get rid of CART
-    pub(crate) cart: Option<Handle<Cart>>,
+    // pub(crate) cart: Option<Handle<Cart>>,
     pub(crate) layout: Handle<TextureAtlasLayout>,
     pub(crate) font: Handle<Font>,
     pub(crate) draw_state: DrawState,
+    pub(crate) audio_banks: Vec<AudioBank>,
 }
-
 
 
 #[derive(Debug, Clone)]
@@ -112,6 +132,7 @@ pub struct Pico8<'w, 's> {
     commands: Commands<'w, 's>,
     background: Res<'w, Nano9Screen>,
     keys: Res<'w, ButtonInput<KeyCode>>,
+    // map: Option<Res<'w, Map>>,
     sfx_channels: Res<'w, SfxChannels>,
     time: Res<'w, Time>,
     // audio_sinks: Query<'w, 's, Option<&'static mut AudioSink>>,
@@ -330,30 +351,28 @@ impl Pico8<'_, '_> {
         // tiles in the world. If you have multiple layers of tiles you would have a tilemap entity
         // per layer, each with their own `TileStorage` component.
 
-        let cart = self
-            .state
-            .cart
-            .as_ref()
-            .and_then(|cart| self.carts.get(cart));
 
         // Spawn the elements of the tilemap.
         // Alternatively, you can use helpers::filling::fill_tilemap.
         let clearable = Clearable::default();
         let mut tile_storage = TileStorage::empty(map_size);
         let tilemap_entity = self.commands.spawn(Name::new("map")).id();
+        let map_index = 0;
         self.commands
             .entity(tilemap_entity)
             .with_children(|builder| {
                 for x in 0..map_size.x {
                     for y in 0..map_size.y {
-                        let texture_index = cart
-                            .and_then(|cart| {
-                                cart.map
+                        let texture_index = self.state.maps.get(map_index)
+                            .and_then(|map| {
+                                map
                                     .get((map_pos.x + x + (map_pos.y + y) * MAP_COLUMNS) as usize)
                                     .and_then(|index| {
                                         if let Some(mask) = mask {
-                                            (cart.flags[*index as usize] & mask == mask)
-                                                .then_some(index)
+                                            self.state.sprite_sheets.get(map.sheet_index as usize)
+                                                .and_then(|sprite_sheet| (sprite_sheet.flags[*index as usize] & mask == mask).then_some(index))
+                                            // (cart.flags[*index as usize] & mask == mask)
+                                            //     .then_some(index)
                                         } else {
                                             Some(index)
                                         }
@@ -513,10 +532,12 @@ impl Pico8<'_, '_> {
         channel: Option<u8>,
         offset: Option<u8>,
         length: Option<u8>,
+        bank: Option<u8>,
     ) -> Result<(), Error> {
         assert!(offset.is_none(), "offset not implemented");
         assert!(length.is_none(), "length not implemented");
         let n = n.into();
+        let bank = bank.unwrap_or(0);
         match n {
             SfxCommand::Release => {
                 if let Some(chan) = channel {
@@ -537,14 +558,13 @@ impl Pico8<'_, '_> {
                 }
             }
             SfxCommand::Play(n) => {
-                let cart = self
-                    .state
-                    .cart
-                    .as_ref()
-                    .and_then(|cart| self.carts.get(cart))
-                    .expect("cart");
-                let sfx = cart
-                    .sfx
+                // let cart = self
+                //     .state
+                //     .cart
+                //     .as_ref()
+                //     .and_then(|cart| self.carts.get(cart))
+                //     .expect("cart");
+                let sfx = self.state.audio_banks[bank as usize]
                     .get(n as usize)
                     .ok_or(Error::NoAsset(format!("sfx {n}").into()))?
                     .clone();
@@ -562,13 +582,15 @@ impl Pico8<'_, '_> {
     }
 
     fn fget(&self, index: u8, flag_index: Option<u8>) -> u8 {
-        let cart = self
-            .state
-            .cart
-            .as_ref()
-            .and_then(|cart| self.carts.get(cart))
-            .expect("cart");
-        if let Some(v) = cart.flags.get(index as usize) {
+        let sheet_index = 0;
+        let flags = &self.state.sprite_sheets[sheet_index].flags;
+        // let cart = self
+        //     .state
+        //     .cart
+        //     .as_ref()
+        //     .and_then(|cart| self.carts.get(cart))
+        //     .expect("cart");
+        if let Some(v) = flags.get(index as usize) {
             match flag_index {
                 Some(flag_index) => {
                     if v & (1 << flag_index) != 0 {
@@ -580,12 +602,12 @@ impl Pico8<'_, '_> {
                 None => *v,
             }
         } else {
-            if cart.flags.is_empty() {
+            if flags.is_empty() {
                 warn_once!("No flags present for cart.");
             } else {
                 warn!(
                     "Requested flag at {index}. There are only {} flags.",
-                    cart.flags.len()
+                    flags.len()
                 );
             }
             0
@@ -593,47 +615,53 @@ impl Pico8<'_, '_> {
     }
 
     fn fset(&mut self, index: u8, flag_index: Option<u8>, value: u8) {
-        let cart = self
-            .state
-            .cart
-            .as_ref()
-            .and_then(|cart| self.carts.get_mut(cart))
-            .expect("cart");
+        let sheet_index = 0;
+        let mut flags = &mut self.state.sprite_sheets[sheet_index].flags;
+        // let cart = self
+        //     .state
+        //     .cart
+        //     .as_ref()
+        //     .and_then(|cart| self.carts.get_mut(cart))
+        //     .expect("cart");
         match flag_index {
             Some(flag_index) => {
-                let v = cart.flags[index as usize];
+                let v = flags[index as usize];
                 if value != 0 {
                     // Set the bit.
-                    cart.flags[index as usize] |= 1 << flag_index;
+                    flags[index as usize] |= 1 << flag_index;
                 } else {
                     // Unset the bit.
-                    cart.flags[index as usize] &= !(1 << flag_index);
+                    flags[index as usize] &= !(1 << flag_index);
                 }
             }
             None => {
-                cart.flags[index as usize] = value;
+                flags[index as usize] = value;
             }
         }
     }
 
     fn mget(&self, pos: UVec2) -> u8 {
-        let cart = self
-            .state
-            .cart
-            .as_ref()
-            .and_then(|cart| self.carts.get(cart))
-            .expect("cart");
-        cart.map[(pos.x + pos.y * MAP_COLUMNS) as usize]
+        let map_index = 0;
+        let map = &self.state.maps[map_index];
+        // let cart = self
+        //     .state
+        //     .cart
+        //     .as_ref()
+        //     .and_then(|cart| self.carts.get(cart))
+        //     .expect("cart");
+        map[(pos.x + pos.y * MAP_COLUMNS) as usize]
     }
 
     fn mset(&mut self, pos: UVec2, sprite_index: u8) {
-        let cart = self
-            .state
-            .cart
-            .as_ref()
-            .and_then(|cart| self.carts.get_mut(cart))
-            .expect("cart");
-        cart.map[(pos.x + pos.y * MAP_COLUMNS) as usize] = sprite_index;
+        let map_index = 0;
+        let mut map = &mut self.state.maps[map_index];
+        // let cart = self
+        //     .state
+        //     .cart
+        //     .as_ref()
+        //     .and_then(|cart| self.carts.get_mut(cart))
+        //     .expect("cart");
+        map[(pos.x + pos.y * MAP_COLUMNS) as usize] = sprite_index;
     }
 
     fn sub(string: &str, start: isize, end: Option<isize>) -> String {
@@ -1035,7 +1063,7 @@ enum SfxDest {
 
 enum AudioCommand {
     Stop(SfxDest),
-    Play(Handle<Sfx>, SfxDest),
+    Play(Audio, SfxDest),
     Release(SfxDest),
 }
 
@@ -1077,7 +1105,7 @@ impl Command for AudioCommand {
                 SfxDest::Any => {}
                 SfxDest::All => {}
             },
-            AudioCommand::Play(sfx, sfx_channel) => {
+            AudioCommand::Play(audio, sfx_channel) => {
                 match sfx_channel {
                     SfxDest::Any => {
                         if let Some(available_channel) = world
@@ -1091,6 +1119,8 @@ impl Command for AudioCommand {
                             })
                             .copied()
                         {
+                            match audio {
+                                Audio::Sfx(sfx) => {
                             let (sfx, release) = Sfx::get_stoppable_handle(sfx, world);
                             let mut commands = world.commands();
                             if let Some(release) = release {
@@ -1101,6 +1131,11 @@ impl Command for AudioCommand {
                             commands
                                 .entity(available_channel)
                                 .insert((AudioPlayer(sfx), PlaybackSettings::REMOVE));
+                                }
+                                Audio::AudioSource(source) => {
+                                    todo!();
+                                }
+                            }
                         } else {
                             warn!("Channels busy.");
                             // Err(Error::ChannelsBusy)?;
@@ -1108,9 +1143,16 @@ impl Command for AudioCommand {
                     }
                     SfxDest::Channel(chan) => {
                         let mut commands = world.commands();
+                        match audio {
+                            Audio::Sfx(sfx) => {
                         commands
                             .entity(chan)
                             .insert((AudioPlayer(sfx.clone()), PlaybackSettings::REMOVE));
+                            }
+                            Audio::AudioSource(source) => {
+                                todo!()
+                            }
+                        }
                     }
                     SfxDest::All => {
                         warn!("Cannot play on all channels.");
@@ -1161,10 +1203,13 @@ impl FromWorld for Pico8State {
                 flags: Vec::new(),
             },
             border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
-            cart: None,
             layout,
+            code: Handle::<ScriptAsset>::default(),
             font: asset_server.load(PICO8_FONT),
             draw_state: DrawState::default(),
+            audio_banks: Vec::new(),
+            sprite_sheets: Vec::new(),
+            maps: Vec::new(),
         }
     }
 }
@@ -1428,6 +1473,7 @@ fn attach_api(app: &mut App) {
                         channel,
                         offset,
                         length,
+                        None,
                     )
                 })
             },

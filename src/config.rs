@@ -43,6 +43,7 @@ impl N9Config {
                 canvas_size: UVec2::new(240, 160),
                 screen_size: Some(UVec2::new(480, 320)),
             }),
+            //['#9bbc0f', '#77a112', '#306230', '#0f380f'],
             ..default()
             // palette: Some(PICO8_PALETTE.into()),
         }
