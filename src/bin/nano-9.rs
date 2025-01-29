@@ -24,7 +24,9 @@ fn main() -> io::Result<()> {
     let nano9_plugin;
     if script_path.ends_with(".toml") {
         let content = fs::read_to_string(script_path)?;
-        let config: N9Config = toml::from_str(&content).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
+        let config: N9Config = toml::from_str::<N9Config>(&content)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?
+            .inject_template();
         nano9_plugin = Nano9Plugin {
             config
         };
@@ -41,14 +43,19 @@ fn main() -> io::Result<()> {
         );
         nano9_plugin = Nano9Plugin { config: N9Config::pico8() };
     } else {
+        nano9_plugin = Nano9Plugin {
+            config: N9Config {
+                code: Some(script_path.clone().into()),
+                ..N9Config::pico8()
+            }
+        };
         app.add_systems(
             Startup,
-            move |asset_server: Res<AssetServer>, mut commands: Commands| {
-                commands.insert_resource(MyScript(asset_server.load(script_path.clone())));
+            move |asset_server: Res<AssetServer>, mut commands: Commands, mut pico8: Pico8| {
+                pico8.state.code = asset_server.load(script_path.clone());
                 commands.spawn(ScriptComponent(vec![script_path.clone().into()]));
             },
         );
-        nano9_plugin = Nano9Plugin { config: N9Config::pico8() };
     }
 
     app

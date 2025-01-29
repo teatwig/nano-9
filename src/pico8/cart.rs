@@ -120,14 +120,9 @@ fn load_cart(
             let state = Pico8State {
                 palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
                 border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
-                sprites: SpriteSheet {
-                    handle: cart.sprites.clone(),
-                    size: PICO8_SPRITE_SIZE,
-                    flags: Vec::new(), // TODO: These flags should be populated by the cart, I guess.
-                },
-                maps: vec![Map { entries: cart.map.clone(), sheet_index: 0 }],
-                audio_banks: vec![AudioBank(cart.sfx.clone().into_iter().map(Audio::Sfx).collect())],
-                sprite_sheets: vec![SpriteSheet { handle: cart.sprites.clone(), size: UVec2::splat(8), flags: cart.flags.clone() }],
+                maps: vec![Map { entries: cart.map.clone(), sheet_index: 0 }].into(),
+                audio_banks: vec![AudioBank(cart.sfx.clone().into_iter().map(Audio::Sfx).collect())].into(),
+                sprite_sheets: vec![SpriteSheet { handle: cart.sprites.clone(), size: UVec2::splat(8), flags: cart.flags.clone() }].into(),
                 // cart: Some(load_cart.0.clone()),
                 layout: layouts.add(TextureAtlasLayout::from_grid(
                     PICO8_SPRITE_SIZE,

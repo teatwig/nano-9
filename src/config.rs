@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use serde::Deserialize;
-use std::path::PathBuf;
+use std::{ops::Deref, path::PathBuf};
 use crate::pico8;
 
 pub const DEFAULT_CANVAS_SIZE: UVec2 = UVec2::splat(128);
@@ -11,6 +11,7 @@ pub struct N9Config {
     pub name: Option<String>,
     pub frames_per_second: Option<u8>,
     pub description: Option<String>,
+    pub template: Option<String>,
     pub author: Option<String>,
     pub license: Option<String>,
     pub screen: Option<Screen>,
@@ -25,28 +26,77 @@ pub struct N9Config {
 
 impl N9Config {
     pub fn pico8() -> Self {
-        Self {
-            frames_per_second: Some(30),
-            screen: Some(Screen {
+        let mut config = N9Config::default();
+        config.inject_pico8();
+        config
+        // Self {
+        //     frames_per_second: Some(30),
+        //     screen: Some(Screen {
+        //         canvas_size: UVec2::splat(128),
+        //         screen_size: Some(UVec2::splat(512)),
+        //     }),
+        //     palette: Some(pico8::PICO8_PALETTE.into()),
+        //     ..default()
+        // }
+    }
+
+    pub fn inject_template(mut self) -> Self {
+        if let Some(ref template) = self.template {
+            match template.deref() {
+                "gameboy" => { self.inject_gameboy() },
+                "pico8" => { self.inject_pico8() },
+                x => { panic!("No template {x:?}") },
+            }
+            self
+        } else {
+            self
+        }
+    }
+
+    pub fn inject_pico8(&mut self) {
+        if self.frames_per_second.is_none() {
+            self.frames_per_second = Some(30);
+        }
+        if self.screen.is_none() {
+            self.screen = Some(Screen {
                 canvas_size: UVec2::splat(128),
                 screen_size: Some(UVec2::splat(512)),
-            }),
-            palette: Some(pico8::PICO8_PALETTE.into()),
-            ..default()
+            });
+        }
+        if self.palette.is_none() {
+            self.palette = Some(pico8::PICO8_PALETTE.into());
+        }
+    }
+
+    pub fn inject_gameboy(&mut self) {
+        if self.frames_per_second.is_none() {
+            self.frames_per_second = Some(60);
+        }
+        if self.screen.is_none() {
+            self.screen = Some(Screen {
+                canvas_size: UVec2::new(240, 160),
+                screen_size: Some(UVec2::new(480, 320)),
+            });
+        }
+        if self.palette.is_none() {
+            //['#9bbc0f', '#77a112', '#306230', '#0f380f'],
+            self.palette = Some("images/gameboy-palettes.png".into());
         }
     }
 
     pub fn gameboy() -> Self {
-        Self {
-            frames_per_second: Some(60),
-            screen: Some(Screen {
-                canvas_size: UVec2::new(240, 160),
-                screen_size: Some(UVec2::new(480, 320)),
-            }),
-            //['#9bbc0f', '#77a112', '#306230', '#0f380f'],
-            ..default()
-            // palette: Some(PICO8_PALETTE.into()),
-        }
+        let mut config = N9Config::default();
+        config.inject_gameboy();
+        config
+        // Self {
+        //     frames_per_second: Some(60),
+        //     screen: Some(Screen {
+        //         canvas_size: UVec2::new(240, 160),
+        //         screen_size: Some(UVec2::new(480, 320)),
+        //     }),
+        //     ..default()
+        //     // palette: Some(PICO8_PALETTE.into()),
+        // }
     }
 
     pub fn load_config(&self, asset_server: Res<AssetServer>, mut commands: Commands) {
@@ -107,7 +157,7 @@ path = "sprites.png"
 sprite_size = [8, 8]
 "#).unwrap();
         assert_eq!(config.sprite_sheets.len(), 1);
-        assert_eq!(config.sprite_sheets[0].path.to_str(), Some("sprites.png"));
+        assert_eq!(config.sprite_sheets[0].path, "sprites.png");
         assert_eq!(config.sprite_sheets[0].sprite_size, UVec2::splat(8));
     }
 
@@ -122,7 +172,7 @@ sprite_size = [8, 8]
 "#).unwrap();
         assert_eq!(config.screen.map(|s| s.canvas_size), Some(UVec2::splat(128)));
         assert_eq!(config.sprite_sheets.len(), 1);
-        assert_eq!(config.sprite_sheets[0].path.to_str(), Some("sprites.png"));
+        assert_eq!(config.sprite_sheets[0].path, "sprites.png");
         assert_eq!(config.sprite_sheets[0].sprite_size, UVec2::splat(8));
     }
 

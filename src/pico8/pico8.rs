@@ -15,8 +15,10 @@ use bevy_mod_scripting::{
     core::{
         asset::{AssetPathToLanguageMapper, Language, ScriptAssetSettings, ScriptAsset},
         bindings::{
+            WorldAccessGuard,
             access_map::ReflectAccessId,
             function::{
+                from::FromScript,
                 into_ref::IntoScriptRef,
                 namespace::{GlobalNamespace, NamespaceBuilder},
                 script_function::FunctionCallContext,
@@ -33,6 +35,7 @@ use rand::{seq::SliceRandom, Rng};
 use bevy_ecs_tilemap::prelude::*;
 
 use crate::{
+    cursor::Cursor,
     pico8::{
         audio::{Sfx, SfxChannels},
         Cart, ClearEvent, Clearable, LoadCart,
@@ -43,6 +46,7 @@ use crate::{
 use std::{
     borrow::Cow,
     path::Path,
+    any::TypeId,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -77,18 +81,70 @@ pub enum Audio {
 /// Pico8State's state.
 #[derive(Resource, Clone)]
 pub struct Pico8State {
-    pub(crate) code: Handle<ScriptAsset>,
+    pub code: Handle<ScriptAsset>,
     pub(crate) palette: Handle<Image>,
     pub(crate) border: Handle<Image>,
-    pub(crate) sprites: SpriteSheet,
-    pub(crate) sprite_sheets: Vec<SpriteSheet>,
-    pub(crate) maps: Vec<Map>,
+    pub(crate) sprite_sheets: Cursor<SpriteSheet>,
+    pub(crate) maps: Cursor<Map>,
     // TODO: Let's try to get rid of CART
     // pub(crate) cart: Option<Handle<Cart>>,
     pub(crate) layout: Handle<TextureAtlasLayout>,
     pub(crate) font: Handle<Font>,
     pub(crate) draw_state: DrawState,
-    pub(crate) audio_banks: Vec<AudioBank>,
+    pub(crate) audio_banks: Cursor<AudioBank>,
+}
+
+pub enum Spr {
+    /// Sprite at current spritesheet.
+    Index { sprite: usize },
+    /// Sprite from given spritesheet.
+    From { sprite: usize, sheet: usize },
+    Set { sheet: usize },
+}
+
+impl FromScript for Spr {
+    type This<'w> = Self;
+    fn from_script(
+        value: ScriptValue,
+        _world: WorldAccessGuard<'_>,
+    ) -> Result<Self::This<'_>, InteropError> {
+        match value {
+            ScriptValue::Integer(n) => Ok(if n >= 0 { Spr::Index { sprite: n as usize } } else { Spr::Set { sheet: n.abs() as usize } }),
+            ScriptValue::List(list) => {
+                assert_eq!(list.len(), 2, "Expect two elements for spr.");
+                let mut iter = list.into_iter().map(|v| match v {
+                    ScriptValue::Integer(n) => { Ok(n as usize) }
+                    x => Err(InteropError::external_error(Box::new(Error::InvalidArgument(format!("{x:?}").into()))))
+                    });
+                let sprite = iter.next().expect("sprite index")?;
+                let sheet = iter.next().expect("sheet index")?;
+                Ok(Spr::From { sprite, sheet })
+            }
+            _ => Err(InteropError::impossible_conversion(TypeId::of::<Spr>())),
+        }
+    }
+}
+
+impl From<i64> for Spr {
+    fn from(index: i64) -> Self {
+        if index >= 0 {
+            Spr::Index { sprite: index as usize }
+        } else {
+            Spr::Set { sheet: index.abs() as usize }
+        }
+    }
+}
+
+impl From<usize> for Spr {
+    fn from(sprite: usize) -> Self {
+        Spr::Index { sprite }
+    }
+}
+
+impl From<(usize, usize)> for Spr {
+    fn from((sprite, sheet): (usize, usize)) -> Self {
+        Spr::From { sprite, sheet }
+    }
 }
 
 
@@ -128,7 +184,7 @@ impl From<Error> for LuaError {
 pub struct Pico8<'w, 's> {
     images: ResMut<'w, Assets<Image>>,
     carts: ResMut<'w, Assets<Cart>>,
-    state: ResMut<'w, Pico8State>,
+    pub state: ResMut<'w, Pico8State>,
     commands: Commands<'w, 's>,
     background: Res<'w, Nano9Screen>,
     keys: Res<'w, ButtonInput<KeyCode>>,
@@ -186,18 +242,20 @@ impl Pico8<'_, '_> {
         let x = pos.x;
         let y = pos.y;
         let flip = flip.unwrap_or_default();
+        let sheet_index = 0;
+        let sprites: &SpriteSheet = &self.state.sprite_sheets;
         let sprite = {
             let atlas = TextureAtlas {
                 layout: self.state.layout.clone(),
                 index,
             };
             Sprite {
-                image: self.state.sprites.handle.clone(),
+                image: sprites.handle.clone(),
                 anchor: Anchor::TopLeft,
                 texture_atlas: Some(atlas),
                 rect: size.map(|v| Rect {
                     min: Vec2::ZERO,
-                    max: self.state.sprites.size.as_vec2() * v,
+                    max: sprites.size.as_vec2() * v,
                 }),
                 flip_x: flip.x,
                 flip_y: flip.y,
@@ -338,6 +396,7 @@ impl Pico8<'_, '_> {
         screen_start: Vec2,
         size: UVec2,
         mask: Option<u8>,
+        map_index: Option<u8>,
     ) -> Result<Entity, Error> {
         let map_size = TilemapSize::from(size);
         // Create a tilemap entity a little early.
@@ -357,19 +416,19 @@ impl Pico8<'_, '_> {
         let clearable = Clearable::default();
         let mut tile_storage = TileStorage::empty(map_size);
         let tilemap_entity = self.commands.spawn(Name::new("map")).id();
-        let map_index = 0;
+        let map_index = 0;//map_index.unwrap_or(0) as usize;
         self.commands
             .entity(tilemap_entity)
             .with_children(|builder| {
                 for x in 0..map_size.x {
                     for y in 0..map_size.y {
-                        let texture_index = self.state.maps.get(map_index)
+                        let texture_index = self.state.maps.inner.get(map_index)
                             .and_then(|map| {
                                 map
                                     .get((map_pos.x + x + (map_pos.y + y) * MAP_COLUMNS) as usize)
                                     .and_then(|index| {
                                         if let Some(mask) = mask {
-                                            self.state.sprite_sheets.get(map.sheet_index as usize)
+                                            self.state.sprite_sheets.inner.get(map.sheet_index as usize)
                                                 .and_then(|sprite_sheet| (sprite_sheet.flags[*index as usize] & mask == mask).then_some(index))
                                             // (cart.flags[*index as usize] & mask == mask)
                                             //     .then_some(index)
@@ -402,7 +461,8 @@ impl Pico8<'_, '_> {
                 }
             });
 
-        let tile_size: TilemapTileSize = self.state.sprites.size.as_vec2().into();
+        let sprites = &self.state.sprite_sheets;
+        let tile_size: TilemapTileSize = sprites.size.as_vec2().into();
         let grid_size = tile_size.into();
         let map_type = TilemapType::default();
         let mut transform =
@@ -415,7 +475,7 @@ impl Pico8<'_, '_> {
                 map_type,
                 size: map_size,
                 storage: tile_storage,
-                texture: TilemapTexture::Single(self.state.sprites.handle.clone()),
+                texture: TilemapTexture::Single(sprites.handle.clone()),
                 tile_size,
                 // transform: Transform::from_xyz(screen_start.x, -screen_start.y, 0.0),//get_tilemap_center_transform(&map_size, &grid_size, &map_type, 0.0),
                 transform,
@@ -564,7 +624,7 @@ impl Pico8<'_, '_> {
                 //     .as_ref()
                 //     .and_then(|cart| self.carts.get(cart))
                 //     .expect("cart");
-                let sfx = self.state.audio_banks[bank as usize]
+                let sfx = self.state.audio_banks.inner[bank as usize]
                     .get(n as usize)
                     .ok_or(Error::NoAsset(format!("sfx {n}").into()))?
                     .clone();
@@ -582,8 +642,7 @@ impl Pico8<'_, '_> {
     }
 
     fn fget(&self, index: u8, flag_index: Option<u8>) -> u8 {
-        let sheet_index = 0;
-        let flags = &self.state.sprite_sheets[sheet_index].flags;
+        let flags = &self.state.sprite_sheets.flags;
         // let cart = self
         //     .state
         //     .cart
@@ -615,8 +674,7 @@ impl Pico8<'_, '_> {
     }
 
     fn fset(&mut self, index: u8, flag_index: Option<u8>, value: u8) {
-        let sheet_index = 0;
-        let mut flags = &mut self.state.sprite_sheets[sheet_index].flags;
+        let mut flags = &mut self.state.sprite_sheets.flags;
         // let cart = self
         //     .state
         //     .cart
@@ -641,8 +699,7 @@ impl Pico8<'_, '_> {
     }
 
     fn mget(&self, pos: UVec2) -> u8 {
-        let map_index = 0;
-        let map = &self.state.maps[map_index];
+        let map = &self.state.maps;
         // let cart = self
         //     .state
         //     .cart
@@ -653,8 +710,7 @@ impl Pico8<'_, '_> {
     }
 
     fn mset(&mut self, pos: UVec2, sprite_index: u8) {
-        let map_index = 0;
-        let mut map = &mut self.state.maps[map_index];
+        let mut map = &mut self.state.maps;
         // let cart = self
         //     .state
         //     .cart
@@ -1197,19 +1253,14 @@ impl FromWorld for Pico8State {
 
         Pico8State {
             palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
-            sprites: SpriteSheet {
-                handle: asset_server.load_with_settings(PICO8_SPRITES, pixel_art_settings),
-                size: PICO8_SPRITE_SIZE,
-                flags: Vec::new(),
-            },
             border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
             layout,
             code: Handle::<ScriptAsset>::default(),
             font: asset_server.load(PICO8_FONT),
             draw_state: DrawState::default(),
-            audio_banks: Vec::new(),
-            sprite_sheets: Vec::new(),
-            maps: Vec::new(),
+            audio_banks: Vec::new().into(),
+            sprite_sheets: Vec::new().into(),
+            maps: Vec::new().into(),
         }
     }
 }
@@ -1406,13 +1457,15 @@ fn attach_api(app: &mut App) {
              sy: Option<f32>,
              celw: Option<u32>,
              celh: Option<u32>,
-             layer: Option<u8>| {
+             layer: Option<u8>,
+             map_index: Option<u8>| {
                 let id = with_pico8(&ctx, move |pico8| {
                     pico8.map(
                         UVec2::new(celx.unwrap_or(0), cely.unwrap_or(0)),
                         Vec2::new(sx.unwrap_or(0.0), sy.unwrap_or(0.0)),
                         UVec2::new(celw.unwrap_or(16), celh.unwrap_or(16)),
                         layer,
+                        map_index,
                     )
                 })?;
 

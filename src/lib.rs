@@ -38,6 +38,7 @@ pub use plugin::*;
 // pub use text::*;
 pub use var::*;
 pub mod config;
+pub mod cursor;
 
 #[derive(Component, Default)]
 pub enum OneFrame {
