@@ -1,4 +1,14 @@
-use bevy::prelude::*;
+use bevy::{
+    asset::{io::Reader, AssetLoader, LoadContext, AssetPath},
+    image::{ImageLoaderSettings, ImageSampler},
+    reflect::TypePath,
+    render::{
+        render_asset::RenderAssetUsages,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+    },
+    prelude::*,
+
+};
 use serde::Deserialize;
 use std::{ops::Deref, path::PathBuf};
 use crate::pico8;
@@ -28,7 +38,68 @@ pub struct N9Config {
 
 impl Command for N9Config {
     fn apply(self, world: &mut World) {
+        let layouts = {
+            let mut layout_assets = world.resource_mut::<Assets<TextureAtlasLayout>>();
+            self.sprite_sheets.iter().map(|sheet|
+                                      if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
+                                      Some(layout_assets.add(TextureAtlasLayout::from_grid(
+                                          size,
+                                          counts.x,
+                                          counts.y,
+                                          None,
+                                          None)))
+                                      } else {
+                                          None
+                                      }).collect();
+        };
+
+
+
+
+        let asset_server = world.resource::<AssetServer>();
         // insert the right Pico8State, right?
+            // It's available to load.
+            let pixel_art_settings = |settings: &mut ImageLoaderSettings| {
+                // Use `nearest` image sampling to preserve the pixel art style.
+                settings.sampler = ImageSampler::nearest();
+            };
+            let state = pico8::Pico8State {
+                palette: asset_server.load_with_settings(self.palette.as_deref().unwrap_or(pico8::PICO8_PALETTE), pixel_art_settings),
+                border: asset_server.load_with_settings(pico8::PICO8_BORDER, pixel_art_settings),
+                maps: vec![].into(),//vec![pico8::Map { entries: cart.map.clone(), sheet_index: 0 }].into(),
+                audio_banks: self.audio_banks.into_iter().map(|bank| pico8::AudioBank(match bank {
+                    AudioBank::P8 { p8, count } => {
+                            (0..count).map(|i| pico8::Audio::Sfx(asset_server.load(AssetPath::from_path(&p8).with_label(format!("sfx{i}"))))).collect()
+                    }
+                    AudioBank::Paths { paths } => {
+                        paths.into_iter().map(|p| pico8::Audio::AudioSource(asset_server.load(p))).collect::<Vec<pico8::Audio>>()
+                    }
+                })).collect::<Vec<_>>().into(),
+
+                        // vec![AudioBank(cart.sfx.clone().into_iter().map(Audio::Sfx).collect())].into(),
+                sprite_sheets: self.sprite_sheets.into_iter().zip(layouts.into_iter()).map(|(sheet, layout)| pico8::SpriteSheet {
+                        handle: asset_server.load(sheet.path),
+                        size: sheet.size,
+                        flags: vec![],
+                        layout: layout.unwrap_or(Handle::default()),
+                    }).collect().into(),
+                //vec![SpriteSheet { handle: cart.sprites.clone(), size: UVec2::splat(8), flags: cart.flags.clone() }].into(),
+                // cart: Some(load_cart.0.clone()),
+                // layout: layouts.add(TextureAtlasLayout::from_grid(
+                //     PICO8_SPRITE_SIZE,
+                //     PICO8_TILE_COUNT.x,
+                //     PICO8_TILE_COUNT.y,
+                //     None,
+                //     None,
+                // )),
+                // code: cart.lua.clone(),
+                draw_state: crate::DrawState::default(),
+                font: self.fonts.into_iter().map(|font| pico8::N9Font {
+                    handle: asset_server.load(font.path),
+                    height: None,
+                }).collect().into(),
+            };
+            world.insert_resource(state);
 
 
     }
@@ -133,11 +204,12 @@ impl N9Config {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(untagged)]
 pub enum AudioBank {
-    #[serde(rename = "p8")]
-    P8(PathBuf),
-    #[serde(rename = "paths")]
-    Paths(Vec<PathBuf>)
+    // #[serde(rename = "p8")]
+    P8 { p8: PathBuf, count: usize },
+    // #[serde(rename = "paths")]
+    Paths { paths: Vec<PathBuf> }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -149,7 +221,7 @@ pub struct Screen {
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct SpriteSheet {
     pub path: String,
-    pub sprite_size: UVec2,
+    pub sprite_size: Option<UVec2>,
     pub sprite_counts: Option<UVec2>,
 }
 

@@ -94,7 +94,6 @@ pub struct Pico8State {
     pub(crate) maps: Cursor<Map>,
     // TODO: Let's try to get rid of CART
     // pub(crate) cart: Option<Handle<Cart>>,
-    pub(crate) layout: Handle<TextureAtlasLayout>,
     pub(crate) font: Cursor<N9Font>,
     pub(crate) draw_state: DrawState,
     pub(crate) audio_banks: Cursor<AudioBank>,
@@ -158,8 +157,10 @@ impl From<(usize, usize)> for Spr {
 #[derive(Debug, Clone)]
 pub struct SpriteSheet {
     pub handle: Handle<Image>,
+    pub layout: Handle<TextureAtlasLayout>,
     pub size: UVec2,
     pub flags: Vec<u8>,
+
 }
 
 #[derive(Event, Debug)]
@@ -257,7 +258,7 @@ impl Pico8<'_, '_> {
         };
         let sprite = {
             let atlas = TextureAtlas {
-                layout: self.state.layout.clone(),
+                layout: sprites.layout.clone(),
                 index,
             };
             Sprite {
@@ -1265,7 +1266,6 @@ impl FromWorld for Pico8State {
         Pico8State {
             palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
             border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
-            layout,
             code: Handle::<ScriptAsset>::default(),
             font: vec![N9Font {
                 handle: asset_server.load(PICO8_FONT),

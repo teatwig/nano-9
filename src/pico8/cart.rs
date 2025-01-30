@@ -122,21 +122,42 @@ fn load_cart(
                 border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
                 maps: vec![Map { entries: cart.map.clone(), sheet_index: 0 }].into(),
                 audio_banks: vec![AudioBank(cart.sfx.clone().into_iter().map(Audio::Sfx).collect())].into(),
-                sprite_sheets: vec![SpriteSheet { handle: cart.sprites.clone(), size: UVec2::splat(8), flags: cart.flags.clone() }].into(),
-                // cart: Some(load_cart.0.clone()),
-                layout: layouts.add(TextureAtlasLayout::from_grid(
+                sprite_sheets: vec![SpriteSheet { handle: cart.sprites.clone(),
+                                                  size: UVec2::splat(8),
+                                                  flags: cart.flags.clone(),
+                                                  layout: layouts.add(TextureAtlasLayout::from_grid(
                     PICO8_SPRITE_SIZE,
                     PICO8_TILE_COUNT.x,
                     PICO8_TILE_COUNT.y,
                     None,
                     None,
                 )),
+                }].into(),
                 code: cart.lua.clone(),
                 draw_state: DrawState::default(),
-                font: vec![N9Font {
-                    handle: asset_server.load(PICO8_FONT),
-                    height: Some(7.0),
-                }].into(),
+                font: self.fonts.into_iter().map(|font|
+                                                 N9Font {
+                                                     handle: match font {
+                                                         Font::Default { default: yes } if yes => {
+                                                             N9Font {
+                                                                 handle: Font::default(),
+                                                                 height: None,
+                                                             }
+                                                         },
+                                                         Font::Path { path, height } => {
+
+                                                             N9Font {
+                                                                 handle: asset_server.load(path),
+                                                                 height: None,
+                                                             }
+                                                         }
+
+                                                     }
+                                                 }).into(),
+                // vec![N9Font {
+                //     handle: asset_server.load(PICO8_FONT),
+                //     height: Some(7.0),
+                // }]
             };
             commands.insert_resource(state);
             // commands.entity(id).insert(ScriptComponent(
