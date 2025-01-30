@@ -1,5 +1,5 @@
 use bevy::{
-    asset::{io::Reader, AssetLoader, LoadContext, AssetPath},
+    asset::{io::Reader, AssetLoader, LoadContext, AssetPath, io::AssetSourceId},
     image::{ImageLoaderSettings, ImageSampler},
     reflect::TypePath,
     render::{
@@ -9,6 +9,7 @@ use bevy::{
     prelude::*,
 
 };
+use bevy_mod_scripting::core::script::ScriptComponent;
 use serde::Deserialize;
 use std::{ops::Deref, path::PathBuf};
 use crate::pico8;
@@ -38,7 +39,7 @@ pub struct N9Config {
 
 impl Command for N9Config {
     fn apply(self, world: &mut World) {
-        let layouts = {
+        let layouts: Vec<Option<Handle<TextureAtlasLayout>>> = {
             let mut layout_assets = world.resource_mut::<Assets<TextureAtlasLayout>>();
             self.sprite_sheets.iter().map(|sheet|
                                       if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
@@ -50,12 +51,11 @@ impl Command for N9Config {
                                           None)))
                                       } else {
                                           None
-                                      }).collect();
+                                      }).collect()
         };
-
-
-
-
+        let source = AssetSourceId::Name("nano9".into());
+        let code_path = self.code.unwrap_or_else(|| "main.lua".into());
+        let code_path = AssetPath::from_path(&code_path).with_source(&source);
         let asset_server = world.resource::<AssetServer>();
         // insert the right Pico8State, right?
             // It's available to load.
@@ -64,12 +64,22 @@ impl Command for N9Config {
                 settings.sampler = ImageSampler::nearest();
             };
             let state = pico8::Pico8State {
+                code: asset_server.load(&code_path),
                 palette: asset_server.load_with_settings(self.palette.as_deref().unwrap_or(pico8::PICO8_PALETTE), pixel_art_settings),
                 border: asset_server.load_with_settings(pico8::PICO8_BORDER, pixel_art_settings),
                 maps: vec![].into(),//vec![pico8::Map { entries: cart.map.clone(), sheet_index: 0 }].into(),
                 audio_banks: self.audio_banks.into_iter().map(|bank| pico8::AudioBank(match bank {
                     AudioBank::P8 { p8, count } => {
-                            (0..count).map(|i| pico8::Audio::Sfx(asset_server.load(AssetPath::from_path(&p8).with_label(format!("sfx{i}"))))).collect()
+                            (0..count).map(|i| {
+                                pico8::Audio::Sfx(asset_server.load(&AssetPath::from_path(&p8).with_label(
+                                    atomicow::CowArc::Owned(std::sync::Arc::from(format!("sfx{i}").into_boxed_str()))
+                                    // atomicow::CowArc::Static("sfx0")
+                                )))
+                            }).collect::<Vec<_>>()
+                            // (0..count).map(|i| {
+                            //     pico8::Audio::Sfx(asset_server.load(&AssetPath::from_path(&p8)
+                            //                                         .with_label(format!("sfx{i}"))))))
+                            // }).collect::<Vec<_>>()
                     }
                     AudioBank::Paths { paths } => {
                         paths.into_iter().map(|p| pico8::Audio::AudioSource(asset_server.load(p))).collect::<Vec<pico8::Audio>>()
@@ -79,10 +89,10 @@ impl Command for N9Config {
                         // vec![AudioBank(cart.sfx.clone().into_iter().map(Audio::Sfx).collect())].into(),
                 sprite_sheets: self.sprite_sheets.into_iter().zip(layouts.into_iter()).map(|(sheet, layout)| pico8::SpriteSheet {
                         handle: asset_server.load(sheet.path),
-                        size: sheet.size,
+                        sprite_size: sheet.sprite_size.unwrap_or(UVec2::splat(8)),
                         flags: vec![],
                         layout: layout.unwrap_or(Handle::default()),
-                    }).collect().into(),
+                    }).collect::<Vec<_>>().into(),
                 //vec![SpriteSheet { handle: cart.sprites.clone(), size: UVec2::splat(8), flags: cart.flags.clone() }].into(),
                 // cart: Some(load_cart.0.clone()),
                 // layout: layouts.add(TextureAtlasLayout::from_grid(
@@ -94,14 +104,26 @@ impl Command for N9Config {
                 // )),
                 // code: cart.lua.clone(),
                 draw_state: crate::DrawState::default(),
-                font: self.fonts.into_iter().map(|font| pico8::N9Font {
-                    handle: asset_server.load(font.path),
-                    height: None,
-                }).collect().into(),
+                font: self.fonts.into_iter().map(|font|
+                                                     match font {
+                                                         Font::Default { default: yes } if yes => {
+                                                             pico8::N9Font {
+                                                                 handle: TextFont::default().font,
+                                                                 height: None,
+                                                             }
+                                                         },
+                                                         Font::Path { path, height } => {
+
+                                                             pico8::N9Font {
+                                                                 handle: asset_server.load(path),
+                                                                 height: None,
+                                                             }
+                                                         }
+                                                         Font::Default { .. } => { panic!("Must use a path if not default font.") }
+                                                     }).collect::<Vec<_>>().into(),
             };
             world.insert_resource(state);
-
-
+        world.spawn(ScriptComponent(vec![code_path.to_string().into()]));
     }
 }
 
@@ -187,20 +209,20 @@ impl N9Config {
         // }
     }
 
-    pub fn load_config(&self, asset_server: Res<AssetServer>, mut commands: Commands) {
-        let palette: Option<Handle<Image>> = self.palette.as_deref().map(|path| asset_server.load(path));
-        let sprite_sheets: Vec<pico8::SpriteSheet> = self.sprite_sheets.iter().map(|sprite_sheet| pico8::SpriteSheet {
-            handle: asset_server.load(&sprite_sheet.path),
-            size: sprite_sheet.sprite_size,
-            flags: Vec::new(),
-        }).collect();
+    // pub fn load_config(&self, asset_server: Res<AssetServer>, mut commands: Commands) {
+    //     let palette: Option<Handle<Image>> = self.palette.as_deref().map(|path| asset_server.load(path));
+    //     let sprite_sheets: Vec<pico8::SpriteSheet> = self.sprite_sheets.iter().map(|sprite_sheet| pico8::SpriteSheet {
+    //         handle: asset_server.load(&sprite_sheet.path),
+    //         sprite_size: sprite_sheet.sprite_size.unwrap_or(UVec2::splat(8)),
+    //         flags: Vec::new(),
+    //     }).collect();
 
-        // let cart: Handle<Cart> = asset_server.load(&script_path);
-        // commands.send_event(LoadCart(cart));
-        // commands.spawn(ScriptComponent(
-        //     vec![format!("{}#lua", &script_path).into()],
-        // ));
-    }
+    //     // let cart: Handle<Cart> = asset_server.load(&script_path);
+    //     // commands.send_event(LoadCart(cart));
+    //     // commands.spawn(ScriptComponent(
+    //     //     vec![format!("{}#lua", &script_path).into()],
+    //     // ));
+    // }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -257,7 +279,7 @@ sprite_size = [8, 8]
 "#).unwrap();
         assert_eq!(config.sprite_sheets.len(), 1);
         assert_eq!(config.sprite_sheets[0].path, "sprites.png");
-        assert_eq!(config.sprite_sheets[0].sprite_size, UVec2::splat(8));
+        assert_eq!(config.sprite_sheets[0].sprite_size, Some(UVec2::splat(8)));
     }
 
     #[test]
@@ -272,7 +294,7 @@ sprite_size = [8, 8]
         assert_eq!(config.screen.map(|s| s.canvas_size), Some(UVec2::splat(128)));
         assert_eq!(config.sprite_sheets.len(), 1);
         assert_eq!(config.sprite_sheets[0].path, "sprites.png");
-        assert_eq!(config.sprite_sheets[0].sprite_size, UVec2::splat(8));
+        assert_eq!(config.sprite_sheets[0].sprite_size, Some(UVec2::splat(8)));
     }
 
     #[test]
@@ -280,9 +302,10 @@ sprite_size = [8, 8]
         let config: N9Config = toml::from_str(r#"
 [[audio_bank]]
 p8 = "blah.p8"
+count = 1
 "#).unwrap();
         assert_eq!(config.audio_banks.len(), 1);
-        assert_eq!(config.audio_banks[0], AudioBank::P8("blah.p8".into()));
+        assert_eq!(config.audio_banks[0], AudioBank::P8 { p8: "blah.p8".into(), count: 1 });
     }
 
     #[test]
@@ -294,7 +317,7 @@ paths = [
 ]
 "#).unwrap();
         assert_eq!(config.audio_banks.len(), 1);
-        assert_eq!(config.audio_banks[0], AudioBank::Paths(vec!["blah.mp3".into()]));
+        assert_eq!(config.audio_banks[0], AudioBank::Paths { paths: vec!["blah.mp3".into()] });
     }
 
     #[test]

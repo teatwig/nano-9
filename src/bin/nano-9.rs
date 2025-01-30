@@ -38,23 +38,18 @@ fn main() -> io::Result<()> {
         let config: N9Config = toml::from_str::<N9Config>(&content)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?
             .inject_template();
-        if let Some(ref code_path) = config.code {
-            // let code_asset_path = AssetPath::from_path(&code_path).with_source(source);
-            // let code_path: PathBuf = code_asset_path.into();
-            let code_path = code_path.to_owned();
-
-
+        let cmd = config.clone();
         app.add_systems(
             Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands, mut pico8: Pico8| {
-                let asset_path = AssetPath::from_path(&code_path).with_source(&source);
-                pico8.state.code = asset_server.load(&asset_path);
-                dbg!(&asset_path);
+                // let asset_path = AssetPath::from_path(&code_path).with_source(&source);
+                // pico8.state.code = asset_server.load(&asset_path);
+                // dbg!(&asset_path);
                 // commands.spawn(ScriptComponent(vec![script_path.clone().into()]));
-                commands.spawn(ScriptComponent(vec![asset_path.to_string().into()]));
+                // commands.spawn(ScriptComponent(vec![asset_path.to_string().into()]));
+                commands.queue(cmd.clone())
             },
         );
-        }
         nano9_plugin = Nano9Plugin {
             config
         };

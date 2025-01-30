@@ -123,7 +123,7 @@ fn load_cart(
                 maps: vec![Map { entries: cart.map.clone(), sheet_index: 0 }].into(),
                 audio_banks: vec![AudioBank(cart.sfx.clone().into_iter().map(Audio::Sfx).collect())].into(),
                 sprite_sheets: vec![SpriteSheet { handle: cart.sprites.clone(),
-                                                  size: UVec2::splat(8),
+                                                  sprite_size: UVec2::splat(8),
                                                   flags: cart.flags.clone(),
                                                   layout: layouts.add(TextureAtlasLayout::from_grid(
                     PICO8_SPRITE_SIZE,
@@ -135,29 +135,10 @@ fn load_cart(
                 }].into(),
                 code: cart.lua.clone(),
                 draw_state: DrawState::default(),
-                font: self.fonts.into_iter().map(|font|
-                                                 N9Font {
-                                                     handle: match font {
-                                                         Font::Default { default: yes } if yes => {
-                                                             N9Font {
-                                                                 handle: Font::default(),
-                                                                 height: None,
-                                                             }
-                                                         },
-                                                         Font::Path { path, height } => {
-
-                                                             N9Font {
-                                                                 handle: asset_server.load(path),
-                                                                 height: None,
-                                                             }
-                                                         }
-
-                                                     }
-                                                 }).into(),
-                // vec![N9Font {
-                //     handle: asset_server.load(PICO8_FONT),
-                //     height: Some(7.0),
-                // }]
+                font: vec![N9Font {
+                    handle: asset_server.load(PICO8_FONT),
+                    height: Some(7.0),
+                }].into()
             };
             commands.insert_resource(state);
             // commands.entity(id).insert(ScriptComponent(

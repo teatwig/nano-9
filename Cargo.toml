@@ -23,6 +23,7 @@ bresenham = "0.1.1"
 rand = "0.8.5"
 tiny-skia = "0.11.4"
 toml = "0.8.19"
+atomicow = "1.0.0"
 # regex = "1.11.1"
 
 [features]

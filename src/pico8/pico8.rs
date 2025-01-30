@@ -158,7 +158,7 @@ impl From<(usize, usize)> for Spr {
 pub struct SpriteSheet {
     pub handle: Handle<Image>,
     pub layout: Handle<TextureAtlasLayout>,
-    pub size: UVec2,
+    pub sprite_size: UVec2,
     pub flags: Vec<u8>,
 
 }
@@ -267,7 +267,7 @@ impl Pico8<'_, '_> {
                 texture_atlas: Some(atlas),
                 rect: size.map(|v| Rect {
                     min: Vec2::ZERO,
-                    max: sprites.size.as_vec2() * v,
+                    max: sprites.sprite_size.as_vec2() * v,
                 }),
                 flip_x: flip.x,
                 flip_y: flip.y,
@@ -474,7 +474,7 @@ impl Pico8<'_, '_> {
             });
 
         let sprites = &self.state.sprite_sheets;
-        let tile_size: TilemapTileSize = sprites.size.as_vec2().into();
+        let tile_size: TilemapTileSize = sprites.sprite_size.as_vec2().into();
         let grid_size = tile_size.into();
         let map_type = TilemapType::default();
         let mut transform =
