@@ -29,6 +29,12 @@ impl<T> DerefMut for Cursor<T>{
     }
 }
 
+// pub enum CursorOp {
+//     SetPos(usize),
+//     GetCur,
+//     GetPos(usize)
+// }
+
 #[cfg(test)]
 mod test {
     use super::*;

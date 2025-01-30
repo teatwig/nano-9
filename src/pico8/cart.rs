@@ -133,7 +133,10 @@ fn load_cart(
                 )),
                 code: cart.lua.clone(),
                 draw_state: DrawState::default(),
-                font: asset_server.load(PICO8_FONT),
+                font: vec![N9Font {
+                    handle: asset_server.load(PICO8_FONT),
+                    height: Some(7.0),
+                }].into(),
             };
             commands.insert_resource(state);
             // commands.entity(id).insert(ScriptComponent(

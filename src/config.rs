@@ -6,7 +6,7 @@ use crate::pico8;
 pub const DEFAULT_CANVAS_SIZE: UVec2 = UVec2::splat(128);
 pub const DEFAULT_SCREEN_SIZE: UVec2 = UVec2::splat(512);
 
-#[derive(Default, Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Deserialize, PartialEq)]
 pub struct N9Config {
     pub name: Option<String>,
     pub frames_per_second: Option<u8>,
@@ -16,12 +16,22 @@ pub struct N9Config {
     pub license: Option<String>,
     pub screen: Option<Screen>,
     pub palette: Option<String>,
+    #[serde(default, rename = "font")]
+    pub fonts: Vec<Font>,
     #[serde(default, rename = "sprite_sheet")]
     pub sprite_sheets: Vec<SpriteSheet>,
     pub code: Option<PathBuf>,
     #[serde(default, rename = "audio_bank")]
     pub audio_banks: Vec<AudioBank>,
     // TODO: Add font
+}
+
+impl Command for N9Config {
+    fn apply(self, world: &mut World) {
+        // insert the right Pico8State, right?
+
+
+    }
 }
 
 impl N9Config {
@@ -51,6 +61,13 @@ impl N9Config {
         } else {
             self
         }
+    }
+
+    pub fn with_default_font(mut self) -> Self {
+        if self.fonts.is_empty() {
+            self.fonts.push(Font::Default { default: true });
+        }
+        self
     }
 
     pub fn inject_pico8(&mut self) {
@@ -136,6 +153,16 @@ pub struct SpriteSheet {
     pub sprite_counts: Option<UVec2>,
 }
 
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum Font {
+    Default { default: bool },
+    Path { path: String, height: Option<f32> },
+    // pub path: String,
+    // pub height: Option<f32>,
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -196,6 +223,21 @@ paths = [
 "#).unwrap();
         assert_eq!(config.audio_banks.len(), 1);
         assert_eq!(config.audio_banks[0], AudioBank::Paths(vec!["blah.mp3".into()]));
+    }
+
+    #[test]
+    fn test_config_5() {
+        let config: N9Config = toml::from_str(r#"
+[[font]]
+path = "blah.tff"
+[[font]]
+path = "dee.tff"
+height = 3.0
+[[font]]
+default = true
+"#).unwrap();
+        assert_eq!(config.fonts.len(), 3);
+        // assert_eq!(config.fonts[0].path, "blah.tff");
     }
 
 }

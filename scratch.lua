@@ -36,11 +36,12 @@ function _update()
 end
 
 function _draw()
+    -- world.info("what")
     cls(1)
     -- btn()
     pset(x + 10,x, 2)
     -- background.image:set_pixel(x, x, c)
-    spr(1, x, x)
+    -- spr(1, x, x)
     -- jar = pixie:sprite()
     -- jar.one_frame = true
     s = 1 -- ok

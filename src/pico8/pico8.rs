@@ -18,7 +18,7 @@ use bevy_mod_scripting::{
             WorldAccessGuard,
             access_map::ReflectAccessId,
             function::{
-                from::FromScript,
+                from::{Val, Ref, Mut, FromScript},
                 into_ref::IntoScriptRef,
                 namespace::{GlobalNamespace, NamespaceBuilder},
                 script_function::FunctionCallContext,
@@ -68,6 +68,12 @@ pub struct Map {
     pub sheet_index: u8,
 }
 
+#[derive(Clone, Debug)]
+pub struct N9Font {
+    pub handle: Handle<Font>,
+    pub height: Option<f32>,
+}
+
 #[derive(Clone, Debug, Deref, DerefMut)]
 pub struct AudioBank(pub Vec<Audio>);
 
@@ -89,16 +95,18 @@ pub struct Pico8State {
     // TODO: Let's try to get rid of CART
     // pub(crate) cart: Option<Handle<Cart>>,
     pub(crate) layout: Handle<TextureAtlasLayout>,
-    pub(crate) font: Handle<Font>,
+    pub(crate) font: Cursor<N9Font>,
     pub(crate) draw_state: DrawState,
     pub(crate) audio_banks: Cursor<AudioBank>,
 }
 
+#[derive(Reflect, Clone, Debug, Copy)]
 pub enum Spr {
     /// Sprite at current spritesheet.
-    Index { sprite: usize },
+    Cur { sprite: usize },
     /// Sprite from given spritesheet.
     From { sprite: usize, sheet: usize },
+    /// Set spritesheet.
     Set { sheet: usize },
 }
 
@@ -109,7 +117,7 @@ impl FromScript for Spr {
         _world: WorldAccessGuard<'_>,
     ) -> Result<Self::This<'_>, InteropError> {
         match value {
-            ScriptValue::Integer(n) => Ok(if n >= 0 { Spr::Index { sprite: n as usize } } else { Spr::Set { sheet: n.abs() as usize } }),
+            ScriptValue::Integer(n) => Ok(if n >= 0 { Spr::Cur { sprite: n as usize } } else { Spr::Set { sheet: n.abs() as usize } }),
             ScriptValue::List(list) => {
                 assert_eq!(list.len(), 2, "Expect two elements for spr.");
                 let mut iter = list.into_iter().map(|v| match v {
@@ -128,16 +136,16 @@ impl FromScript for Spr {
 impl From<i64> for Spr {
     fn from(index: i64) -> Self {
         if index >= 0 {
-            Spr::Index { sprite: index as usize }
+            Spr::Cur { sprite: index as usize }
         } else {
-            Spr::Set { sheet: index.abs() as usize }
+            Spr::Set { sheet: index.abs().saturating_sub(1) as usize }
         }
     }
 }
 
 impl From<usize> for Spr {
     fn from(sprite: usize) -> Self {
-        Spr::Index { sprite }
+        Spr::Cur { sprite }
     }
 }
 
@@ -146,7 +154,6 @@ impl From<(usize, usize)> for Spr {
         Spr::From { sprite, sheet }
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct SpriteSheet {
@@ -230,11 +237,9 @@ impl Pico8<'_, '_> {
     }
 
     // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
-    // XXX: Reconsider using args struct.
-    // fn spr(&mut self, index: usize, pos: Option<Vec2>, size: Option<Vec2>, flip: Option<BVec2>) -> Result<Entity, Error> {
     fn spr(
         &mut self,
-        index: usize,
+        spr: impl Into<Spr>,
         pos: IVec2,
         size: Option<Vec2>,
         flip: Option<BVec2>,
@@ -242,8 +247,14 @@ impl Pico8<'_, '_> {
         let x = pos.x;
         let y = pos.y;
         let flip = flip.unwrap_or_default();
-        let sheet_index = 0;
-        let sprites: &SpriteSheet = &self.state.sprite_sheets;
+        let (sprites, index): (&SpriteSheet, usize) = match spr.into() {
+            Spr::Cur { sprite } => (&self.state.sprite_sheets, sprite),
+            Spr::From { sheet, sprite } => (&self.state.sprite_sheets.inner[sheet], sprite),
+            Spr::Set { sheet } => {
+                self.state.sprite_sheets.pos = sheet;
+                return Ok(Entity::PLACEHOLDER);
+            }
+        };
         let sprite = {
             let atlas = TextureAtlas {
                 layout: self.state.layout.clone(),
@@ -266,7 +277,7 @@ impl Pico8<'_, '_> {
         Ok(self
             .commands
             .spawn((
-                Name::new("sprite"),
+                Name::new("spr"),
                 sprite,
                 Transform::from_xyz(x as f32, -y as f32, clearable.suggest_z()),
                 clearable,
@@ -564,7 +575,7 @@ impl Pico8<'_, '_> {
                         Transform::from_xyz(0.0, -(y as f32), z),
                         TextColor(c),
                         TextFont {
-                            font: self.state.font.clone(),
+                            font: self.state.font.handle.clone(),
                             font_smoothing: bevy::text::FontSmoothing::None,
                             font_size: 6.0,
                         },
@@ -1256,7 +1267,10 @@ impl FromWorld for Pico8State {
             border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
             layout,
             code: Handle::<ScriptAsset>::default(),
-            font: asset_server.load(PICO8_FONT),
+            font: vec![N9Font {
+                handle: asset_server.load(PICO8_FONT),
+                height: Some(7.0),
+            }].into(),
             draw_state: DrawState::default(),
             audio_banks: Vec::new().into(),
             sprite_sheets: Vec::new().into(),
@@ -1424,7 +1438,7 @@ fn attach_api(app: &mut App) {
         .register(
             "spr",
             |ctx: FunctionCallContext,
-             n: usize,
+             n: Val<Spr>,
              x: Option<f32>,
              y: Option<f32>,
              w: Option<f32>,
@@ -1443,6 +1457,7 @@ fn attach_api(app: &mut App) {
                     .then(|| Vec2::new(w.unwrap_or(1.0), h.unwrap_or(1.0)));
 
                 // We get back an entity. Not doing anything with it here yet.
+                let n = *n;
                 let _id = with_pico8(&ctx, move |pico8| pico8.spr(n, pos, size, flip))?;
                 Ok(())
             },
