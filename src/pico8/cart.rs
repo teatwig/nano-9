@@ -118,7 +118,8 @@ fn load_cart(
                 settings.sampler = ImageSampler::nearest();
             };
             let state = Pico8State {
-                palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
+                palette: Palette { handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
+                                   row: 0 },
                 border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
                 maps: vec![Map { entries: cart.map.clone(), sheet_index: 0 }].into(),
                 audio_banks: vec![AudioBank(cart.sfx.clone().into_iter().map(Audio::Sfx).collect())].into(),

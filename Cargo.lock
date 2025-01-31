@@ -935,7 +935,7 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting"
-version = "0.9.0-alpha.7"
+version = "0.9.0-alpha.8"
 dependencies = [
  "bevy",
  "bevy_mod_scripting_core",
@@ -945,10 +945,11 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting_core"
-version = "0.9.0-alpha.7"
+version = "0.9.0-alpha.8"
 dependencies = [
  "bevy",
  "dashmap",
+ "derivative",
  "itertools",
  "mlua",
  "parking_lot",
@@ -958,7 +959,7 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting_functions"
-version = "0.9.0-alpha.7"
+version = "0.9.0-alpha.8"
 dependencies = [
  "bevy",
  "bevy_mod_scripting_core",
@@ -968,7 +969,7 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting_lua"
-version = "0.9.0-alpha.7"
+version = "0.9.0-alpha.8"
 dependencies = [
  "bevy",
  "bevy_mod_scripting_core",
@@ -2041,6 +2042,17 @@ name = "data-encoding"
 version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e60eed09d8c01d3cee5b7d30acb059b76614c918fa0f992e0dd6eeb10daad6f"
+
+[[package]]
+name = "derivative"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
 
 [[package]]
 name = "derive-getters"

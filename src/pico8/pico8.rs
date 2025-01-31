@@ -83,12 +83,17 @@ pub enum Audio {
     AudioSource(Handle<AudioSource>),
 }
 
+#[derive(Debug, Clone)]
+pub struct Palette {
+    pub handle: Handle<Image>,
+    pub row: u32,
+}
 
 /// Pico8State's state.
 #[derive(Resource, Clone)]
 pub struct Pico8State {
     pub code: Handle<ScriptAsset>,
-    pub(crate) palette: Handle<Image>,
+    pub(crate) palette: Palette,
     pub(crate) border: Handle<Image>,
     pub(crate) sprite_sheets: Cursor<SpriteSheet>,
     pub(crate) maps: Cursor<Map>,
@@ -292,11 +297,11 @@ impl Pico8<'_, '_> {
             N9Color::Palette(n) => {
                 let pal = self
                     .images
-                    .get(&self.state.palette)
+                    .get(&self.state.palette.handle)
                     .ok_or(Error::NoAsset("palette".into()))?;
 
                 // Strangely. It's not a 1d texture.
-                Ok(pal.get_color_at(n as u32, 0)?)
+                Ok(pal.get_color_at(n as u32, self.state.palette.row)?)
                 //         Ok(c) => Some(c),
                 //         Err(e) => {
                 //             warn!("Could not look up color in palette at {n}: {e}");
@@ -1264,7 +1269,8 @@ impl FromWorld for Pico8State {
         };
 
         Pico8State {
-            palette: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
+            palette: Palette { handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
+                               row: 0 },
             border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
             code: Handle::<ScriptAsset>::default(),
             font: vec![N9Font {
@@ -1286,10 +1292,10 @@ impl Pico8State {
             N9Color::Palette(n) => {
                 let images = world.resource::<Assets<Image>>();
                 images
-                    .get(&self.palette)
+                    .get(&self.palette.handle)
                     .and_then(|pal| {
                         // Strangely. It's not a 1d texture.
-                        match pal.get_color_at(n as u32, 0) {
+                        match pal.get_color_at(n as u32, self.palette.row) {
                             Ok(c) => Some(c),
                             Err(e) => {
                                 warn!("Could not look up color in palette at {n}: {e}");

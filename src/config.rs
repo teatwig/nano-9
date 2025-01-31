@@ -26,7 +26,7 @@ pub struct N9Config {
     pub author: Option<String>,
     pub license: Option<String>,
     pub screen: Option<Screen>,
-    pub palette: Option<String>,
+    pub palette: Option<Palette>,
     #[serde(default, rename = "font")]
     pub fonts: Vec<Font>,
     #[serde(default, rename = "sprite_sheet")]
@@ -35,6 +35,12 @@ pub struct N9Config {
     #[serde(default, rename = "audio_bank")]
     pub audio_banks: Vec<AudioBank>,
     // TODO: Add font
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+struct Palette {
+    path: String,
+    row: Option<u32>,
 }
 
 impl Command for N9Config {
@@ -65,24 +71,20 @@ impl Command for N9Config {
             };
             let state = pico8::Pico8State {
                 code: asset_server.load(&code_path),
-                palette: asset_server.load_with_settings(self.palette.as_deref().unwrap_or(pico8::PICO8_PALETTE), pixel_art_settings),
+                palette: pico8::Palette {
+                    handle: asset_server.load_with_settings(self.palette.as_ref().map(|p| p.path.as_str()).as_deref().unwrap_or(pico8::PICO8_PALETTE), pixel_art_settings),
+                    row: self.palette.and_then(|p| p.row).unwrap_or(0),
+                },
                 border: asset_server.load_with_settings(pico8::PICO8_BORDER, pixel_art_settings),
                 maps: vec![].into(),//vec![pico8::Map { entries: cart.map.clone(), sheet_index: 0 }].into(),
                 audio_banks: self.audio_banks.into_iter().map(|bank| pico8::AudioBank(match bank {
                     AudioBank::P8 { p8, count } => {
-                            (0..count).map(|i| {
-                                pico8::Audio::Sfx(asset_server.load(&AssetPath::from_path(&p8).with_label(
-                                    atomicow::CowArc::Owned(std::sync::Arc::from(format!("sfx{i}").into_boxed_str()))
-                                    // atomicow::CowArc::Static("sfx0")
-                                )))
-                            }).collect::<Vec<_>>()
-                            // (0..count).map(|i| {
-                            //     pico8::Audio::Sfx(asset_server.load(&AssetPath::from_path(&p8)
-                            //                                         .with_label(format!("sfx{i}"))))))
-                            // }).collect::<Vec<_>>()
+                            (0..count).map(|i|
+                                           pico8::Audio::Sfx(asset_server.load(&AssetPath::from_path(&p8).with_label(&format!("sfx{i}"))))
+                            ).collect::<Vec<_>>()
                     }
                     AudioBank::Paths { paths } => {
-                        paths.into_iter().map(|p| pico8::Audio::AudioSource(asset_server.load(p))).collect::<Vec<pico8::Audio>>()
+                        paths.into_iter().map(|p| pico8::Audio::AudioSource(asset_server.load(p))).collect::<Vec<_>>()
                     }
                 })).collect::<Vec<_>>().into(),
 
@@ -123,7 +125,7 @@ impl Command for N9Config {
                                                      }).collect::<Vec<_>>().into(),
             };
             world.insert_resource(state);
-        world.spawn(ScriptComponent(vec![code_path.to_string().into()]));
+        world.spawn(ScriptComponent(vec![code_path.path().to_str().unwrap().to_string().into()]));
     }
 }
 
@@ -174,7 +176,7 @@ impl N9Config {
             });
         }
         if self.palette.is_none() {
-            self.palette = Some(pico8::PICO8_PALETTE.into());
+            self.palette = Some(Palette { path: pico8::PICO8_PALETTE.into(), row: None });
         }
     }
 
@@ -189,8 +191,11 @@ impl N9Config {
             });
         }
         if self.palette.is_none() {
-            //['#9bbc0f', '#77a112', '#306230', '#0f380f'],
-            self.palette = Some("images/gameboy-palettes.png".into());
+            self.palette = Some(Palette { path: "images/gameboy-palettes.png".into(), row: Some(17) });
+        }
+
+        if self.fonts.is_empty() {
+            self.fonts.push(Font::Path { path: "fonts/gameboy.ttf".into(), height: None });
         }
     }
 
