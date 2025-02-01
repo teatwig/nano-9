@@ -17,7 +17,7 @@ use crate::pico8;
 pub const DEFAULT_CANVAS_SIZE: UVec2 = UVec2::splat(128);
 pub const DEFAULT_SCREEN_SIZE: UVec2 = UVec2::splat(512);
 
-#[derive(Default, Debug, Clone, Deserialize, PartialEq)]
+#[derive(Default, Debug, Clone, Deserialize, Resource)]
 pub struct N9Config {
     pub name: Option<String>,
     pub frames_per_second: Option<u8>,
@@ -34,7 +34,38 @@ pub struct N9Config {
     pub code: Option<PathBuf>,
     #[serde(default, rename = "audio_bank")]
     pub audio_banks: Vec<AudioBank>,
-    // TODO: Add font
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum AudioBank {
+    // #[serde(rename = "p8")]
+    P8 { p8: PathBuf, count: usize },
+    // #[serde(rename = "paths")]
+    Paths { paths: Vec<PathBuf> }
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct Screen {
+    pub canvas_size: UVec2,
+    pub screen_size: Option<UVec2>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct SpriteSheet {
+    pub path: String,
+    pub sprite_size: Option<UVec2>,
+    pub sprite_counts: Option<UVec2>,
+}
+
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum Font {
+    Default { default: bool },
+    Path { path: String, height: Option<f32> },
+    // pub path: String,
+    // pub height: Option<f32>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -59,6 +90,7 @@ impl Command for N9Config {
                                           None
                                       }).collect()
         };
+        let config = self.clone();
         let source = AssetSourceId::Name("nano9".into());
         let code_path = self.code.unwrap_or_else(|| "main.lua".into());
         let code_path = AssetPath::from_path(&code_path).with_source(&source);
@@ -125,6 +157,7 @@ impl Command for N9Config {
                                                      }).collect::<Vec<_>>().into(),
             };
             world.insert_resource(state);
+        world.insert_resource(config);
         world.spawn(ScriptComponent(vec![code_path.path().to_str().unwrap().to_string().into()]));
     }
 }
@@ -228,38 +261,6 @@ impl N9Config {
     //     //     vec![format!("{}#lua", &script_path).into()],
     //     // ));
     // }
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-#[serde(untagged)]
-pub enum AudioBank {
-    // #[serde(rename = "p8")]
-    P8 { p8: PathBuf, count: usize },
-    // #[serde(rename = "paths")]
-    Paths { paths: Vec<PathBuf> }
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub struct Screen {
-    pub canvas_size: UVec2,
-    pub screen_size: Option<UVec2>,
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub struct SpriteSheet {
-    pub path: String,
-    pub sprite_size: Option<UVec2>,
-    pub sprite_counts: Option<UVec2>,
-}
-
-
-#[derive(Debug, Clone, Deserialize, PartialEq)]
-#[serde(untagged)]
-pub enum Font {
-    Default { default: bool },
-    Path { path: String, height: Option<f32> },
-    // pub path: String,
-    // pub height: Option<f32>,
 }
 
 #[cfg(test)]

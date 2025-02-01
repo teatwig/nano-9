@@ -40,7 +40,7 @@ fn main() -> io::Result<()> {
             .inject_template();
         let cmd = config.clone();
         app.add_systems(
-            Startup,
+            PostStartup,
             move |asset_server: Res<AssetServer>, mut commands: Commands, mut pico8: Pico8| {
                 // let asset_path = AssetPath::from_path(&code_path).with_source(&source);
                 // pico8.state.code = asset_server.load(&asset_path);

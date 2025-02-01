@@ -30,9 +30,6 @@ use crate::{error::ErrorState, pico8::Cart, screens, N9Var, config::*};
 pub struct Nano9Sprite;
 
 #[derive(Resource)]
-pub struct Nano9SpriteSheet(pub Handle<Image>, pub Handle<TextureAtlasLayout>);
-
-#[derive(Resource)]
 pub struct Nano9Screen(pub Handle<Image>);
 
 #[derive(Clone, Debug)]
@@ -52,41 +49,30 @@ impl Default for DrawState {
     }
 }
 
-#[derive(Reflect, Resource)]
-#[reflect(Resource)]
-pub struct Settings {
-    pixel_dimensions: UVec2,
-    resolution: Vec2,
-}
-
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            pixel_dimensions: UVec2::splat(128),
-            resolution: Vec2::splat(512.0),
-        }
-    }
-}
-
 pub fn setup_image(
+    In(canvas_size): In<Option<UVec2>>,
     mut commands: Commands,
     mut assets: ResMut<Assets<Image>>,
-    settings: Res<N9Settings>,
-) {
-    let image = Image::new_fill(
-        Extent3d {
-            width: settings.canvas_size.x,
-            height: settings.canvas_size.y,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &[0u8, 0u8, 0u8, 0u8],
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
-    );
+) -> Option<Handle<Image>> {
+    if let Some(canvas_size) = canvas_size {
+        let image = Image::new_fill(
+            Extent3d {
+                width: canvas_size.x,
+                height: canvas_size.y,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0u8, 0u8, 0u8, 0u8],
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
+        );
 
-    let handle = assets.add(image);
-    commands.insert_resource(Nano9Screen(handle.clone()));
+        let handle = assets.add(image);
+        commands.insert_resource(Nano9Screen(handle.clone()));
+        Some(handle)
+    } else {
+        None
+    }
 }
 
 pub mod call {
@@ -158,17 +144,15 @@ pub fn set_background(
 #[derive(Component, Debug, Reflect)]
 pub struct Nano9Camera;
 
-fn spawn_camera(mut commands: Commands, settings: Res<N9Settings>, screen: Res<Nano9Screen>) {
+fn spawn_camera(In(image): In<Option<Handle<Image>>>, mut commands: Commands) {
     let mut projection = OrthographicProjection::default_2d();
-    // camera_bundle.transform = Transform::from_xyz(64.0, 64.0, 0.0);
-    // camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(512.0);
-    projection.scaling_mode = ScalingMode::WindowSize; //(settings.pixel_scale);
-    projection.scale = 1.0 / settings.pixel_scale;
+    projection.scaling_mode = ScalingMode::WindowSize;
+    projection.scale = 1.0 / 2.0;//settings.pixel_scale;
 
     commands
         .spawn(Transform::from_xyz(64.0, -64.0, 0.0))
         .with_children(|parent| {
-            parent
+            let mut camera_commands = parent
                 .spawn((
                     Camera2d,
                     Projection::from(projection),
@@ -177,10 +161,11 @@ fn spawn_camera(mut commands: Commands, settings: Res<N9Settings>, screen: Res<N
                     Nano9Camera,
                     N9Var::new("camera"),
                     Name::new("camera"),
-                ))
-                .with_children(|parent| {
+                ));
+            if let Some(image) = image {
+                camera_commands.with_children(|parent| {
                     parent.spawn((
-                        Sprite::from_image(screen.0.clone()),
+                        Sprite::from_image(image),
                         // transform: Transform::from_xyz(64.0, 64.0, -1.0),
                         Transform::from_xyz(0.0, 0.0, -100.0),
                         //.with_scale(Vec3::splat(settings.pixel_scale)),
@@ -189,6 +174,7 @@ fn spawn_camera(mut commands: Commands, settings: Res<N9Settings>, screen: Res<N
                         Name::new("background"),
                     ));
                 });
+            }
         });
 }
 
@@ -210,10 +196,10 @@ pub fn fullscreen_key(
 
 pub fn sync_window_size(
     mut resize_event: EventReader<WindowResized>,
-    mut settings: ResMut<N9Settings>,
+    mut config: Res<N9Config>,
     // mut query: Query<&mut Sprite, With<Nano9Sprite>>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
-    mut orthographic: Query<&mut OrthographicProjection, With<Camera>>,
+    mut orthographic: Single<&mut Projection, With<Nano9Camera>>,
 ) {
     if let Some(e) = resize_event
         .read()
@@ -228,20 +214,30 @@ pub fn sync_window_size(
             primary_window.physical_width() as f32,
             primary_window.physical_height() as f32,
         ) / window_scale;
-        let mut orthographic = orthographic.single_mut();
+        // let mut orthographic = orthographic.single_mut();
 
-        let canvas_size = settings.canvas_size.as_vec2();
-        // let canvas_aspect = canvas_size.x / canvas_size.y;
-        // let window_aspect = window_size.x / window_size.y;
+        if let Some(canvas_size) = config.screen.as_ref().map(|s| s.canvas_size) {
+            let canvas_size = canvas_size.as_vec2();
+            // let canvas_aspect = canvas_size.x / canvas_size.y;
+            // let window_aspect = window_size.x / window_size.y;
 
-        let new_scale =
-            // Canvas is longer than it is tall. Fit the width first.
-            (window_size.y / canvas_size.y).min(window_size.x / canvas_size.x);
-        // info!("window_size {window_size}");
-        // info!("new_scale {new_scale}");
-        settings.pixel_scale = new_scale;
-        // orthographic.scaling_mode = ScalingMode::WindowSize(new_scale);
-        orthographic.scale = 1.0 / new_scale;
+            let new_scale =
+                // Canvas is longer than it is tall. Fit the width first.
+                (window_size.y / canvas_size.y).min(window_size.x / canvas_size.x);
+            // info!("window_size {window_size}");
+
+        match *orthographic.into_inner() {
+            Projection::Orthographic(ref mut orthographic) => {
+
+            info!("oldscale {} new_scale {new_scale}", &orthographic.scale);
+                orthographic.scale = 1.0 / new_scale;
+            }
+            _ => { panic!("Not expecting a perspective"); }
+
+        }
+            // settings.pixel_scale = new_scale;
+            // orthographic.scaling_mode = ScalingMode::WindowSize;
+        }
         // transform.scale = Vec3::splat(new_scale);
 
         // let scale = if settings.canvas_size.x > settings.canvas_size.y
@@ -328,21 +324,6 @@ pub struct Nano9Plugin {
     pub config: N9Config,
 }
 
-#[derive(Resource)]
-pub struct N9Settings {
-    canvas_size: UVec2,
-    pixel_scale: f32,
-}
-
-impl Default for N9Settings {
-    fn default() -> Self {
-        Self {
-            canvas_size: UVec2::splat(128),
-            pixel_scale: 4.0,
-        }
-    }
-}
-
 impl Nano9Plugin {
     pub fn window_plugin(&self) -> WindowPlugin {
         let screen_size = self.config.screen.as_ref().and_then(|s| s.screen_size).unwrap_or(DEFAULT_SCREEN_SIZE);
@@ -386,6 +367,7 @@ fn add_info(app: &mut App) {
 impl Plugin for Nano9Plugin {
     fn build(&self, app: &mut App) {
         let mut lua_scripting_plugin = LuaScriptingPlugin::default();
+        let canvas_size: Option<UVec2> = self.config.screen.as_ref().map(|s| s.canvas_size);
         lua_scripting_plugin
             .scripting_plugin
             .add_context_initializer(
@@ -406,12 +388,11 @@ impl Plugin for Nano9Plugin {
             )),
         })
         .insert_resource(Time::<Fixed>::from_seconds(UPDATE_FREQUENCY.into()))
-        .init_resource::<N9Settings>()
         .add_plugins((lua_scripting_plugin, crate::plugin, add_info))
         .add_plugins(bevy_ecs_tilemap::TilemapPlugin)
         // .add_systems(OnExit(screens::Screen::Loading), setup_image)
         // .add_systems(Startup, (setup_image, spawn_camera, set_camera).chain())
-        .add_systems(Startup, (setup_image, spawn_camera).chain())
+        .add_systems(Startup, (move || canvas_size).pipe(setup_image).pipe(spawn_camera))
         // .add_systems(OnEnter(screens::Screen::Playing), send_init)
         // .add_systems(
         //     PreUpdate,

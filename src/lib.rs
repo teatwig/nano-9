@@ -40,24 +40,6 @@ pub use var::*;
 pub mod config;
 pub mod cursor;
 
-#[derive(Component, Default)]
-pub enum OneFrame {
-    #[default]
-    Start,
-    End,
-}
-
-fn one_frame(mut query: Query<(Entity, &mut OneFrame)>, mut commands: Commands) {
-    for (id, mut one_frame) in &mut query {
-        match *one_frame {
-            OneFrame::Start => *one_frame = OneFrame::End,
-            OneFrame::End => {
-                commands.entity(id).despawn_recursive();
-            }
-        }
-    }
-}
-
 #[derive(thiserror::Error, Debug)]
 pub enum N9Error {
     #[error("palette unavailable")]
@@ -79,8 +61,7 @@ pub(crate) fn plugin(app: &mut App) {
         var::plugin,
         // audio::plugin,
         // level::plugin,
-    ))
-    .add_systems(Last, one_frame);
+    ));
     if app.is_plugin_added::<WindowPlugin>() {
         #[cfg(feature = "level")]
         app.add_plugins(level::plugin);
