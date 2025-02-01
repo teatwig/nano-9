@@ -17,8 +17,8 @@ use crate::pico8;
 pub const DEFAULT_CANVAS_SIZE: UVec2 = UVec2::splat(128);
 pub const DEFAULT_SCREEN_SIZE: UVec2 = UVec2::splat(512);
 
-#[derive(Default, Debug, Clone, Deserialize, Resource)]
-pub struct N9Config {
+#[derive(Default, Debug, Clone, Deserialize)]
+pub struct Config {
     pub name: Option<String>,
     pub frames_per_second: Option<u8>,
     pub description: Option<String>,
@@ -74,7 +74,7 @@ struct Palette {
     row: Option<u32>,
 }
 
-impl Command for N9Config {
+impl Command for Config {
     fn apply(self, world: &mut World) {
         let layouts: Vec<Option<Handle<TextureAtlasLayout>>> = {
             let mut layout_assets = world.resource_mut::<Assets<TextureAtlasLayout>>();
@@ -90,7 +90,6 @@ impl Command for N9Config {
                                           None
                                       }).collect()
         };
-        let config = self.clone();
         let source = AssetSourceId::Name("nano9".into());
         let code_path = self.code.unwrap_or_else(|| "main.lua".into());
         let code_path = AssetPath::from_path(&code_path).with_source(&source);
@@ -157,14 +156,13 @@ impl Command for N9Config {
                                                      }).collect::<Vec<_>>().into(),
             };
             world.insert_resource(state);
-        world.insert_resource(config);
         world.spawn(ScriptComponent(vec![code_path.path().to_str().unwrap().to_string().into()]));
     }
 }
 
-impl N9Config {
+impl Config {
     pub fn pico8() -> Self {
-        let mut config = N9Config::default();
+        let mut config = Config::default();
         config.inject_pico8();
         config
         // Self {
@@ -233,7 +231,7 @@ impl N9Config {
     }
 
     pub fn gameboy() -> Self {
-        let mut config = N9Config::default();
+        let mut config = Config::default();
         config.inject_gameboy();
         config
         // Self {
@@ -269,7 +267,7 @@ mod test {
 
     #[test]
     fn test_config_0() {
-        let config: N9Config = toml::from_str(r#"
+        let config: Config = toml::from_str(r#"
 sprite_sheet = []
 "#).unwrap();
         assert_eq!(config.sprite_sheets.len(), 0);
@@ -278,7 +276,7 @@ sprite_sheet = []
 
     #[test]
     fn test_config_1() {
-        let config: N9Config = toml::from_str(r#"
+        let config: Config = toml::from_str(r#"
 [[sprite_sheet]]
 path = "sprites.png"
 sprite_size = [8, 8]
@@ -290,7 +288,7 @@ sprite_size = [8, 8]
 
     #[test]
     fn test_config_2() {
-        let config: N9Config = toml::from_str(r#"
+        let config: Config = toml::from_str(r#"
 [screen]
 canvas_size = [128,128]
 [[sprite_sheet]]
@@ -305,7 +303,7 @@ sprite_size = [8, 8]
 
     #[test]
     fn test_config_3() {
-        let config: N9Config = toml::from_str(r#"
+        let config: Config = toml::from_str(r#"
 [[audio_bank]]
 p8 = "blah.p8"
 count = 1
@@ -316,7 +314,7 @@ count = 1
 
     #[test]
     fn test_config_4() {
-        let config: N9Config = toml::from_str(r#"
+        let config: Config = toml::from_str(r#"
 [[audio_bank]]
 paths = [
 "blah.mp3"
@@ -328,7 +326,7 @@ paths = [
 
     #[test]
     fn test_config_5() {
-        let config: N9Config = toml::from_str(r#"
+        let config: Config = toml::from_str(r#"
 [[font]]
 path = "blah.tff"
 [[font]]

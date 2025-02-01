@@ -8,7 +8,7 @@ use bevy::{
 use bevy_ecs_tilemap::prelude::{TilePos, TilemapType};
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::{asset::ScriptAsset, script::ScriptComponent};
-use nano_9::{minibuffer::*, pico8::*, *, config::N9Config};
+use nano_9::{minibuffer::*, pico8::*, *, config::Config};
 use std::{fs, env, io, path::{Path, PathBuf}, borrow::Cow};
 
 fn main() -> io::Result<()> {
@@ -35,7 +35,7 @@ fn main() -> io::Result<()> {
         }
         let content = fs::read_to_string(path)?;
 
-        let config: N9Config = toml::from_str::<N9Config>(&content)
+        let config: Config = toml::from_str::<Config>(&content)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?
             .inject_template();
         let cmd = config.clone();
@@ -65,7 +65,7 @@ fn main() -> io::Result<()> {
                 ));
             },
         );
-        nano9_plugin = Nano9Plugin { config: N9Config::pico8() };
+        nano9_plugin = Nano9Plugin { config: Config::pico8() };
     } else {
         let path = PathBuf::from(script_path.clone());
         let asset_path = AssetPath::from_path(&path).with_source(&source);
@@ -75,9 +75,9 @@ fn main() -> io::Result<()> {
 
         }
         nano9_plugin = Nano9Plugin {
-            config: N9Config {
+            config: Config {
                 code: Some(asset_path.to_string().into()),
-                ..N9Config::default()
+                ..Config::default()
             }.with_default_font()
         };
         app.add_systems(

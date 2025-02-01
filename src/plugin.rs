@@ -39,6 +39,12 @@ pub struct DrawState {
     pub print_cursor: UVec2,
 }
 
+#[derive(Debug, Clone, Resource, Default)]
+pub struct N9Canvas {
+    pub size: UVec2,
+    pub handle: Handle<Image>,
+}
+
 impl Default for DrawState {
     fn default() -> Self {
         DrawState {
@@ -49,16 +55,16 @@ impl Default for DrawState {
     }
 }
 
-pub fn setup_image(
-    In(canvas_size): In<Option<UVec2>>,
+pub fn setup_canvas(
+    mut canvas: Option<ResMut<N9Canvas>>,
     mut commands: Commands,
     mut assets: ResMut<Assets<Image>>,
-) -> Option<Handle<Image>> {
-    if let Some(canvas_size) = canvas_size {
+) {
+    if let Some(ref mut canvas) = canvas {
         let image = Image::new_fill(
             Extent3d {
-                width: canvas_size.x,
-                height: canvas_size.y,
+                width: canvas.size.x,
+                height: canvas.size.y,
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
@@ -67,11 +73,7 @@ pub fn setup_image(
             RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
         );
 
-        let handle = assets.add(image);
-        commands.insert_resource(Nano9Screen(handle.clone()));
-        Some(handle)
-    } else {
-        None
+        canvas.handle = assets.add(image);
     }
 }
 
@@ -144,34 +146,35 @@ pub fn set_background(
 #[derive(Component, Debug, Reflect)]
 pub struct Nano9Camera;
 
-fn spawn_camera(In(image): In<Option<Handle<Image>>>, mut commands: Commands) {
+fn spawn_camera(mut commands: Commands, canvas: Option<Res<N9Canvas>>) {
     let mut projection = OrthographicProjection::default_2d();
     projection.scaling_mode = ScalingMode::WindowSize;
-    projection.scale = 1.0 / 2.0;//settings.pixel_scale;
-
+    let handle = canvas.as_ref().map(|c| c.handle.clone());
+    let canvas_size: UVec2 = canvas.map(|c| c.size).unwrap_or_default();
     commands
-        .spawn(Transform::from_xyz(64.0, -64.0, 0.0))
+        .spawn(Transform::from_xyz(canvas_size.x as f32 / 2.0, -(canvas_size.y as f32) / 2.0, 0.0))
         .with_children(|parent| {
             let mut camera_commands = parent
                 .spawn((
                     Camera2d,
-                    Projection::from(projection),
+                    // Projection::from(projection),
+                    projection,
                     IsDefaultUiCamera,
                     InheritedVisibility::default(),
                     Nano9Camera,
                     N9Var::new("camera"),
                     Name::new("camera"),
                 ));
-            if let Some(image) = image {
+            if let Some(handle) = handle {
                 camera_commands.with_children(|parent| {
                     parent.spawn((
-                        Sprite::from_image(image),
+                        Sprite::from_image(handle),
                         // transform: Transform::from_xyz(64.0, 64.0, -1.0),
                         Transform::from_xyz(0.0, 0.0, -100.0),
                         //.with_scale(Vec3::splat(settings.pixel_scale)),
                         Nano9Sprite,
-                        N9Var::new("background"),
-                        Name::new("background"),
+                        N9Var::new("canvas"),
+                        Name::new("canvas"),
                     ));
                 });
             }
@@ -196,10 +199,10 @@ pub fn fullscreen_key(
 
 pub fn sync_window_size(
     mut resize_event: EventReader<WindowResized>,
-    mut config: Res<N9Config>,
+    mut canvas: Res<N9Canvas>,
     // mut query: Query<&mut Sprite, With<Nano9Sprite>>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
-    mut orthographic: Single<&mut Projection, With<Nano9Camera>>,
+    mut orthographic: Single<&mut OrthographicProjection, With<Nano9Camera>>,
 ) {
     if let Some(e) = resize_event
         .read()
@@ -216,8 +219,7 @@ pub fn sync_window_size(
         ) / window_scale;
         // let mut orthographic = orthographic.single_mut();
 
-        if let Some(canvas_size) = config.screen.as_ref().map(|s| s.canvas_size) {
-            let canvas_size = canvas_size.as_vec2();
+            let canvas_size = canvas.size.as_vec2();
             // let canvas_aspect = canvas_size.x / canvas_size.y;
             // let window_aspect = window_size.x / window_size.y;
 
@@ -226,18 +228,18 @@ pub fn sync_window_size(
                 (window_size.y / canvas_size.y).min(window_size.x / canvas_size.x);
             // info!("window_size {window_size}");
 
-        match *orthographic.into_inner() {
-            Projection::Orthographic(ref mut orthographic) => {
+        // match *orthographic.into_inner() {
+        //     Projection::Orthographic(ref mut orthographic) => {
 
-            info!("oldscale {} new_scale {new_scale}", &orthographic.scale);
+            // info!("oldscale {} new_scale {new_scale}", &orthographic.scale);
                 orthographic.scale = 1.0 / new_scale;
-            }
-            _ => { panic!("Not expecting a perspective"); }
+            // }
+        //     _ => { panic!("Not expecting a perspective"); }
 
-        }
+        // }
             // settings.pixel_scale = new_scale;
             // orthographic.scaling_mode = ScalingMode::WindowSize;
-        }
+        // }
         // transform.scale = Vec3::splat(new_scale);
 
         // let scale = if settings.canvas_size.x > settings.canvas_size.y
@@ -317,11 +319,11 @@ pub fn send_draw(mut writer: EventWriter<ScriptCallbackEvent>) {
         vec![ScriptValue::Unit],
     ));
 }
-const UPDATE_FREQUENCY: f32 = 1.0 / 60.0;
+const DEFAULT_FRAMES_PER_SECOND: u8 = 60;
 
 #[derive(Default)]
 pub struct Nano9Plugin {
-    pub config: N9Config,
+    pub config: Config,
 }
 
 impl Nano9Plugin {
@@ -367,7 +369,7 @@ fn add_info(app: &mut App) {
 impl Plugin for Nano9Plugin {
     fn build(&self, app: &mut App) {
         let mut lua_scripting_plugin = LuaScriptingPlugin::default();
-        let canvas_size: Option<UVec2> = self.config.screen.as_ref().map(|s| s.canvas_size);
+        let canvas_size: UVec2 = self.config.screen.as_ref().map(|s| s.canvas_size).unwrap_or(DEFAULT_CANVAS_SIZE);
         lua_scripting_plugin
             .scripting_plugin
             .add_context_initializer(
@@ -387,36 +389,22 @@ impl Plugin for Nano9Plugin {
                 16 * 4,
             )),
         })
-        .insert_resource(Time::<Fixed>::from_seconds(UPDATE_FREQUENCY.into()))
+           .insert_resource(N9Canvas { size: canvas_size, ..default() })
+        // Insert the config as a resource.
+            // TODO: Should we constrain it, if it wasn't provided as an option?
+        .insert_resource(Time::<Fixed>::from_seconds(1.0 / self.config.frames_per_second.unwrap_or(DEFAULT_FRAMES_PER_SECOND) as f64))
         .add_plugins((lua_scripting_plugin, crate::plugin, add_info))
         .add_plugins(bevy_ecs_tilemap::TilemapPlugin)
-        // .add_systems(OnExit(screens::Screen::Loading), setup_image)
-        // .add_systems(Startup, (setup_image, spawn_camera, set_camera).chain())
-        .add_systems(Startup, (move || canvas_size).pipe(setup_image).pipe(spawn_camera))
-        // .add_systems(OnEnter(screens::Screen::Playing), send_init)
-        // .add_systems(
-        //     PreUpdate,
-        //     (send_init, event_handler::<call::Init, LuaScriptingPlugin>)
-        //         .run_if(on_asset_modified::<ScriptAsset>()),
-        // )
-        // .add_systems(PreUpdate, send_init.run_if(on_event::<OnScriptLoaded>))
-        // .add_systems(
-        //     PreUpdate,
-        //     (set_background, set_camera)
-        //         .chain()
-        //         ),
-        // )
-        // .add_systems(PreUpdate, (send_init).chain().run_if(on_event::<OnScriptLoaded>()))
-        // .add_systems(Update, info_on_asset_event::<Image>())
+        .add_systems(Startup, (setup_canvas, spawn_camera).chain())
         .add_systems(
             Update,
             (
                 (
                     (send_init, event_handler::<call::Init, LuaScriptingPlugin>)
                         .run_if(on_asset_change::<Cart>()),
-                    (send_update, send_update60).run_if(in_state(ErrorState::None)),
+                    (send_update, /*send_update60*/).run_if(in_state(ErrorState::None)),
                     event_handler::<call::Update, LuaScriptingPlugin>,
-                    event_handler::<call::Update60, LuaScriptingPlugin>,
+                    // event_handler::<call::Update60, LuaScriptingPlugin>,
                 )
                     .chain(),
                 send_draw.run_if(in_state(ErrorState::None)),

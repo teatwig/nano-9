@@ -40,7 +40,7 @@ use crate::{
         audio::{Sfx, SfxChannels},
         Cart, ClearEvent, Clearable, LoadCart,
     },
-    DrawState, DropPolicy, N9Color, N9Entity, Nano9Camera, Nano9Screen,
+    DrawState, DropPolicy, N9Color, N9Entity, Nano9Camera, N9Canvas,
 };
 
 use std::{
@@ -199,7 +199,7 @@ pub struct Pico8<'w, 's> {
     carts: ResMut<'w, Assets<Cart>>,
     pub state: ResMut<'w, Pico8State>,
     commands: Commands<'w, 's>,
-    background: Res<'w, Nano9Screen>,
+    canvas: Res<'w, N9Canvas>,
     keys: Res<'w, ButtonInput<KeyCode>>,
     // map: Option<Res<'w, Map>>,
     sfx_channels: Res<'w, SfxChannels>,
@@ -319,8 +319,8 @@ impl Pico8<'_, '_> {
         let c = self.get_color(color.unwrap_or(Color::BLACK.into()))?;
         let image = self
             .images
-            .get_mut(&self.background.0)
-            .ok_or(Error::NoAsset("background".into()))?;
+            .get_mut(&self.canvas.handle)
+            .ok_or(Error::NoAsset("canvas".into()))?;
         for i in 0..image.width() {
             for j in 0..image.height() {
                 image.set_color_at(i, j, c)?;
@@ -334,8 +334,8 @@ impl Pico8<'_, '_> {
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let image = self
             .images
-            .get_mut(&self.background.0)
-            .ok_or(Error::NoAsset("background".into()))?;
+            .get_mut(&self.canvas.handle)
+            .ok_or(Error::NoAsset("canvas".into()))?;
         image.set_color_at(pos.x, pos.y, c)?;
         Ok(())
     }
