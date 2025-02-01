@@ -1444,13 +1444,14 @@ fn attach_api(app: &mut App) {
         .register(
             "spr",
             |ctx: FunctionCallContext,
-             n: Val<Spr>,
+             n: ScriptValue,
              x: Option<f32>,
              y: Option<f32>,
              w: Option<f32>,
              h: Option<f32>,
              flip_x: Option<bool>,
              flip_y: Option<bool>| {
+
                 let pos = IVec2::new(
                     x.map(|a| a.round() as i32).unwrap_or(0),
                     y.map(|a| a.round() as i32).unwrap_or(0),
@@ -1463,7 +1464,7 @@ fn attach_api(app: &mut App) {
                     .then(|| Vec2::new(w.unwrap_or(1.0), h.unwrap_or(1.0)));
 
                 // We get back an entity. Not doing anything with it here yet.
-                let n = *n;
+                let n = Spr::from_script(n, ctx.world()?)?;
                 let _id = with_pico8(&ctx, move |pico8| pico8.spr(n, pos, size, flip))?;
                 Ok(())
             },

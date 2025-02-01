@@ -152,11 +152,14 @@ fn spawn_camera(mut commands: Commands, canvas: Option<Res<N9Canvas>>) {
     let handle = canvas.as_ref().map(|c| c.handle.clone());
     let canvas_size: UVec2 = canvas.map(|c| c.size).unwrap_or_default();
     commands
-        .spawn(Transform::from_xyz(canvas_size.x as f32 / 2.0, -(canvas_size.y as f32) / 2.0, 0.0))
+        .spawn((Transform::from_xyz(canvas_size.x as f32 / 2.0, -(canvas_size.y as f32) / 2.0, 0.0),
+                InheritedVisibility::default(),
+                Name::new("dolly")))
         .with_children(|parent| {
             let mut camera_commands = parent
                 .spawn((
                     Camera2d,
+                    Msaa::Off,
                     // Projection::from(projection),
                     projection,
                     IsDefaultUiCamera,

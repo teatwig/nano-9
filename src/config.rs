@@ -80,6 +80,7 @@ impl Command for Config {
             let mut layout_assets = world.resource_mut::<Assets<TextureAtlasLayout>>();
             self.sprite_sheets.iter().map(|sheet|
                                       if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
+                                          dbg!("made layout");
                                       Some(layout_assets.add(TextureAtlasLayout::from_grid(
                                           size,
                                           counts.x,
@@ -120,12 +121,19 @@ impl Command for Config {
                 })).collect::<Vec<_>>().into(),
 
                         // vec![AudioBank(cart.sfx.clone().into_iter().map(Audio::Sfx).collect())].into(),
-                sprite_sheets: self.sprite_sheets.into_iter().zip(layouts.into_iter()).map(|(sheet, layout)| pico8::SpriteSheet {
-                        handle: asset_server.load(sheet.path),
+                sprite_sheets: self.sprite_sheets.into_iter().zip(layouts.into_iter()).map(|(sheet, layout)| {
+                    let mut path = AssetPath::try_parse(&sheet.path).expect("sprite path");
+                    if *path.source() == AssetSourceId::Default {
+                        path = path.with_source(&source);
+                    }
+                    dbg!(&layout);
+                    pico8::SpriteSheet {
+                        handle: asset_server.load_with_settings(path, pixel_art_settings),
                         sprite_size: sheet.sprite_size.unwrap_or(UVec2::splat(8)),
                         flags: vec![],
                         layout: layout.unwrap_or(Handle::default()),
-                    }).collect::<Vec<_>>().into(),
+                    }
+                }).collect::<Vec<_>>().into(),
                 //vec![SpriteSheet { handle: cart.sprites.clone(), size: UVec2::splat(8), flags: cart.flags.clone() }].into(),
                 // cart: Some(load_cart.0.clone()),
                 // layout: layouts.add(TextureAtlasLayout::from_grid(
@@ -204,10 +212,15 @@ impl Config {
             self.screen = Some(Screen {
                 canvas_size: UVec2::splat(128),
                 screen_size: Some(UVec2::splat(512)),
+                // screen_size: Some(UVec2::splat(128)),
             });
         }
         if self.palette.is_none() {
             self.palette = Some(Palette { path: pico8::PICO8_PALETTE.into(), row: None });
+        }
+
+        if self.fonts.is_empty() {
+            self.fonts.push(Font::Path { path: pico8::PICO8_FONT.into(), height: None });
         }
     }
 
