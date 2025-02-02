@@ -1,4 +1,5 @@
 use bevy::{
+    asset::embedded_asset,
     ecs::system::{SystemParam, SystemState},
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
     prelude::*,
@@ -55,10 +56,9 @@ use std::{
     },
 };
 
-pub const PICO8_PALETTE: &str = "images/pico-8-palette.png";
-pub const PICO8_SPRITES: &str = "images/pooh-book-sprites.png";
-pub const PICO8_BORDER: &str = "images/rect-border.png";
-pub const PICO8_FONT: &str = "fonts/pico-8.ttf";
+pub const PICO8_PALETTE: &str = "embedded://nano_9/pico8/pico-8-palette.png";
+pub const PICO8_BORDER: &str = "embedded://nano_9/pico8/rect-border.png";
+pub const PICO8_FONT: &str = "embedded://nano_9/pico8/pico-8.ttf";
 pub const MAP_COLUMNS: u32 = 128;
 pub const PICO8_SPRITE_SIZE: UVec2 = UVec2::new(8, 8);
 pub const PICO8_TILE_COUNT: UVec2 = UVec2::new(16, 16);
@@ -1370,6 +1370,9 @@ impl Pico8State {
 pub struct Pico8API;
 
 pub(crate) fn plugin(app: &mut App) {
+    embedded_asset!(app, "pico-8-palette.png");
+    embedded_asset!(app, "rect-border.png");
+    embedded_asset!(app, "pico-8.ttf");
     app.init_resource::<Pico8State>()
         .add_plugins(attach_api)
         .add_systems(

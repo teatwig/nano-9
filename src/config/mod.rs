@@ -1,5 +1,5 @@
 use bevy::{
-    asset::{io::Reader, AssetLoader, LoadContext, AssetPath, io::AssetSourceId},
+    asset::{embedded_asset, io::Reader, AssetLoader, LoadContext, AssetPath, io::AssetSourceId},
     image::{ImageLoaderSettings, ImageSampler},
     reflect::TypePath,
     render::{
@@ -18,6 +18,11 @@ use crate::level;
 
 pub const DEFAULT_CANVAS_SIZE: UVec2 = UVec2::splat(128);
 pub const DEFAULT_SCREEN_SIZE: UVec2 = UVec2::splat(512);
+
+pub(crate) fn plugin(app: &mut App) {
+    embedded_asset!(app, "gameboy-palettes.png");
+    embedded_asset!(app, "gameboy.ttf");
+}
 
 #[derive(Default, Debug, Clone, Deserialize)]
 pub struct Config {
@@ -100,7 +105,8 @@ impl Command for Config {
                                           None
                                       }).collect()
         };
-        let source = AssetSourceId::Name("nano9".into());
+        // let source = AssetSourceId::Name("nano9".into());
+        let source = AssetSourceId::Default;
         let code_path = self.code.unwrap_or_else(|| "main.lua".into());
         let code_path = AssetPath::from_path(&code_path).with_source(&source);
         let asset_server = world.resource::<AssetServer>();
@@ -257,11 +263,11 @@ impl Config {
             });
         }
         if self.palette.is_none() {
-            self.palette = Some(Palette { path: "images/gameboy-palettes.png".into(), row: Some(17) });
+            self.palette = Some(Palette { path: "embedded://nano_9/config/gameboy-palettes.png".into(), row: Some(17) });
         }
 
         if self.fonts.is_empty() {
-            self.fonts.push(Font::Path { path: "fonts/gameboy.ttf".into(), height: None });
+            self.fonts.push(Font::Path { path: "embedded://nano_9/config/gameboy.ttf".into(), height: None });
         }
     }
 

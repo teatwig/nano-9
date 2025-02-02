@@ -25,7 +25,8 @@ fn main() -> io::Result<()> {
 
     app.register_asset_source(&pwd,
                               builder);
-    let source = AssetSourceId::Name("nano9".into());
+    // let source = AssetSourceId::Name("nano9".into());
+    let source = AssetSourceId::Default;
     // if let Ok(cwd) = env::current_dir() {
     //     app.register_asset_source("cwd",
     //                               AssetSourceBuilder::platform_default

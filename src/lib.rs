@@ -1,7 +1,6 @@
 #![allow(clippy::type_complexity)]
 use bevy::prelude::*;
 // pub mod api;
-// mod assets;
 // mod audio;
 // mod camera;
 mod color;
@@ -48,6 +47,7 @@ pub(crate) fn plugin(app: &mut App) {
     // Add other plugins.
     app.add_plugins((
         // demo::plugin,
+        config::plugin,
         screens::plugin,
         entity::plugin,
         // assets::plugin,
