@@ -7,6 +7,8 @@ pub use cart::*;
 mod clear;
 pub use clear::*;
 pub mod audio;
+mod map;
+pub use map::*;
 
 pub fn plugin(app: &mut App) {
     app.add_plugins(pico8::plugin)

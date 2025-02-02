@@ -39,9 +39,10 @@ use crate::{
     cursor::Cursor,
     pico8::{
         audio::{Sfx, SfxChannels},
-        Cart, ClearEvent, Clearable, LoadCart,
+        Cart, ClearEvent, Clearable, LoadCart, Map, P8Map,
     },
     DrawState, DropPolicy, N9Color, N9Entity, Nano9Camera, N9Canvas,
+
 };
 
 #[cfg(feature = "level")]
@@ -62,33 +63,6 @@ pub const PICO8_FONT: &str = "embedded://nano_9/pico8/pico-8.ttf";
 pub const MAP_COLUMNS: u32 = 128;
 pub const PICO8_SPRITE_SIZE: UVec2 = UVec2::new(8, 8);
 pub const PICO8_TILE_COUNT: UVec2 = UVec2::new(16, 16);
-
-#[derive(Clone, Debug, Deref, DerefMut)]
-pub struct P8Map {
-    #[deref]
-    pub entries: Vec<u8>,
-    pub sheet_index: u8,
-}
-
-#[derive(Clone, Debug)]
-pub enum Map {
-    P8(P8Map),
-#[cfg(feature = "level")]
-    Level(level::Map),
-}
-
-impl From<P8Map> for Map {
-    fn from(map: P8Map) -> Self {
-        Map::P8(map)
-    }
-}
-
-#[cfg(feature = "level")]
-impl From<level::Map> for Map {
-    fn from(map: level::Map) -> Self {
-        Map::Level(map)
-    }
-}
 
 #[derive(Clone, Debug)]
 pub struct N9Font {
@@ -435,102 +409,19 @@ impl Pico8<'_, '_> {
         screen_start: Vec2,
         size: UVec2,
         mask: Option<u8>,
-        map_index: Option<u8>,
+        map_index: Option<usize>,
     ) -> Result<Entity, Error> {
-        let map_size = TilemapSize::from(size);
-        // Create a tilemap entity a little early.
-        // We want this entity early because we need to tell each tile which tilemap entity
-        // it is associated with. This is done with the TilemapId component on each tile.
-        // Eventually, we will insert the `TilemapBundle` bundle on the entity, which
-        // will contain various necessary components, such as `TileStorage`.
-
-        // To begin creating the map we will need a `TileStorage` component.
-        // This component is a grid of tile entities and is used to help keep track of individual
-        // tiles in the world. If you have multiple layers of tiles you would have a tilemap entity
-        // per layer, each with their own `TileStorage` component.
-
-
-        // Spawn the elements of the tilemap.
-        // Alternatively, you can use helpers::filling::fill_tilemap.
-        let clearable = Clearable::default();
-        let mut tile_storage = TileStorage::empty(map_size);
-        let tilemap_entity = self.commands.spawn(Name::new("map")).id();
-        let map_index = 0;//map_index.unwrap_or(0) as usize;
-        self.commands
-            .entity(tilemap_entity)
-            .with_children(|builder| {
-                for x in 0..map_size.x {
-                    for y in 0..map_size.y {
-                        let texture_index = self.state.maps.inner.get(map_index)
-                            .and_then(|map| {
-                                match map {
-                                    Map::P8(ref map) => {
-                                        map
-                                    .get((map_pos.x + x + (map_pos.y + y) * MAP_COLUMNS) as usize)
-                                    .and_then(|index| {
-                                        if let Some(mask) = mask {
-                                            self.state.sprite_sheets.inner.get(map.sheet_index as usize)
-                                                .and_then(|sprite_sheet| (sprite_sheet.flags[*index as usize] & mask == mask).then_some(index))
-                                            // (cart.flags[*index as usize] & mask == mask)
-                                            //     .then_some(index)
-                                        } else {
-                                            Some(index)
-                                        }
-                                    })
-                                    }
-                                    #[cfg(feature = "level")]
-                                    Map::Level(ref map) => {
-                                        todo!()
-                                    }
-                                }
-                            })
-                            .copied()
-                            .unwrap_or(0);
-                        if texture_index != 0 {
-                            let tile_pos = TilePos {
-                                x,
-                                y: map_size.y - y - 1,
-                            };
-                            let tile_entity = builder
-                                .spawn((
-                                    TileBundle {
-                                        position: tile_pos,
-                                        tilemap_id: TilemapId(tilemap_entity),
-                                        texture_index: TileTextureIndex(texture_index as u32),
-                                        ..Default::default()
-                                    },
-                                    // clearable.clone(),
-                                ))
-                                .id();
-                            tile_storage.set(&tile_pos, tile_entity);
-                        }
-                    }
-                }
-            });
-
-        let sprites = &self.state.sprite_sheets;
-        let tile_size: TilemapTileSize = sprites.sprite_size.as_vec2().into();
-        let grid_size = tile_size.into();
-        let map_type = TilemapType::default();
-        let mut transform =
-            get_tilemap_top_left_transform(&map_size, &grid_size, &map_type, clearable.suggest_z());
-        transform.translation += screen_start.extend(0.0);
-
-        self.commands.entity(tilemap_entity).insert((
-            TilemapBundle {
-                grid_size,
-                map_type,
-                size: map_size,
-                storage: tile_storage,
-                texture: TilemapTexture::Single(sprites.handle.clone()),
-                tile_size,
-                // transform: Transform::from_xyz(screen_start.x, -screen_start.y, 0.0),//get_tilemap_center_transform(&map_size, &grid_size, &map_type, 0.0),
-                transform,
-                ..Default::default()
-            },
-            clearable,
-        ));
-        Ok(tilemap_entity)
+        let map_index = map_index.unwrap_or(0);
+        match self.state.maps.inner.get(map_index).ok_or(Error::InvalidArgument("no map".into()))? {
+            Map::P8(ref map) => {
+                map.map(map_pos, screen_start, size, mask, &self.state.sprite_sheets.inner,
+                        &mut self.commands)
+            }
+            #[cfg(feature = "level")]
+            Map::Level(ref map) => {
+                Ok(map.map(screen_start, 0, &mut self.commands))
+            }
+        }
     }
 
     fn btnp(&self, b: Option<u8>) -> Result<bool, Error> {
@@ -1281,7 +1172,7 @@ impl Command for AudioCommand {
 
 /// Calculates a [`Transform`] for a tilemap that places it so that its center is at
 /// `(0.0, 0.0, 0.0)` in world space.
-fn get_tilemap_top_left_transform(
+pub(crate) fn get_tilemap_top_left_transform(
     size: &TilemapSize,
     grid_size: &TilemapGridSize,
     map_type: &TilemapType,
@@ -1526,7 +1417,7 @@ fn attach_api(app: &mut App) {
              celw: Option<u32>,
              celh: Option<u32>,
              layer: Option<u8>,
-             map_index: Option<u8>| {
+             map_index: Option<usize>| {
                 let id = with_pico8(&ctx, move |pico8| {
                     pico8.map(
                         UVec2::new(celx.unwrap_or(0), cely.unwrap_or(0)),

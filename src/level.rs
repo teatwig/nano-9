@@ -1,10 +1,26 @@
 use bevy::prelude::*;
-
 use bevy_ecs_ldtk::prelude::*;
+use crate::pico8::Clearable;
 
 #[derive(Debug, Clone)]
 pub struct Map {
     pub handle: Handle<LdtkProject>,
+}
+
+impl Map {
+
+    pub fn map(&self, screen_start: Vec2, level: usize, mut commands: &mut Commands) -> Entity {
+        commands.insert_resource(LevelSelection::index(level));
+        let clearable = Clearable::default();
+        commands.spawn((LdtkWorldBundle {
+            ldtk_handle: self.handle.clone().into(),
+            transform: Transform::from_xyz(screen_start.x, screen_start.y, clearable.suggest_z()),
+            ..default()
+        },
+                        Name::new("level"),
+                        clearable,
+        )).id()
+    }
 }
 
 pub(crate) fn plugin(app: &mut App) {
