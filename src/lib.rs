@@ -12,7 +12,7 @@ mod ext;
 // mod pixel;
 mod entity;
 #[cfg(feature = "level")]
-mod level;
+pub mod level;
 // pub(crate) mod macros;
 // mod nano9;
 pub mod pico8;
@@ -29,8 +29,6 @@ pub use color::*;
 pub use entity::*;
 pub use ext::*;
 // pub use image::*;
-#[cfg(feature = "level")]
-pub use level::*;
 // pub use nano9::*;
 // pub use palette::*;
 pub use plugin::*;

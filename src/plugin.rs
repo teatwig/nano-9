@@ -397,7 +397,6 @@ impl Plugin for Nano9Plugin {
             // TODO: Should we constrain it, if it wasn't provided as an option?
         .insert_resource(Time::<Fixed>::from_seconds(1.0 / self.config.frames_per_second.unwrap_or(DEFAULT_FRAMES_PER_SECOND) as f64))
         .add_plugins((lua_scripting_plugin, crate::plugin, add_info))
-        .add_plugins(bevy_ecs_tilemap::TilemapPlugin)
         .add_systems(Startup, (setup_canvas, spawn_camera).chain())
         .add_systems(
             Update,
@@ -416,6 +415,10 @@ impl Plugin for Nano9Plugin {
                 .chain()
                 .run_if(in_state(screens::Screen::Playing).and_then(in_state(ErrorState::None))),
         );
+
+        // bevy_ecs_ldtk will add this plugin, so let's not add that if it's present.
+        #[cfg(not(feature = "level"))]
+        app.add_plugins(bevy_ecs_tilemap::TilemapPlugin);
 
         if app.is_plugin_added::<WindowPlugin>() {
             app.add_systems(Update, sync_window_size)

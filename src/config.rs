@@ -13,6 +13,8 @@ use bevy_mod_scripting::core::script::ScriptComponent;
 use serde::Deserialize;
 use std::{ops::Deref, path::PathBuf};
 use crate::pico8;
+#[cfg(feature = "level")]
+use crate::level;
 
 pub const DEFAULT_CANVAS_SIZE: UVec2 = UVec2::splat(128);
 pub const DEFAULT_SCREEN_SIZE: UVec2 = UVec2::splat(512);
@@ -34,6 +36,8 @@ pub struct Config {
     pub code: Option<PathBuf>,
     #[serde(default, rename = "audio_bank")]
     pub audio_banks: Vec<AudioBank>,
+    #[serde(default, rename = "map")]
+    pub maps: Vec<Map>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -58,6 +62,12 @@ pub struct SpriteSheet {
     pub sprite_counts: Option<UVec2>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum Map {
+    P8 { p8: PathBuf },
+    Ldtk { ldtk: PathBuf },
+}
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(untagged)]
@@ -80,7 +90,6 @@ impl Command for Config {
             let mut layout_assets = world.resource_mut::<Assets<TextureAtlasLayout>>();
             self.sprite_sheets.iter().map(|sheet|
                                       if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
-                                          dbg!("made layout");
                                       Some(layout_assets.add(TextureAtlasLayout::from_grid(
                                           size,
                                           counts.x,
@@ -108,7 +117,20 @@ impl Command for Config {
                     row: self.palette.and_then(|p| p.row).unwrap_or(0),
                 },
                 border: asset_server.load_with_settings(pico8::PICO8_BORDER, pixel_art_settings),
-                maps: vec![].into(),//vec![pico8::Map { entries: cart.map.clone(), sheet_index: 0 }].into(),
+                maps: self.maps.into_iter().map(|map| {
+                    match map {
+                        Map::P8 { p8: path } => todo!(),
+                        Map::Ldtk { ldtk: path } => {
+                            #[cfg(not(feature = "level"))]
+                            panic!("This config has an LDTK map; consider using the '--features=level' flag.");
+                            #[cfg(feature = "level")]
+                            level::Map {
+                                handle: asset_server.load(&AssetPath::from_path(&path).with_source(&source)),
+                            }.into()
+
+                        }
+                    }
+                }).collect::<Vec<_>>().into(),
                 audio_banks: self.audio_banks.into_iter().map(|bank| pico8::AudioBank(match bank {
                     AudioBank::P8 { p8, count } => {
                             (0..count).map(|i|
@@ -352,4 +374,16 @@ default = true
         // assert_eq!(config.fonts[0].path, "blah.tff");
     }
 
+    #[test]
+    #[cfg(feature = "level")]
+    fn test_config_6() {
+        let config: Config = toml::from_str(r#"
+[[map]]
+ldtk = "blah.ldtk"
+[[map]]
+p8 = "blah.p8"
+"#).unwrap();
+        assert_eq!(config.maps.len(), 2);
+        // assert_eq!(config.fonts[0].path, "blah.tff");
+    }
 }

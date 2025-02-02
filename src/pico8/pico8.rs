@@ -43,6 +43,8 @@ use crate::{
     DrawState, DropPolicy, N9Color, N9Entity, Nano9Camera, N9Canvas,
 };
 
+#[cfg(feature = "level")]
+use crate::level;
 use std::{
     borrow::Cow,
     path::Path,
@@ -62,10 +64,30 @@ pub const PICO8_SPRITE_SIZE: UVec2 = UVec2::new(8, 8);
 pub const PICO8_TILE_COUNT: UVec2 = UVec2::new(16, 16);
 
 #[derive(Clone, Debug, Deref, DerefMut)]
-pub struct Map {
+pub struct P8Map {
     #[deref]
     pub entries: Vec<u8>,
     pub sheet_index: u8,
+}
+
+#[derive(Clone, Debug)]
+pub enum Map {
+    P8(P8Map),
+#[cfg(feature = "level")]
+    Level(level::Map),
+}
+
+impl From<P8Map> for Map {
+    fn from(map: P8Map) -> Self {
+        Map::P8(map)
+    }
+}
+
+#[cfg(feature = "level")]
+impl From<level::Map> for Map {
+    fn from(map: level::Map) -> Self {
+        Map::Level(map)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -441,7 +463,9 @@ impl Pico8<'_, '_> {
                     for y in 0..map_size.y {
                         let texture_index = self.state.maps.inner.get(map_index)
                             .and_then(|map| {
-                                map
+                                match map {
+                                    Map::P8(ref map) => {
+                                        map
                                     .get((map_pos.x + x + (map_pos.y + y) * MAP_COLUMNS) as usize)
                                     .and_then(|index| {
                                         if let Some(mask) = mask {
@@ -453,6 +477,12 @@ impl Pico8<'_, '_> {
                                             Some(index)
                                         }
                                     })
+                                    }
+                                    #[cfg(feature = "level")]
+                                    Map::Level(ref map) => {
+                                        todo!()
+                                    }
+                                }
                             })
                             .copied()
                             .unwrap_or(0);
@@ -716,25 +746,38 @@ impl Pico8<'_, '_> {
     }
 
     fn mget(&self, pos: UVec2) -> u8 {
-        let map = &self.state.maps;
+        let map: &Map = &self.state.maps;
         // let cart = self
         //     .state
         //     .cart
         //     .as_ref()
         //     .and_then(|cart| self.carts.get(cart))
         //     .expect("cart");
-        map[(pos.x + pos.y * MAP_COLUMNS) as usize]
+        match *map {
+            Map::P8(ref map) => map[(pos.x + pos.y * MAP_COLUMNS) as usize],
+
+            #[cfg(feature = "level")]
+            Map::Level(ref map) => todo!()
+        }
     }
 
     fn mset(&mut self, pos: UVec2, sprite_index: u8) {
-        let mut map = &mut self.state.maps;
+        let mut map: &mut Map = &mut self.state.maps;
         // let cart = self
         //     .state
         //     .cart
         //     .as_ref()
         //     .and_then(|cart| self.carts.get_mut(cart))
         //     .expect("cart");
-        map[(pos.x + pos.y * MAP_COLUMNS) as usize] = sprite_index;
+        match *map {
+            Map::P8(ref mut map) => {
+                map[(pos.x + pos.y * MAP_COLUMNS) as usize] = sprite_index;
+            }
+            #[cfg(feature = "level")]
+            Map::Level(ref mut map) => {
+                todo!()
+            }
+        }
     }
 
     fn sub(string: &str, start: isize, end: Option<isize>) -> String {

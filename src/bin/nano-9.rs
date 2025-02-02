@@ -18,8 +18,14 @@ fn main() -> io::Result<()> {
         .next()
         // .map(|s| format!("../{s}"))
         .unwrap_or("scripts/main.lua".into());
-    let source = AssetSourceId::Name("nano9".into());
     let mut app = App::new();
+    let pwd = AssetSourceId::Name("pwd".into());
+    let mut builder = AssetSourceBuilder::platform_default(env::current_dir()?.to_str().expect("pwd dir"), None);
+    builder.watcher = None;
+
+    app.register_asset_source(&pwd,
+                              builder);
+    let source = AssetSourceId::Name("nano9".into());
     // if let Ok(cwd) = env::current_dir() {
     //     app.register_asset_source("cwd",
     //                               AssetSourceBuilder::platform_default
@@ -53,15 +59,18 @@ fn main() -> io::Result<()> {
         nano9_plugin = Nano9Plugin {
             config
         };
-
     } else if script_path.ends_with(".p8") {
+        let path = PathBuf::from(script_path.clone());
         app.add_systems(
             Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
-                let cart: Handle<Cart> = asset_server.load(&script_path);
+                let asset_path = AssetPath::from_path(&path).with_source(&pwd);
+                let cart: Handle<Cart> = asset_server.load(&asset_path);
                 commands.send_event(LoadCart(cart));
+                // commands.spawn(ScriptComponent(vec![asset_path.path().to_str().unwrap().to_string().into()]));
                 commands.spawn(ScriptComponent(
-                    vec![format!("{}#lua", &script_path).into()],
+                    // vec![format!("{}#lua", &script_path).into()],
+                    vec![format!("{}#lua", &asset_path.path().to_str().unwrap()).into()],
                 ));
             },
         );
