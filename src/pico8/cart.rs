@@ -142,6 +142,7 @@ fn load_cart(
                 }].into()
             };
             commands.insert_resource(state);
+            info!("State inserted");
             // commands.entity(id).insert(ScriptComponent(
             //         vec![
             //             format!("{}#lua", load_cart.0.path())

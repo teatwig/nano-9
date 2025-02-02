@@ -4,7 +4,7 @@
 use bevy::{prelude::*, utils::HashMap};
 
 use super::Screen;
-use crate::assets::ImageHandles;
+// use crate::assets::ImageHandles;
 
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(OnEnter(Screen::Loading), show_loading_screen);
@@ -25,11 +25,12 @@ fn show_loading_screen(_commands: Commands) {
 
 fn all_assets_loaded(
     asset_server: Res<AssetServer>,
-    image_handles: Res<ImageHandles>,
+    // image_handles: Res<ImageHandles>,
     // sfx_handles: Res<SfxHandles>,
     // bgm_handles: Res<BgmHandles>,
 ) -> bool {
-    image_handles.all_loaded(&asset_server)
+    true
+    // image_handles.all_loaded(&asset_server)
     // && sfx_handles.all_loaded(&asset_server)
     // && bgm_handles.all_loaded(&asset_server)
 }
