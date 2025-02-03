@@ -602,6 +602,8 @@ dependencies = [
 [[package]]
 name = "bevy_ecs_ldtk"
 version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee3e4e7503c830cc44c3c87c76b9096d7c28f2d765f4bbd35df0f005c006489b"
 dependencies = [
  "bevy",
  "bevy_ecs_ldtk_macros",
@@ -619,6 +621,8 @@ dependencies = [
 [[package]]
 name = "bevy_ecs_ldtk_macros"
 version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06bc76a55415e46157c9f69501233f091341589d4cee70e6d5cbbdd102f19a87"
 dependencies = [
  "proc-macro2",
  "quote",

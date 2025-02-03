@@ -99,7 +99,7 @@ impl P8Map {
         let grid_size = tile_size.into();
         let map_type = TilemapType::default();
         let mut transform =
-            pico8::get_tilemap_top_left_transform(&map_size, &grid_size, &map_type, clearable.suggest_z());
+            get_tilemap_top_left_transform(&map_size, &grid_size, &map_type, clearable.suggest_z());
         transform.translation += screen_start.extend(0.0);
 
         commands.entity(tilemap_entity).insert((
@@ -118,6 +118,19 @@ impl P8Map {
         ));
         Ok(tilemap_entity)
     }
+}
+
+/// Calculates a [`Transform`] for a tilemap that places it so that its center is at
+/// `(0.0, 0.0, 0.0)` in world space.
+pub(crate) fn get_tilemap_top_left_transform(
+    size: &TilemapSize,
+    grid_size: &TilemapGridSize,
+    map_type: &TilemapType,
+    z: f32,
+) -> Transform {
+    assert_eq!(map_type, &TilemapType::Square);
+    let y = size.y as f32 * grid_size.y;
+    Transform::from_xyz(grid_size.x / 2.0, -y + grid_size.y / 2.0, z)
 }
 
 #[cfg(feature = "level")]

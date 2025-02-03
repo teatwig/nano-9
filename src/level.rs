@@ -8,10 +8,13 @@ pub struct Map {
 }
 
 impl Map {
-
     pub fn map(&self, screen_start: Vec2, level: usize, mut commands: &mut Commands) -> Entity {
         commands.insert_resource(LevelSelection::index(level));
         let clearable = Clearable::default();
+
+        let mut transform =
+            get_tilemap_top_left_transform(&map_size, &grid_size, &map_type, clearable.suggest_z());
+        transform.translation += screen_start.extend(0.0);
         commands.spawn((LdtkWorldBundle {
             ldtk_handle: self.handle.clone().into(),
             transform: Transform::from_xyz(screen_start.x, screen_start.y, clearable.suggest_z()),

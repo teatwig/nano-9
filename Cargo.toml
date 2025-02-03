@@ -39,7 +39,7 @@ bench = false
 
 [patch.crates-io]
 bevy_minibuffer = { path = "../bevy_minibuffer" }
-bevy_ecs_ldtk = { path = "../bevy_ecs_ldtk" }
+# bevy_ecs_ldtk = { path = "../bevy_ecs_ldtk" }
 # bevy_minibuffer_inspector = { path = "../bevy_minibuffer_inspector" }
 # bevy-inspector-egui = { git = "https://github.com/jakobhellermann/bevy-inspector-egui" }
 # bevy-inspector-egui = { path = "../bevy-inspector-egui/crates/bevy-inspector-egui" }

@@ -9,15 +9,25 @@ use bevy_ecs_tilemap::prelude::{TilePos, TilemapType};
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::{asset::ScriptAsset, script::ScriptComponent};
 use nano_9::{minibuffer::*, pico8::*, *, config::Config};
-use std::{fs, env, io, path::{Path, PathBuf}, borrow::Cow};
+use std::{fs, ffi::OsStr, env, io, path::{Path, PathBuf}, borrow::Cow};
 
 fn main() -> io::Result<()> {
     let args = env::args();
-    let script_path: String = args
+    let script: String = args
         .skip(1)
         .next()
         // .map(|s| format!("../{s}"))
         .unwrap_or("scripts/main.lua".into());
+    dbg!(&script);
+    let script_path = {
+        let mut path = PathBuf::from(&script);
+    dbg!(&path);
+        if path.is_dir() {
+            path.push("nano9.toml")
+        }
+    dbg!(&path);
+        path
+    };
     let mut app = App::new();
     let pwd = AssetSourceId::Name("pwd".into());
     let mut builder = AssetSourceBuilder::platform_default(env::current_dir()?.to_str().expect("pwd dir"), None);
@@ -33,8 +43,9 @@ fn main() -> io::Result<()> {
 
     // }
     let nano9_plugin;
-    if script_path.ends_with(".toml") {
-        let path = PathBuf::from(script_path);
+    if script_path.extension() == Some(OsStr::new("toml")) {
+        eprintln!("loading config");
+        let path = &script_path;
         if let Some(parent) = path.parent() {
             app.register_asset_source(&source,
                                       AssetSourceBuilder::platform_default(parent.to_str().expect("parent dir"), None));
@@ -61,6 +72,7 @@ fn main() -> io::Result<()> {
             config
         };
     } else if script_path.ends_with(".p8") {
+        eprintln!("loading cart");
         let path = PathBuf::from(script_path.clone());
         app.add_systems(
             Startup,
@@ -77,6 +89,7 @@ fn main() -> io::Result<()> {
         );
         nano9_plugin = Nano9Plugin { config: Config::pico8() };
     } else {
+        eprintln!("loading lua");
         let path = PathBuf::from(script_path.clone());
         let asset_path = AssetPath::from_path(&path).with_source(&source);
         if let Some(parent) = path.parent().map(Cow::Borrowed).or_else(|| env::current_dir().ok().map(Cow::Owned)) {
