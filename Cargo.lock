@@ -602,8 +602,6 @@ dependencies = [
 [[package]]
 name = "bevy_ecs_ldtk"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee3e4e7503c830cc44c3c87c76b9096d7c28f2d765f4bbd35df0f005c006489b"
 dependencies = [
  "bevy",
  "bevy_ecs_ldtk_macros",
@@ -621,8 +619,6 @@ dependencies = [
 [[package]]
 name = "bevy_ecs_ldtk_macros"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06bc76a55415e46157c9f69501233f091341589d4cee70e6d5cbbdd102f19a87"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -644,8 +640,6 @@ dependencies = [
 [[package]]
 name = "bevy_ecs_tilemap"
 version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d860132718d33627950294b0f316310f1dae789fb995deb4516ebdd7f3e6219"
 dependencies = [
  "bevy",
  "bevy_internal",
@@ -3067,6 +3061,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
+name = "ldtk_rust"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e6ec9d145e9e4265fc8d473114353c07ab84a21ea1e1ad7c86ba7fc6337aebe"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "lewton"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3366,8 +3370,10 @@ dependencies = [
  "bytemuck",
  "dasp",
  "keyseq",
+ "ldtk_rust",
  "rand",
  "serde",
+ "serde_json",
  "thiserror",
  "tiny-skia",
  "toml 0.8.19",
