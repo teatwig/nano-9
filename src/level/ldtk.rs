@@ -1,7 +1,7 @@
 use bevy_ecs_tilemap::{
     anchor::TilemapAnchor,
     map::{TilemapId, TilemapSize, TilemapTexture, TilemapTileSize},
-    tiles::{TileBundle, TilePos, TileStorage, TileTextureIndex},
+    tiles::{TileBundle, TileFlip, TilePos, TileStorage, TileTextureIndex},
     TilemapBundle,
 };
 use std::{collections::HashMap, io::ErrorKind};
@@ -9,8 +9,8 @@ use thiserror::Error;
 
 use bevy::{asset::io::Reader, reflect::TypePath};
 use bevy::{
-    log,
     asset::{AssetLoader, AssetPath, LoadContext},
+    log,
     prelude::*,
 };
 use bevy_ecs_tilemap::map::TilemapType;
@@ -20,7 +20,9 @@ pub struct LdtkPlugin;
 
 impl Plugin for LdtkPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset::<LdtkMap>()
+        app.register_type::<LdtkMapConfig>()
+            .register_type::<LdtkMapHandle>()
+            .init_asset::<LdtkMap>()
             .register_asset_loader(LdtkLoader)
             .add_systems(Update, process_loaded_tile_maps);
     }
@@ -32,12 +34,12 @@ pub struct LdtkMap {
     pub tilesets: HashMap<i64, Handle<Image>>,
 }
 
-#[derive(Default, Debug, Component, Clone, Copy)]
+#[derive(Default, Debug, Component, Clone, Copy, Reflect)]
 pub struct LdtkMapConfig {
     pub selected_level: usize,
 }
 
-#[derive(Default, Debug, Component, Clone)]
+#[derive(Default, Debug, Component, Clone, Reflect)]
 pub struct LdtkMapHandle(pub Handle<LdtkMap>);
 
 #[derive(Default, Debug, Bundle)]
@@ -197,6 +199,7 @@ pub fn process_loaded_tile_maps(
                         // Create tiles for this layer from LDtk's grid_tiles and auto_layer_tiles
                         let mut storage = TileStorage::empty(size);
 
+                        let mut children = vec![];
                         for tile in layer.grid_tiles.iter().chain(layer.auto_layer_tiles.iter()) {
                             let mut position = TilePos {
                                 x: (tile.px[0] / default_grid_size) as u32,
@@ -204,34 +207,49 @@ pub fn process_loaded_tile_maps(
                             };
 
                             position.y = map_tile_count_y - position.y - 1;
+                            let flip = TileFlip {
+                                x: tile.f & 0b1 == 0b1,
+                                y: tile.f & 0b10 == 0b10,
+                                d: false,
+                            };
 
                             let tile_entity = commands
                                 .spawn(TileBundle {
                                     position,
                                     tilemap_id: TilemapId(map_entity),
                                     texture_index: TileTextureIndex(tile.t as u32),
+                                    flip,
                                     ..default()
                                 })
                                 .id();
-
                             storage.set(&position, tile_entity);
+                            children.push(tile_entity);
                         }
 
                         let grid_size = tile_size.into();
                         let map_type = TilemapType::default();
 
+                        // let children: Vec<Entity> = storage.iter().filter_map(|x| *x).collect();
+                        // dbg!(&children);
                         // Create the tilemap
-                        commands.entity(map_entity).insert(TilemapBundle {
-                            grid_size,
-                            map_type,
-                            size,
-                            storage,
-                            texture: TilemapTexture::Single(texture),
-                            tile_size,
-                            anchor: TilemapAnchor::TopLeft,
-                            transform: Transform::from_xyz(0.0, 0.0, layer_id as f32),
-                            ..default()
-                        });
+                        commands
+                            .entity(map_entity)
+                            .insert((
+                                TilemapBundle {
+                                    grid_size,
+                                    map_type,
+                                    size,
+                                    storage,
+                                    texture: TilemapTexture::Single(texture),
+                                    tile_size,
+                                    anchor: TilemapAnchor::TopLeft,
+                                    transform: Transform::from_xyz(0.0, 0.0, layer_id as f32),
+                                    ..default()
+                                },
+                                // InheritedVisibility::default(),
+                            ))
+                            .add_children(&children)
+                            .set_parent(entity);
                     }
                 }
             }

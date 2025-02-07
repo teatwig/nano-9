@@ -14,7 +14,7 @@ bytemuck = "1.16.3"
 thiserror = "1.0.63"
 # bevy_pixel_buffer = "0.7.0"
 bevy_minibuffer = "0.3.0"
-# bevy_minibuffer_inspector = "0.1.0"
+bevy_minibuffer_inspector = "0.1.0"
 serde = { version = "1.0.217", features = ["derive"] }
 bevy_ecs_tilemap = "0.15.0"
 keyseq = { version = "0.5.0", features = ["bevy"] }
@@ -24,7 +24,7 @@ rand = "0.8.5"
 tiny-skia = "0.11.4"
 toml = "0.8.19"
 atomicow = "1.0.0"
-ldtk_rust = { version = "0.6", optional = true }
+ldtk_rust = { version = "0.6.1", optional = true }
 serde_json = { version = "1.0", optional = true }
 # regex = "1.11.1"
 
@@ -43,8 +43,9 @@ bench = false
 bevy_minibuffer = { path = "../bevy_minibuffer" }
 bevy_ecs_ldtk = { path = "../bevy_ecs_ldtk" }
 bevy_ecs_tilemap = { path = "../bevy_ecs_tilemap" }
-# bevy_minibuffer_inspector = { path = "../bevy_minibuffer_inspector" }
+ldtk_rust = { git = "https://github.com/nomnomab/ldtk_rust.git", branch = "1.5.3" }
+bevy_minibuffer_inspector = { path = "../bevy_minibuffer_inspector" }
 # bevy-inspector-egui = { git = "https://github.com/jakobhellermann/bevy-inspector-egui" }
-# bevy-inspector-egui = { path = "../bevy-inspector-egui/crates/bevy-inspector-egui" }
+bevy-inspector-egui = { path = "../bevy-inspector-egui/crates/bevy-inspector-egui" }
 # bevy_mod_scripting = { path = "../bevy_mod_scripting" }
 # bevy_pixel_buffer = { path = "../bevy_pixel_buffer" }

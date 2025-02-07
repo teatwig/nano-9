@@ -32,6 +32,7 @@ fn main() -> io::Result<()> {
     let pwd = AssetSourceId::Name("pwd".into());
     let mut builder = AssetSourceBuilder::platform_default(env::current_dir()?.to_str().expect("pwd dir"), None);
     builder.watcher = None;
+    builder.processed_watcher = None;
 
     app.register_asset_source(&pwd,
                               builder);
@@ -143,7 +144,7 @@ fn main() -> io::Result<()> {
             BasicActs::default(),
             acts::universal::UniversalArgActs::default(),
             acts::tape::TapeActs::default(),
-            // bevy_minibuffer_inspector::WorldActs::default(),
+            bevy_minibuffer_inspector::WorldActs::default(),
             crate::minibuffer::Nano9Acts::default(),
             CountComponentsActs::default()
                 .add::<Text>("text")
