@@ -1,12 +1,14 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use crate::pico8::Clearable;
-pub mod ldtk;
-use ldtk::*;
+use bevy_ecs_tiled::prelude::*;
+// pub mod ldtk;
+// use ldtk::*;
 
 #[derive(Debug, Clone)]
 pub struct Map {
-    pub handle: LdtkMapHandle,
+    pub handle: Handle<TiledMap>,
+    // pub handle: LdtkMapHandle,
 }
 
 impl Map {
@@ -17,11 +19,13 @@ impl Map {
         // let mut transform =
         //     get_tilemap_top_left_transform(&map_size, &grid_size, &map_type, clearable.suggest_z());
         // transform.translation += screen_start.extend(0.0);
-        commands.spawn((LdtkMapBundle {
-            ldtk_map: self.handle.clone(),
-            transform: Transform::from_xyz(screen_start.x, screen_start.y, clearable.suggest_z()),
-            ..default()
-        },
+        commands.spawn((TiledMapHandle(self.handle.clone()),
+            // ldtk_map: self.handle.clone(),
+                        Transform::from_xyz(screen_start.x, screen_start.y, clearable.suggest_z()),
+                        TiledMapSettings {
+                            layer_positioning: LayerPositioning::Anchor(TilemapAnchor::TopLeft),
+                            ..default()
+                        },
                         Name::new("level"),
                         clearable,
                         InheritedVisibility::default(),
@@ -32,7 +36,8 @@ impl Map {
 pub(crate) fn plugin(app: &mut App) {
     app//.add_plugins(LdtkPlugin)
         .add_plugins(TilemapPlugin)
-        .add_plugins(ldtk::LdtkPlugin)
+        .add_plugins(TiledMapPlugin::default())
+        // .add_plugins(ldtk::LdtkPlugin)
         // .register_ldtk_entity::<Slime>("Slime")
         // .insert_resource(LevelSelection::index(0))
         // .add_systems(PostUpdate, process_entities)

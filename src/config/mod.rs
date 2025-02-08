@@ -131,8 +131,11 @@ impl Command for Config {
                             panic!("This config has an LDTK map; consider using the '--features=level' flag.");
                             #[cfg(feature = "level")]
                             level::Map {
-                                handle: level::ldtk::LdtkMapHandle(asset_server.load(&AssetPath::from_path(&path).with_source(&source))),
+                                handle: asset_server.load(&AssetPath::from_path(&path).with_source(&source)),
                             }.into()
+                            // level::Map {
+                            //     handle: level::ldtk::LdtkMapHandle(asset_server.load(&AssetPath::from_path(&path).with_source(&source))),
+                            // }.into()
 
                         }
                     }

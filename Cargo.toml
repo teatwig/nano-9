@@ -8,7 +8,7 @@ bevy = { version = "0.15", features = [ "bevy_dev_tools" ] }
 # bevy-inspector-egui = "0.28"
 # bevy = { version = "0.13", default-features = false, features = [ "bevy_winit", "bevy_asset", "bevy_render" ] }
 # bevy_asset_loader = "0.21"
-bevy_ecs_ldtk = { version = "0.11", optional = true }
+# bevy_ecs_ldtk = { version = "0.11", optional = true }
 bevy_mod_scripting = { version = "0.9.0-alpha.7", features = ["lua54", "core_functions"] }
 bytemuck = "1.16.3"
 thiserror = "1.0.63"
@@ -26,10 +26,13 @@ toml = "0.8.19"
 atomicow = "1.0.0"
 ldtk_rust = { version = "0.6.1", optional = true }
 serde_json = { version = "1.0", optional = true }
+bevy_ecs_tiled = { version = "0.5.1", optional = true }
 # regex = "1.11.1"
 
 [features]
-level = [ "dep:bevy_ecs_ldtk", "dep:ldtk_rust", "dep:serde_json"]
+default = [ "level" ]
+# level = [ "dep:bevy_ecs_ldtk", "dep:ldtk_rust", "dep:serde_json"]
+level = [ "dep:bevy_ecs_tiled", "dep:serde_json", "bevy_ecs_tiled/user_properties" ]
 
 [dev-dependencies]
 bevy = "0.15"
@@ -41,7 +44,8 @@ bench = false
 
 [patch.crates-io]
 bevy_minibuffer = { path = "../bevy_minibuffer" }
-bevy_ecs_ldtk = { path = "../bevy_ecs_ldtk" }
+bevy_ecs_tiled = { path = "../bevy_ecs_tiled" }
+# bevy_ecs_ldtk = { path = "../bevy_ecs_ldtk" }
 bevy_ecs_tilemap = { path = "../bevy_ecs_tilemap" }
 ldtk_rust = { git = "https://github.com/nomnomab/ldtk_rust.git", branch = "1.5.3" }
 bevy_minibuffer_inspector = { path = "../bevy_minibuffer_inspector" }
