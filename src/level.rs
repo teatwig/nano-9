@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use crate::pico8::Clearable;
-use bevy_ecs_tiled::prelude::*;
+use bevy_ecs_tiled::{properties::export::TypeExportRegistry, TiledMapPluginConfig, prelude::*};
+use std::path::Path;
 // pub mod ldtk;
 // use ldtk::*;
 
@@ -36,7 +37,7 @@ impl Map {
 pub(crate) fn plugin(app: &mut App) {
     app//.add_plugins(LdtkPlugin)
         .add_plugins(TilemapPlugin)
-        .add_plugins(TiledMapPlugin::default())
+        .add_plugins(TiledMapPlugin(TiledMapPluginConfig { tiled_types_export_file: None }))
         // .add_plugins(ldtk::LdtkPlugin)
         // .register_ldtk_entity::<Slime>("Slime")
         // .insert_resource(LevelSelection::index(0))

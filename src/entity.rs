@@ -52,17 +52,66 @@ pub struct N9Entity {
 }
 
 pub(crate) fn plugin(app: &mut App) {
-    NamespaceBuilder::<N9Entity>::new(app.world_mut()).register(
-        "retain",
-        |ctx: FunctionCallContext, this: Val<N9Entity>| {
+    NamespaceBuilder::<N9Entity>::new(app.world_mut())
+        .register("retain",
+        |ctx: FunctionCallContext, this: Val<N9Entity>, z: Option<f32>| {
             let world = ctx.world()?;
             world.with_global_access(|world| {
                 let mut commands = world.commands();
                 commands.entity(this.entity).remove::<Clearable>();
+                if let Some(mut transform) = world.get_mut::<Transform>(this.entity) {
+                    transform.translation.z = z.unwrap_or(0.0);
+                }
             })?;
             Ok(this)
         },
-    );
+    )
+        .register("name",
+        |ctx: FunctionCallContext, this: Val<N9Entity>, new_name: Option<String>| {
+            let world = ctx.world()?;
+            world.with_global_access(|world| {
+                if let Some(name) = new_name {
+                    let mut commands = world.commands();
+                    commands.entity(this.entity).insert(Name::new(name));
+                    None
+                } else {
+                    world.get::<Name>(this.entity).map(|n| n.as_str().to_string())
+                }
+            })
+        },
+    )
+        .register("vis",
+        |ctx: FunctionCallContext, this: Val<N9Entity>, vis: Option<bool>| {
+            let vis = None;
+            let world = ctx.world()?;
+            world.with_global_access(|world| {
+                if let Some(vis) = vis {
+                    if let Some(mut visible) = world.get_mut::<Visibility>(this.entity) {
+                        *visible = match vis {
+                            // None => Visibility::Inherited,
+                            true => Visibility::Visible,
+                            false => Visibility::Hidden,
+                        };
+                    }
+                    None
+                } else {
+                    world.get::<Visibility>(this.entity).map(|v| ! matches!(v, Visibility::Hidden))
+                }
+            })
+        },
+    )
+    .register("despawn",
+        |ctx: FunctionCallContext, this: Val<N9Entity>| {
+            let world = ctx.world()?;
+            world.with_global_access(|world| {
+                let mut commands = world.commands();
+                commands.entity(this.entity).despawn_recursive();
+            })?;
+            Ok(())
+        },
+    )
+        ;
+
 }
 
 impl UserData for N9Entity {
