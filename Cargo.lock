@@ -3550,6 +3550,7 @@ dependencies = [
  "bevy_minibuffer",
  "bevy_minibuffer_inspector",
  "bevy_mod_scripting",
+ "bitflags 2.8.0",
  "bresenham",
  "bytemuck",
  "dasp",

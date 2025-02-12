@@ -117,10 +117,10 @@ fn main() -> io::Result<()> {
 
     app
         .add_plugins(DefaultPlugins
-            .set(AudioPlugin {
-                global_volume: GlobalVolume::new(0.4),
-                ..default()
-            })
+                     .set(AudioPlugin {
+                         global_volume: GlobalVolume::new(0.4),
+                         ..default()
+                     })
                      .set(nano9_plugin.window_plugin()))
         .add_plugins(nano9_plugin)
         .add_plugins(nano_9::pico8::plugin)
@@ -154,9 +154,15 @@ fn main() -> io::Result<()> {
                 .add::<Clearable>("clearables"),
             toggle_fps
             // inspector::AssetActs::default().add::<Image>(),
-        ))
-        // .insert_state(ErrorState::Messages { frame: 0 })
-        ;
+        ));
+        #[cfg(feature = "level")]
+        app.add_systems(Startup, |reg: Res<AppTypeRegistry>| {
+            bevy_ecs_tiled::export_types_filtered(&reg, "export-types.json",
+                                                  |name| {
+                                                      name.contains("bevy_ecs_tilemap::tiles") ||
+                                                      name.contains("nano_9")
+                                                  });
+        });
     app.run();
     Ok(())
 }

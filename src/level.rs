@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use crate::pico8::Clearable;
-use bevy_ecs_tiled::{properties::export::TypeExportRegistry, TiledMapPluginConfig, prelude::*};
+use bevy_ecs_tiled::{TiledMapPluginConfig, prelude::*};
 use std::path::Path;
 // pub mod ldtk;
 // use ldtk::*;

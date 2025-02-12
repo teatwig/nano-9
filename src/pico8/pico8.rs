@@ -70,6 +70,33 @@ pub struct N9Font {
     pub height: Option<f32>,
 }
 
+#[derive(Clone, Component, Debug, Reflect, Default)]
+#[reflect(Component, Default)]
+pub struct P8Flags {
+    pub red    : bool,
+    pub orange : bool,
+    pub yellow : bool,
+    pub green  : bool,
+    pub blue   : bool,
+    pub purple : bool,
+    pub pink   : bool,
+    pub peach  : bool,
+}
+
+bitflags::bitflags! {
+    #[derive(Clone, Copy, Debug, PartialOrd, PartialEq, Eq, Hash, Ord)]
+    pub struct SpriteFlags: u8 {
+        const Red    = 0b00000001;
+        const Orange = 0b00000010;
+        const Yellow = 0b00000100;
+        const Green  = 0b00001000;
+        const Blue   = 0b00010000;
+        const Purple = 0b00100000;
+        const Pink   = 0b01000000;
+        const Peach  = 0b10000000;
+    }
+}
+
 #[derive(Clone, Debug, Deref, DerefMut)]
 pub struct AudioBank(pub Vec<Audio>);
 
@@ -1252,7 +1279,9 @@ pub(crate) fn plugin(app: &mut App) {
     embedded_asset!(app, "pico-8-palette.png");
     embedded_asset!(app, "rect-border.png");
     embedded_asset!(app, "pico-8.ttf");
-    app.init_resource::<Pico8State>()
+    app
+        .register_type::<P8Flags>()
+        .init_resource::<Pico8State>()
         .add_plugins(attach_api)
         .add_systems(
             PreStartup,
