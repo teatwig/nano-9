@@ -70,21 +70,22 @@ pub struct N9Font {
     pub height: Option<f32>,
 }
 
-#[derive(Clone, Component, Debug, Reflect, Default)]
-#[reflect(Component, Default)]
-pub struct P8Flags {
-    pub red    : bool,
-    pub orange : bool,
-    pub yellow : bool,
-    pub green  : bool,
-    pub blue   : bool,
-    pub purple : bool,
-    pub pink   : bool,
-    pub peach  : bool,
-}
+// /// We name these oddly so they'll be in the right
+// #[derive(Clone, Component, Debug, Reflect, Default)]
+// #[reflect(Component, Default)]
+// pub struct P8Flags {
+//     pub a_red    : bool,
+//     pub b_orange : bool,
+//     pub c_yellow : bool,
+//     pub d_green  : bool,
+//     pub e_blue   : bool,
+//     pub f_purple : bool,
+//     pub g_pink   : bool,
+//     pub h_peach  : bool,
+// }
 
 bitflags::bitflags! {
-    #[derive(Clone, Copy, Debug, PartialOrd, PartialEq, Eq, Hash, Ord)]
+    #[derive(Clone, Copy, Debug, PartialOrd, PartialEq, Eq, Hash, Ord, Component)]
     pub struct SpriteFlags: u8 {
         const Red    = 0b00000001;
         const Orange = 0b00000010;
@@ -120,8 +121,6 @@ pub struct Pico8State {
     pub(crate) border: Handle<Image>,
     pub(crate) sprite_sheets: Cursor<SpriteSheet>,
     pub(crate) maps: Cursor<Map>,
-    // TODO: Let's try to get rid of CART
-    // pub(crate) cart: Option<Handle<Cart>>,
     pub(crate) font: Cursor<N9Font>,
     pub(crate) draw_state: DrawState,
     pub(crate) audio_banks: Cursor<AudioBank>,
@@ -1280,7 +1279,6 @@ pub(crate) fn plugin(app: &mut App) {
     embedded_asset!(app, "rect-border.png");
     embedded_asset!(app, "pico-8.ttf");
     app
-        .register_type::<P8Flags>()
         .init_resource::<Pico8State>()
         .add_plugins(attach_api)
         .add_systems(

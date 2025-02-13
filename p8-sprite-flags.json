@@ -1,0 +1,19 @@
+[
+    {
+        "id": 10,
+        "name": "P8SpriteFlags",
+        "storageType": "string",
+        "type": "enum",
+        "values": [
+            "red",
+            "orange",
+            "yellow",
+            "green",
+            "blue",
+            "purple",
+            "pink",
+            "peach"
+        ],
+        "valuesAsFlags": true
+    }
+]

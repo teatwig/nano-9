@@ -1,19 +1,23 @@
 # TODO
 ## Pico-8
-- [ ] fix z-fighting, use frameCount + some increment
+- [x] fix z-fighting, use frameCount + some increment
 - [x] fix sub char splitting
 - [ ] Add pause or other state to stop Lua evaluation
       Can't use inspector while it's churning.
 ## Nano-9
+- [ ] Check collisions example
+- [ ] 
+- [ ] make sprite flags generic
+- [ ] how to permit bitflags as property?
 - [x] add full screen key (alt-enter)
 - [x] scale image with window
 - [x] implement cls()
 - [x] audio sfx
-- [x] audio music
+- [ ] audio music
 - [x] audio control
 - [x] implement tile map
 - [x] show errors
-- [ ] make work with local paths
+- [x] make work with local paths
 
 ## Gameplay
 - [ ] title screen
