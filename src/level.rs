@@ -5,6 +5,7 @@ use bevy_ecs_tiled::{TiledMapPluginConfig, prelude::*};
 use std::path::Path;
 // pub mod ldtk;
 // use ldtk::*;
+pub(crate) mod tiled;
 
 #[derive(Debug, Clone)]
 pub struct Map {

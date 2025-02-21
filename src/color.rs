@@ -7,6 +7,7 @@ use bevy_mod_scripting::{
         bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
         error::InteropError,
     },
+    core::docgen::typed_through::{TypedThrough, ThroughTypeInfo},
     lua::mlua::{
         self, prelude::LuaError, FromLua, Lua, UserData, UserDataFields, UserDataMethods, Value,
     },
@@ -17,6 +18,11 @@ pub enum N9Color {
     Pen,
     Palette(usize),
     Color(LinearRgba),
+}
+impl TypedThrough for N9Color {
+    fn through_type_info() -> ThroughTypeInfo {
+        ThroughTypeInfo::TypeInfo(<N9Color as bevy::reflect::Typed>::type_info())
+    }
 }
 
 impl FromScript for N9Color {

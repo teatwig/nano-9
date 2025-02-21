@@ -11,10 +11,10 @@ use bevy::{
 };
 use bevy_mod_scripting::core::script::ScriptComponent;
 use serde::Deserialize;
-use std::{ops::Deref, path::PathBuf};
+use std::{ops::Deref, path::PathBuf, ffi::OsStr, io};
 use crate::pico8;
 #[cfg(feature = "level")]
-use crate::level;
+use crate::level::{self, tiled::*};
 
 pub const DEFAULT_CANVAS_SIZE: UVec2 = UVec2::splat(128);
 pub const DEFAULT_SCREEN_SIZE: UVec2 = UVec2::splat(512);
@@ -22,6 +22,8 @@ pub const DEFAULT_SCREEN_SIZE: UVec2 = UVec2::splat(512);
 pub(crate) fn plugin(app: &mut App) {
     embedded_asset!(app, "gameboy-palettes.png");
     embedded_asset!(app, "gameboy.ttf");
+    app.init_asset_loader::<ConfigLoader>()
+        .add_systems(Update, update_asset);
 }
 
 #[derive(Default, Debug, Clone, Deserialize)]
@@ -60,9 +62,16 @@ pub struct Screen {
     pub screen_size: Option<UVec2>,
 }
 
+// #[derive(Debug, Clone, Deserialize)]
+// #[serde(untagged)]
+// pub enum Sprite {
+//     Sheet { sheet: SpriteSheet },
+//     Tiled { path: PathBuf },
+// }
+
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct SpriteSheet {
-    pub path: String,
+    pub path: PathBuf,
     pub sprite_size: Option<UVec2>,
     pub sprite_counts: Option<UVec2>,
 }
@@ -89,21 +98,237 @@ struct Palette {
     row: Option<u32>,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum ConfigLoaderError {
+    #[error("Could not load config file: {0}")]
+    Utf8(#[from] std::str::Utf8Error),
+    /// An [IO](std::io) Error
+    #[error("Could not load Tiled file: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("{0}")]
+    MissingFeature(String)
+}
+
+#[derive(Default)]
+pub struct ConfigLoader;
+
+impl AssetLoader for ConfigLoader {
+    type Asset = pico8::Pico8State;
+    type Settings = ();
+    type Error = ConfigLoaderError;
+
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &Self::Settings,
+        load_context: &mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let mut bytes = Vec::new();
+        let _ = reader.read_to_end(&mut bytes).await?;
+        let content = std::str::from_utf8(&bytes)?;
+        dbg!(&content);
+        let config: Config = toml::from_str::<Config>(content)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?
+            .inject_template();
+        dbg!(&config);
+        dbg!(config.sprite_sheets.len());
+        let layouts: Vec<Option<Handle<TextureAtlasLayout>>> = {
+            // let mut layout_assets = world.resource_mut::<Assets<TextureAtlasLayout>>();
+            config.sprite_sheets.iter().enumerate().map(|(i, sheet)| {
+                if sheet.path.extension() == Some(OsStr::new("tsx")) {
+                    #[cfg(feature = "level")]
+                    {
+                        let mut loader = tiled::Loader::new();
+                        let tileset = loader.load_tsx_tileset(&sheet.path).unwrap();
+                        // Some(layout_assets.add(layout_from_tileset(&tileset)))
+                        Some(load_context.add_labeled_asset(format!("atlas{i}"), layout_from_tileset(&tileset)))
+                    }
+                    #[cfg(not(feature = "level"))]
+                    Err(ConfigLoaderError::MissingFeature(format!("Can not load {:?} file without 'level' feature.", &sheet.path)))?;
+                } else {
+                    if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
+                        Some(load_context.add_labeled_asset(format!("atlas{i}"), TextureAtlasLayout::from_grid(
+                            size,
+                            counts.x,
+                            counts.y,
+                            None,
+                            None)))
+                    } else {
+                        None
+                    }
+            }
+            }).collect()
+        };
+        dbg!(&layouts);
+        let code_path = config.code.unwrap_or_else(|| "main.lua".into());
+
+        let pixel_art_settings = |settings: &mut ImageLoaderSettings| {
+            // Use `nearest` image sampling to preserve the pixel art style.
+            settings.sampler = ImageSampler::nearest();
+        };
+            let state = pico8::Pico8State {
+                code: load_context.load(&*code_path),
+                palette: pico8::Palette {
+                    handle: load_context.loader()
+                                        .with_settings(pixel_art_settings)
+                                        .load(config.palette.as_ref().map(|p| p.path.as_str()).as_deref().unwrap_or(pico8::PICO8_PALETTE)),
+                    row: config.palette.and_then(|p| p.row).unwrap_or(0),
+                },
+                border: load_context.loader()
+                                    .with_settings(pixel_art_settings)
+                                    .load(pico8::PICO8_BORDER),
+                maps: config.maps.into_iter().map(|map| {
+                    match map {
+                        Map::P8 { p8: path } => todo!(),
+                        Map::Ldtk { ldtk: path } => {
+                            #[cfg(not(feature = "level"))]
+                            Err(ConfigLoaderError::MissingFeature(format!("This config has an LDTK map; consider using the '--features=level' flag.", &sheet.path)))?;
+                            #[cfg(feature = "level")]
+                            level::Map {
+                                handle: load_context.load(&*path),
+                            }.into()
+                        }
+                    }
+                }).collect::<Vec<_>>().into(),
+                audio_banks: config.audio_banks.into_iter().map(|bank| pico8::AudioBank(match bank {
+                    AudioBank::P8 { p8, count } => {
+                            (0..count).map(|i|
+                                           pico8::Audio::Sfx(load_context.load(&AssetPath::from_path(&p8).with_label(&format!("sfx{i}"))))
+                            ).collect::<Vec<_>>()
+                    }
+                    AudioBank::Paths { paths } => {
+                        paths.into_iter().map(|p| pico8::Audio::AudioSource(load_context.load(p))).collect::<Vec<_>>()
+                    }
+                })).collect::<Vec<_>>().into(),
+
+                        // vec![AudioBank(cart.sfx.clone().into_iter().map(Audio::Sfx).collect())].into(),
+                sprite_sheets: config.sprite_sheets.into_iter().zip(layouts.into_iter()).map(|(sheet, layout)| {
+                    let flags: Vec<u8>;
+                    if sheet.path.extension() == Some(OsStr::new("tsx")) {
+                        #[cfg(feature = "level")]
+                        {
+                            let mut loader = tiled::Loader::new();
+                            let tileset = loader.load_tsx_tileset(&sheet.path).unwrap();
+                            let tile_size = UVec2::new(tileset.tile_width, tileset.tile_height);
+                            if let Some(sprite_size) = sheet.sprite_size {
+                                assert_eq!(sprite_size, tile_size);
+                            }
+                            let flags = flags_from_tileset(&tileset);
+                            pico8::SpriteSheet {
+                                handle: default(), //load_context
+                                    // .load_with_settings(&*tileset.image.expect("tileset image").source,
+                                    //                     pixel_art_settings),
+                                sprite_size: tile_size,
+                                flags,
+                                layout: layout.unwrap_or(Handle::default()),
+                            }
+                        }
+                        #[cfg(not(feature = "level"))]
+                        panic!("Can not load {:?} file without 'level' feature.", &sheet.path);
+                    } else {
+                        // let mut path = AssetPath::from_path(&sheet.path);
+                        // if *path.source() == AssetSourceId::Default {
+                        //     path = path.with_source(&source);
+                        // }
+                        dbg!(&layout);
+                        pico8::SpriteSheet {
+                            handle: load_context.loader()
+                                        .with_settings(pixel_art_settings)
+                                        .load(&*sheet.path),
+                            sprite_size: sheet.sprite_size.unwrap_or(UVec2::splat(8)),
+                            flags: vec![],
+                            layout: layout.unwrap_or(Handle::default()),
+                        }
+                    }
+                }).collect::<Vec<_>>().into(),
+                //vec![SpriteSheet { handle: cart.sprites.clone(), size: UVec2::splat(8), flags: cart.flags.clone() }].into(),
+                // cart: Some(load_cart.0.clone()),
+                // layout: layouts.add(TextureAtlasLayout::from_grid(
+                //     PICO8_SPRITE_SIZE,
+                //     PICO8_TILE_COUNT.x,
+                //     PICO8_TILE_COUNT.y,
+                //     None,
+                //     None,
+                // )),
+                // code: cart.lua.clone(),
+                draw_state: crate::DrawState::default(),
+                font: config.fonts.into_iter().map(|font|
+                                                     match font {
+                                                         Font::Default { default: yes } if yes => {
+                                                             pico8::N9Font {
+                                                                 handle: TextFont::default().font,
+                                                                 height: None,
+                                                             }
+                                                         },
+                                                         Font::Path { path, height } => {
+
+                                                             pico8::N9Font {
+                                                                 handle: load_context.load(path),
+                                                                 height: None,
+                                                             }
+                                                         }
+                                                         Font::Default { .. } => { panic!("Must use a path if not default font.") }
+                                                     }).collect::<Vec<_>>().into(),
+            };
+        Ok(state)
+        //     world.insert_resource(state);
+        // world.spawn(ScriptComponent(vec![code_path.path().to_str().unwrap().to_string().into()]));
+        //
+    }
+
+    fn extensions(&self) -> &[&str] {
+        static EXTENSIONS: &[&str] = &["toml"];
+        EXTENSIONS
+    }
+}
+
+pub fn update_asset(mut reader: EventReader<AssetEvent<pico8::Pico8State>>,
+                    assets: Res<Assets<pico8::Pico8State>>,
+                    mut commands: Commands) {
+    for e in reader.read() {
+        info!("update asset event {e:?}");
+        match e {
+            AssetEvent::LoadedWithDependencies { id } => {
+                if let Some(state) = assets.get(*id) {
+                    info!("Insert Pico8State {:?}.", state);
+                    commands.insert_resource(state.clone());
+                    commands.spawn(ScriptComponent(vec!["main.lua".into()]));
+                } else {
+                    error!("Pico8State not available.");
+                }
+            }
+            _ => (),
+        }
+    }
+}
+
 impl Command for Config {
     fn apply(self, world: &mut World) {
         let layouts: Vec<Option<Handle<TextureAtlasLayout>>> = {
             let mut layout_assets = world.resource_mut::<Assets<TextureAtlasLayout>>();
-            self.sprite_sheets.iter().map(|sheet|
-                                      if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
-                                      Some(layout_assets.add(TextureAtlasLayout::from_grid(
-                                          size,
-                                          counts.x,
-                                          counts.y,
-                                          None,
-                                          None)))
-                                      } else {
-                                          None
-                                      }).collect()
+            self.sprite_sheets.iter().map(|sheet| {
+                if sheet.path.extension() == Some(OsStr::new("tsx")) {
+                    #[cfg(feature = "level")]
+                    {
+                        let mut loader = tiled::Loader::new();
+                        let tileset = loader.load_tsx_tileset(&sheet.path).unwrap();
+                        Some(layout_assets.add(layout_from_tileset(&tileset)))
+                    }
+                    #[cfg(not(feature = "level"))]
+                    panic!("Can not load {:?} file without 'level' feature.", &sheet.path);
+                } else {
+                    if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
+                        Some(layout_assets.add(TextureAtlasLayout::from_grid(
+                            size,
+                            counts.x,
+                            counts.y,
+                            None,
+                            None)))
+                    } else {
+                        None
+                    }
+            }
+            }).collect()
         };
         // let source = AssetSourceId::Name("nano9".into());
         let source = AssetSourceId::Default;
@@ -153,16 +378,39 @@ impl Command for Config {
 
                         // vec![AudioBank(cart.sfx.clone().into_iter().map(Audio::Sfx).collect())].into(),
                 sprite_sheets: self.sprite_sheets.into_iter().zip(layouts.into_iter()).map(|(sheet, layout)| {
-                    let mut path = AssetPath::try_parse(&sheet.path).expect("sprite path");
-                    if *path.source() == AssetSourceId::Default {
-                        path = path.with_source(&source);
-                    }
-                    dbg!(&layout);
-                    pico8::SpriteSheet {
-                        handle: asset_server.load_with_settings(path, pixel_art_settings),
-                        sprite_size: sheet.sprite_size.unwrap_or(UVec2::splat(8)),
-                        flags: vec![],
-                        layout: layout.unwrap_or(Handle::default()),
+                    let flags: Vec<u8>;
+                    if sheet.path.extension() == Some(OsStr::new("tsx")) {
+                        #[cfg(feature = "level")]
+                        {
+                            let mut loader = tiled::Loader::new();
+                            let tileset = loader.load_tsx_tileset(&sheet.path).unwrap();
+                            let tile_size = UVec2::new(tileset.tile_width, tileset.tile_height);
+                            if let Some(sprite_size) = sheet.sprite_size {
+                                assert_eq!(sprite_size, tile_size);
+                            }
+                            let flags = flags_from_tileset(&tileset);
+                            pico8::SpriteSheet {
+                                handle: asset_server.load_with_settings(&*tileset.image.expect("tileset image").source,
+                                                                        pixel_art_settings),
+                                sprite_size: tile_size,
+                                flags,
+                                layout: layout.unwrap_or(Handle::default()),
+                            }
+                        }
+                        #[cfg(not(feature = "level"))]
+                        panic!("Can not load {:?} file without 'level' feature.", &sheet.path);
+                    } else {
+                        let mut path = AssetPath::from_path(&sheet.path);
+                        if *path.source() == AssetSourceId::Default {
+                            path = path.with_source(&source);
+                        }
+                        dbg!(&layout);
+                        pico8::SpriteSheet {
+                            handle: asset_server.load_with_settings(path, pixel_art_settings),
+                            sprite_size: sheet.sprite_size.unwrap_or(UVec2::splat(8)),
+                            flags: vec![],
+                            layout: layout.unwrap_or(Handle::default()),
+                        }
                     }
                 }).collect::<Vec<_>>().into(),
                 //vec![SpriteSheet { handle: cart.sprites.clone(), size: UVec2::splat(8), flags: cart.flags.clone() }].into(),
@@ -308,6 +556,7 @@ impl Config {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn test_config_0() {
@@ -326,7 +575,7 @@ path = "sprites.png"
 sprite_size = [8, 8]
 "#).unwrap();
         assert_eq!(config.sprite_sheets.len(), 1);
-        assert_eq!(config.sprite_sheets[0].path, "sprites.png");
+        assert_eq!(config.sprite_sheets[0].path, Path::new("sprites.png"));
         assert_eq!(config.sprite_sheets[0].sprite_size, Some(UVec2::splat(8)));
     }
 
@@ -341,7 +590,7 @@ sprite_size = [8, 8]
 "#).unwrap();
         assert_eq!(config.screen.map(|s| s.canvas_size), Some(UVec2::splat(128)));
         assert_eq!(config.sprite_sheets.len(), 1);
-        assert_eq!(config.sprite_sheets[0].path, "sprites.png");
+        assert_eq!(config.sprite_sheets[0].path, Path::new("sprites.png"));
         assert_eq!(config.sprite_sheets[0].sprite_size, Some(UVec2::splat(8)));
     }
 

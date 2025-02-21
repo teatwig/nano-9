@@ -11,6 +11,9 @@ use bevy_mod_scripting::core::{asset::ScriptAsset, script::ScriptComponent};
 use nano_9::{minibuffer::*, pico8::*, *, config::Config};
 use std::{fs, ffi::OsStr, env, io, path::{Path, PathBuf}, borrow::Cow};
 
+#[derive(Resource)]
+struct InitState(Handle<Pico8State>);
+
 fn main() -> io::Result<()> {
     let args = env::args();
     let script: String = args
@@ -52,21 +55,24 @@ fn main() -> io::Result<()> {
                                       AssetSourceBuilder::platform_default(parent.to_str().expect("parent dir"), None));
 
         }
+        /// Get rid of this.
         let content = fs::read_to_string(path)?;
 
         let config: Config = toml::from_str::<Config>(&content)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?
             .inject_template();
-        let cmd = config.clone();
+        // let cmd = config.clone();
         app.add_systems(
             PostStartup,
             move |asset_server: Res<AssetServer>, mut commands: Commands, mut pico8: Pico8| {
+                let pico8state: Handle<Pico8State> = asset_server.load("nano9.toml");
+                commands.insert_resource(InitState(pico8state));
                 // let asset_path = AssetPath::from_path(&code_path).with_source(&source);
                 // pico8.state.code = asset_server.load(&asset_path);
                 // dbg!(&asset_path);
-                // commands.spawn(ScriptComponent(vec![script_path.clone().into()]));
+                // commands.spawn(ScriptComponent(vec!["main.lua".into()]));
                 // commands.spawn(ScriptComponent(vec![asset_path.to_string().into()]));
-                commands.queue(cmd.clone())
+                // commands.queue(cmd.clone())
             },
         );
         nano9_plugin = Nano9Plugin {
@@ -157,11 +163,14 @@ fn main() -> io::Result<()> {
         ));
         #[cfg(feature = "level")]
         app.add_systems(Startup, |reg: Res<AppTypeRegistry>| {
-            bevy_ecs_tiled::export_types_filtered(&reg, "export-types.json",
+            bevy_ecs_tiled::export_types_filtered(&reg, "all-export-types.json",
                                                   |name| {
                                                       true
-                                                      // name.contains("bevy_ecs_tilemap::tiles") ||
-                                                      // name.contains("nano_9")
+                                                  });
+            bevy_ecs_tiled::export_types_filtered(&reg, "export-types.json",
+                                                  |name| {
+                                                      name.contains("bevy_ecs_tilemap::tiles") ||
+                                                      name.contains("nano_9")
                                                   });
         });
     app.run();

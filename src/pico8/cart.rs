@@ -446,7 +446,7 @@ impl AssetLoader for CartLoader {
         Ok(Cart {
             lua: load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
                 content: code.into_bytes().into_boxed_slice(),
-                asset_path: code_path,
+                asset_path: code_path.into(),
             }),
             sprites: load_context
                 .labeled_asset_scope("sprites".into(), move |_load_context| sprites),

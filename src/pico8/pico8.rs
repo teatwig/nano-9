@@ -1,5 +1,5 @@
 use bevy::{
-    asset::embedded_asset,
+    asset::{AssetPath, embedded_asset},
     ecs::system::{SystemParam, SystemState},
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
     prelude::*,
@@ -55,6 +55,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
+    ffi::OsStr,
 };
 
 pub const PICO8_PALETTE: &str = "embedded://nano_9/pico8/pico-8-palette.png";
@@ -70,7 +71,23 @@ pub struct N9Font {
     pub height: Option<f32>,
 }
 
-// /// We name these oddly so they'll be in the right
+#[derive(Clone, Component, Debug, Reflect, Default)]
+#[reflect(Component, Default)]
+pub struct P8Flags {
+    pub value: u8,
+}
+// We name these oddly so they'll be in the right order
+//     pub a_red    : bool,
+//     pub b_orange : bool,
+//     pub c_yellow : bool,
+//     pub d_green  : bool,
+//     pub e_blue   : bool,
+//     pub f_purple : bool,
+//     pub g_pink   : bool,
+//     pub h_peach  : bool,
+// }
+
+// /// We name these oddly so they'll be in the right order
 // #[derive(Clone, Component, Debug, Reflect, Default)]
 // #[reflect(Component, Default)]
 // pub struct P8Flags {
@@ -114,7 +131,7 @@ pub struct Palette {
 }
 
 /// Pico8State's state.
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, TypePath, Asset, Debug)]
 pub struct Pico8State {
     pub code: Handle<ScriptAsset>,
     pub(crate) palette: Palette,
@@ -1279,15 +1296,17 @@ pub(crate) fn plugin(app: &mut App) {
     embedded_asset!(app, "rect-border.png");
     embedded_asset!(app, "pico-8.ttf");
     app
+        .init_asset::<Pico8State>()
         .init_resource::<Pico8State>()
+        .register_type::<P8Flags>()
         .add_plugins(attach_api)
         .add_systems(
             PreStartup,
             |mut asset_settings: ResMut<ScriptAssetSettings>| {
-                fn path_to_lang(path: &Path) -> Language {
+                fn path_to_lang(path: &AssetPath) -> Language {
                     // For carts we use cart.p8#lua, which is labeled asset, so we
                     // need to tell it what language our cart is.
-                    if path.to_str().map(|s| s.ends_with("lua")).unwrap_or(false) {
+                    if path.path().extension() == Some(OsStr::new("lua")) {
                         Language::Lua
                     } else {
                         Language::Unknown
