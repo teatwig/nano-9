@@ -106,7 +106,10 @@ pub enum ConfigLoaderError {
     #[error("Could not load Tiled file: {0}")]
     Io(#[from] std::io::Error),
     #[error("{0}")]
-    MissingFeature(String)
+    MissingFeature(String),
+    #[error("Could not load dependency: {0}")]
+    Load(#[from] bevy::asset::LoadDirectError),
+
 }
 
 #[derive(Default)]
@@ -132,33 +135,38 @@ impl AssetLoader for ConfigLoader {
             .inject_template();
         dbg!(&config);
         dbg!(config.sprite_sheets.len());
-        let layouts: Vec<Option<Handle<TextureAtlasLayout>>> = {
+        let mut layouts: Vec<Option<Handle<TextureAtlasLayout>>> = vec![];
             // let mut layout_assets = world.resource_mut::<Assets<TextureAtlasLayout>>();
-            config.sprite_sheets.iter().enumerate().map(|(i, sheet)| {
+            for (i, sheet) in config.sprite_sheets.iter().enumerate() {
                 if sheet.path.extension() == Some(OsStr::new("tsx")) {
                     #[cfg(feature = "level")]
                     {
-                        let mut loader = tiled::Loader::new();
-                        let tileset = loader.load_tsx_tileset(&sheet.path).unwrap();
+                        // let mut loader = tiled::Loader::new();
+                        // let tileset = loader.load_tsx_tileset(&sheet.path).unwrap();
                         // Some(layout_assets.add(layout_from_tileset(&tileset)))
-                        Some(load_context.add_labeled_asset(format!("atlas{i}"), layout_from_tileset(&tileset)))
+                        // Some(load_context.add_labeled_asset(format!("atlas{i}"), layout_from_tileset(&tileset)))
+                        let tileset = load_context
+                            .loader()
+                            .immediate()
+                            .load::<bevy_ecs_tiled::prelude::TiledSet>(&*sheet.path)
+                            .await?;
+                        layouts.push(Some(load_context.add_labeled_asset(format!("atlas{i}"), layout_from_tileset(&tileset.get().0))));
                     }
                     #[cfg(not(feature = "level"))]
                     Err(ConfigLoaderError::MissingFeature(format!("Can not load {:?} file without 'level' feature.", &sheet.path)))?;
                 } else {
                     if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
-                        Some(load_context.add_labeled_asset(format!("atlas{i}"), TextureAtlasLayout::from_grid(
+                        layouts.push(Some(load_context.add_labeled_asset(format!("atlas{i}"), TextureAtlasLayout::from_grid(
                             size,
                             counts.x,
                             counts.y,
                             None,
-                            None)))
+                            None))))
                     } else {
-                        None
+                        layouts.push(None);
                     }
+                }
             }
-            }).collect()
-        };
         dbg!(&layouts);
         let code_path = config.code.unwrap_or_else(|| "main.lua".into());
 
@@ -166,6 +174,61 @@ impl AssetLoader for ConfigLoader {
             // Use `nearest` image sampling to preserve the pixel art style.
             settings.sampler = ImageSampler::nearest();
         };
+
+        let mut sprite_sheets = vec![];
+                for (i, sheet) in config.sprite_sheets.into_iter().enumerate() {
+                    let flags: Vec<u8>;
+                    if sheet.path.extension() == Some(OsStr::new("tsx")) {
+                        #[cfg(feature = "level")]
+                        {
+                            let tiledset = load_context
+                                .loader()
+                                .immediate()
+                                .load::<bevy_ecs_tiled::prelude::TiledSet>(&*sheet.path)
+                                .await?;
+                            let tileset = &tiledset.get().0;
+                            let handle = load_context.add_labeled_asset(format!("atlas{i}"), layout_from_tileset(tileset));
+                            let tile_size = UVec2::new(tileset.tile_width, tileset.tile_height);
+                            if let Some(sprite_size) = sheet.sprite_size {
+                                assert_eq!(sprite_size, tile_size);
+                            }
+                            let flags = flags_from_tileset(&tileset);
+                            sprite_sheets.push(pico8::SpriteSheet {
+                                handle: load_context.loader()
+                                    .with_settings(pixel_art_settings)
+                                    .load(&*tileset.image.as_ref().expect("tileset image").source),
+                                 //load_context
+                                    // .load_with_settings(&*tileset.image.expect("tileset image").source,
+                                    //                     pixel_art_settings),
+                                sprite_size: tile_size,
+                                flags,
+                                layout: handle,
+                            })
+                        }
+                        #[cfg(not(feature = "level"))]
+                        panic!("Can not load {:?} file without 'level' feature.", &sheet.path);
+                    } else {
+
+                        let layout = if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
+                            Some(load_context.add_labeled_asset(format!("atlas{i}"), TextureAtlasLayout::from_grid(
+                                size,
+                                counts.x,
+                                counts.y,
+                                None,
+                                None)))
+                        } else {
+                            None
+                        };
+                        sprite_sheets.push(pico8::SpriteSheet {
+                            handle: load_context.loader()
+                                        .with_settings(pixel_art_settings)
+                                        .load(&*sheet.path),
+                            sprite_size: sheet.sprite_size.unwrap_or(UVec2::splat(8)),
+                            flags: vec![],
+                            layout: layout.unwrap_or(Handle::default()),
+                        })
+                    }
+                }
             let state = pico8::Pico8State {
                 code: load_context.load(&*code_path),
                 palette: pico8::Palette {
@@ -200,47 +263,9 @@ impl AssetLoader for ConfigLoader {
                         paths.into_iter().map(|p| pico8::Audio::AudioSource(load_context.load(p))).collect::<Vec<_>>()
                     }
                 })).collect::<Vec<_>>().into(),
+                sprite_sheets: sprite_sheets.into(),
 
                         // vec![AudioBank(cart.sfx.clone().into_iter().map(Audio::Sfx).collect())].into(),
-                sprite_sheets: config.sprite_sheets.into_iter().zip(layouts.into_iter()).map(|(sheet, layout)| {
-                    let flags: Vec<u8>;
-                    if sheet.path.extension() == Some(OsStr::new("tsx")) {
-                        #[cfg(feature = "level")]
-                        {
-                            let mut loader = tiled::Loader::new();
-                            let tileset = loader.load_tsx_tileset(&sheet.path).unwrap();
-                            let tile_size = UVec2::new(tileset.tile_width, tileset.tile_height);
-                            if let Some(sprite_size) = sheet.sprite_size {
-                                assert_eq!(sprite_size, tile_size);
-                            }
-                            let flags = flags_from_tileset(&tileset);
-                            pico8::SpriteSheet {
-                                handle: default(), //load_context
-                                    // .load_with_settings(&*tileset.image.expect("tileset image").source,
-                                    //                     pixel_art_settings),
-                                sprite_size: tile_size,
-                                flags,
-                                layout: layout.unwrap_or(Handle::default()),
-                            }
-                        }
-                        #[cfg(not(feature = "level"))]
-                        panic!("Can not load {:?} file without 'level' feature.", &sheet.path);
-                    } else {
-                        // let mut path = AssetPath::from_path(&sheet.path);
-                        // if *path.source() == AssetSourceId::Default {
-                        //     path = path.with_source(&source);
-                        // }
-                        dbg!(&layout);
-                        pico8::SpriteSheet {
-                            handle: load_context.loader()
-                                        .with_settings(pixel_art_settings)
-                                        .load(&*sheet.path),
-                            sprite_size: sheet.sprite_size.unwrap_or(UVec2::splat(8)),
-                            flags: vec![],
-                            layout: layout.unwrap_or(Handle::default()),
-                        }
-                    }
-                }).collect::<Vec<_>>().into(),
                 //vec![SpriteSheet { handle: cart.sprites.clone(), size: UVec2::splat(8), flags: cart.flags.clone() }].into(),
                 // cart: Some(load_cart.0.clone()),
                 // layout: layouts.add(TextureAtlasLayout::from_grid(

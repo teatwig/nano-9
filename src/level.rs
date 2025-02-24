@@ -26,7 +26,7 @@ impl Map {
                         Transform::from_xyz(screen_start.x, screen_start.y, clearable.suggest_z()),
                         TiledMapSettings {
                             layer_positioning: LayerPositioning::Anchor(TilemapAnchor::TopLeft),
-                            ..default()
+                            layer_z_offset: 1.0,
                         },
                         Name::new("level"),
                         clearable,

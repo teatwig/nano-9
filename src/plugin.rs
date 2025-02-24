@@ -15,6 +15,7 @@ use bevy::{
 
 use bevy_mod_scripting::{
     core::{
+        ConfigureScriptPlugin,
         asset::ScriptAsset,
         bindings::{function::namespace::NamespaceBuilder, script_value::ScriptValue},
         callback_labels,
@@ -84,6 +85,7 @@ pub mod call {
     Update => "_update",
     Update60 => "_update60",
     Init => "_init",
+    Eval => "_eval",
     Draw => "_draw"); // TODO: Should permit trailing comma
 }
 
@@ -371,6 +373,7 @@ fn add_info(app: &mut App) {
 
 impl Plugin for Nano9Plugin {
     fn build(&self, app: &mut App) {
+        // How do you enable shared context since it eats the plugin?
         let mut lua_scripting_plugin = LuaScriptingPlugin::default();
         let canvas_size: UVec2 = self.config.screen.as_ref().map(|s| s.canvas_size).unwrap_or(DEFAULT_CANVAS_SIZE);
         lua_scripting_plugin
@@ -403,7 +406,7 @@ impl Plugin for Nano9Plugin {
             (
                 (
                     (send_init, event_handler::<call::Init, LuaScriptingPlugin>)
-                        .run_if(on_asset_change::<Cart>()),
+                        .run_if(on_asset_change::<crate::pico8::Pico8State>()),
                     (send_update, /*send_update60*/).run_if(in_state(ErrorState::None)),
                     event_handler::<call::Update, LuaScriptingPlugin>,
                     // event_handler::<call::Update60, LuaScriptingPlugin>,

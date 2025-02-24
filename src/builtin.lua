@@ -216,5 +216,10 @@ coresume = coroutine.resume
 costatus = coroutine.status
 yield = coroutine.yield
 
+function _eval(str)
+    local f = loadstring(str)
+    return f()
+end
+
 -- function run(breadcrumb)
 -- end

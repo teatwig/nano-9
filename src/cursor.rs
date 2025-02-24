@@ -7,6 +7,12 @@ pub struct Cursor<T> {
     pub pos: usize,
 }
 
+impl<T> Cursor<T> {
+    pub fn get(&self, index: Option<usize>) -> Option<&T> {
+        self.inner.get(index.unwrap_or(self.pos))
+    }
+}
+
 impl<T> From<Vec<T>> for Cursor<T> {
     fn from(v: Vec<T>) -> Self {
         Cursor {

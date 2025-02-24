@@ -82,7 +82,6 @@ pub(crate) fn plugin(app: &mut App) {
     )
         .register("vis",
         |ctx: FunctionCallContext, this: Val<N9Entity>, vis: Option<bool>| {
-            let vis = None;
             let world = ctx.world()?;
             world.with_global_access(|world| {
                 if let Some(vis) = vis {

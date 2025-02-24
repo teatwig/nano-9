@@ -90,7 +90,7 @@ fn main() -> io::Result<()> {
                 // commands.spawn(ScriptComponent(vec![asset_path.path().to_str().unwrap().to_string().into()]));
                 commands.spawn(ScriptComponent(
                     // vec![format!("{}#lua", &script_path).into()],
-                    vec![format!("{}#lua", &asset_path.path().to_str().unwrap()).into()],
+                    vec![format!("{}#lua", &asset_path.path().display()).into()],
                 ));
             },
         );
@@ -163,11 +163,11 @@ fn main() -> io::Result<()> {
         ));
         #[cfg(feature = "level")]
         app.add_systems(Startup, |reg: Res<AppTypeRegistry>| {
-            bevy_ecs_tiled::export_types_filtered(&reg, "all-export-types.json",
+            bevy_ecs_tiled::map::export_types_filtered(&reg, "all-export-types.json",
                                                   |name| {
                                                       true
                                                   });
-            bevy_ecs_tiled::export_types_filtered(&reg, "export-types.json",
+            bevy_ecs_tiled::map::export_types_filtered(&reg, "export-types.json",
                                                   |name| {
                                                       name.contains("bevy_ecs_tilemap::tiles") ||
                                                       name.contains("nano_9")

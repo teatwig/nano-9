@@ -243,6 +243,8 @@ pub struct Pico8<'w, 's> {
     // map: Option<Res<'w, Map>>,
     sfx_channels: Res<'w, SfxChannels>,
     time: Res<'w, Time>,
+    #[cfg(feature = "level")]
+    tiled_maps: ResMut<'w, Assets<bevy_ecs_tiled::prelude::TiledMap>>,
     // audio_sinks: Query<'w, 's, Option<&'static mut AudioSink>>,
 }
 
@@ -281,7 +283,7 @@ impl Pico8<'_, '_> {
         // self.cart_state.set(CartState::Loading(cart));
     }
 
-    // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
+    /// spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
     fn spr(
         &mut self,
         spr: impl Into<Spr>,
@@ -341,19 +343,12 @@ impl Pico8<'_, '_> {
 
                 // Strangely. It's not a 1d texture.
                 Ok(pal.get_color_at(n as u32, self.state.palette.row)?)
-                //         Ok(c) => Some(c),
-                //         Err(e) => {
-                //             warn!("Could not look up color in palette at {n}: {e}");
-                //             None
-                //         }
-                //     }
-                // })
-                // .unwrap_or(Srgba::rgb(1.0, 0.0, 1.0).into())
             }
             N9Color::Color(c) => Ok(c.into()),
         }
     }
 
+    // cls([n])
     fn cls(&mut self, color: Option<N9Color>) -> Result<(), Error> {
         let c = self.get_color(color.unwrap_or(Color::BLACK.into()))?;
         let image = self
@@ -622,7 +617,7 @@ impl Pico8<'_, '_> {
         Ok(())
     }
 
-    fn fget(&self, index: u8, flag_index: Option<u8>) -> u8 {
+    fn fget(&self, index: usize, flag_index: Option<u8>) -> u8 {
         let flags = &self.state.sprite_sheets.flags;
         // let cart = self
         //     .state
@@ -630,7 +625,7 @@ impl Pico8<'_, '_> {
         //     .as_ref()
         //     .and_then(|cart| self.carts.get(cart))
         //     .expect("cart");
-        if let Some(v) = flags.get(index as usize) {
+        if let Some(v) = flags.get(index) {
             match flag_index {
                 Some(flag_index) => {
                     if v & (1 << flag_index) != 0 {
@@ -643,7 +638,7 @@ impl Pico8<'_, '_> {
             }
         } else {
             if flags.is_empty() {
-                warn_once!("No flags present for cart.");
+                warn_once!("No flags present.");
             } else {
                 warn!(
                     "Requested flag at {index}. There are only {} flags.",
@@ -679,8 +674,8 @@ impl Pico8<'_, '_> {
         }
     }
 
-    fn mget(&self, pos: UVec2) -> u8 {
-        let map: &Map = &self.state.maps;
+    fn mget(&self, pos: UVec2, map_index: Option<usize>) -> Vec<Option<isize>> {
+        let map: &Map = &self.state.maps.get(map_index).expect("No such map");
         // let cart = self
         //     .state
         //     .cart
@@ -688,10 +683,28 @@ impl Pico8<'_, '_> {
         //     .and_then(|cart| self.carts.get(cart))
         //     .expect("cart");
         match *map {
-            Map::P8(ref map) => map[(pos.x + pos.y * MAP_COLUMNS) as usize],
+            Map::P8(ref map) => vec![Some(map[(pos.x + pos.y * MAP_COLUMNS) as usize] as isize)],
 
             #[cfg(feature = "level")]
-            Map::Level(ref map) => todo!()
+            Map::Level(ref map) => {
+                self.tiled_maps.get(&map.handle)
+                    .map(|tiled_map|
+                              tiled_map.map.layers().map(|layer| {
+                                  match layer.layer_type() {
+                                      tiled::LayerType::Tiles(tile_layer) => {
+                                          tile_layer.get_tile(pos.x as i32, pos.y as i32)
+                                                    .map(|layer_tile| layer_tile.id() as isize)
+                                      }
+                                      tiled::LayerType::Objects(object_layer) => {
+                                          // for object in object_layer.objects() {
+                                          // }
+                                          Some(-1)
+                                      }
+                                      _ => Some(-2)
+                                  }
+                              }).collect()
+                    ).unwrap_or(vec![])
+            }
         }
     }
 
@@ -1524,8 +1537,15 @@ fn attach_api(app: &mut App) {
                 })
             },
         )
-        .register("fget", |ctx: FunctionCallContext, n: u8, f: Option<u8>| {
-            with_pico8(&ctx, move |pico8| Ok(pico8.fget(n, f)))
+        .register("fget", |ctx: FunctionCallContext, n: isize, f: Option<u8>| {
+            with_pico8(&ctx, move |pico8| {
+                let v = if n >= 0 { pico8.fget(n as usize, f) } else { 0 };
+                Ok(if f.is_some() {
+                    ScriptValue::Bool(v == 1)
+                } else {
+                    ScriptValue::Integer(v as i64)
+                })
+            })
         })
         .register(
             "fset",
@@ -1537,8 +1557,29 @@ fn attach_api(app: &mut App) {
                 })
             },
         )
-        .register("mget", |ctx: FunctionCallContext, x: u32, y: u32| {
-            with_pico8(&ctx, move |pico8| Ok(pico8.mget(UVec2::new(x, y))))
+        .register("mget", |ctx: FunctionCallContext, x: u32, y: u32, map_index: Option<usize>| {
+            with_pico8(&ctx, move |pico8| {
+                let values = pico8.mget(UVec2::new(x, y), map_index);
+                // if values.len() == 1 {
+                //     Ok(ScriptValue::Integer(values[0] as i64))
+                // } else if values.len() == 0 {
+                //     Ok(ScriptValue::Unit)
+                // } else {
+                if map_index.is_some() {
+                    // NOTE: We use a vector here, but it's important to
+                    // understand that in Lua a list `{0, 1, nil, 2}` will only
+                    // register as a list with two elements.
+                    Ok(ScriptValue::List(values.into_iter().map(|x| match x {
+                        Some(x) => ScriptValue::Integer(x as i64),
+                        None => ScriptValue::Unit
+                    }).collect()))
+                } else {
+                    Ok(match values[0] {
+                        Some(x) => ScriptValue::Integer(x as i64),
+                        None => ScriptValue::Unit
+                    })
+                }
+            })
         })
         .register("mset", |ctx: FunctionCallContext, x: u32, y: u32, v: u8| {
             with_pico8(&ctx, move |pico8| {

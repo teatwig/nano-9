@@ -14,12 +14,13 @@ pub(crate) fn layout_from_tileset(tileset: &Tileset) -> TextureAtlasLayout {
 
 
 pub(crate) fn flags_from_tileset(tileset: &Tileset) -> Vec<u8> {
-    let flags: Vec<u8> = tileset.tiles().map(|(id, tile)| {
-        tile.properties.get("p8flags").map(|value| match value {
+    let mut flags: Vec<u8> = vec![0; tileset.tilecount as usize];
+    for (id, tile) in tileset.tiles() {
+        flags[id as usize] = tile.properties.get("p8flags").map(|value| match value {
             tiled::PropertyValue::IntValue(x) => *x as u8,
             v => panic!("Expected integer value not {v:?}"),
-        }).unwrap_or(0)
-    }).collect();
+        }).unwrap_or(0);
+    }
     flags
 }
 
