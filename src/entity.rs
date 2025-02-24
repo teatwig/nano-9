@@ -4,21 +4,18 @@ use crate::pico8::Clearable;
 use bevy_mod_scripting::{
     core::{
         bindings::{
-            access_map::ReflectAccessId,
             function::{
-                from::{Ref, Val},
+                from::Val,
                 namespace::NamespaceBuilder,
                 script_function::FunctionCallContext,
             },
-            ThreadWorldContainer, WorldAccessGuard, WorldContainer,
+            ThreadWorldContainer, WorldContainer,
         },
-        error::InteropError,
-        with_access_write,
     },
     lua::mlua::{self, prelude::LuaError, FromLua, Lua, UserData, UserDataFields, Value},
 };
 
-use std::{any::TypeId, sync::Arc};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy, Reflect)]
 pub enum DropPolicy {
@@ -115,7 +112,7 @@ pub(crate) fn plugin(app: &mut App) {
 
 impl UserData for N9Entity {
     fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {
-        fields.add_field_method_get("name", |ctx, this| {
+        fields.add_field_method_get("name", |_ctx, this| {
             let world = ThreadWorldContainer
                 .try_get_world()
                 .map_err(|e| LuaError::ExternalError(Arc::new(e)))?;
@@ -126,7 +123,7 @@ impl UserData for N9Entity {
                 .map_err(|e| LuaError::ExternalError(Arc::new(e)))
         });
 
-        fields.add_field_method_set("name", |ctx, this, value: String| {
+        fields.add_field_method_set("name", |_ctx, this, value: String| {
             let world = ThreadWorldContainer
                 .try_get_world()
                 .map_err(|e| LuaError::ExternalError(Arc::new(e)))?;

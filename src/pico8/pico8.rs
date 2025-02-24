@@ -4,7 +4,6 @@ use bevy::{
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
     prelude::*,
     render::{
-        camera::ScalingMode,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
@@ -19,7 +18,7 @@ use bevy_mod_scripting::{
             WorldAccessGuard,
             access_map::ReflectAccessId,
             function::{
-                from::{Val, Ref, Mut, FromScript},
+                from::FromScript,
                 into_ref::IntoScriptRef,
                 namespace::{GlobalNamespace, NamespaceBuilder},
                 script_function::FunctionCallContext,
@@ -31,25 +30,19 @@ use bevy_mod_scripting::{
     },
     lua::mlua::prelude::LuaError,
 };
-use rand::{seq::SliceRandom, Rng};
-
-use bevy_ecs_tilemap::prelude::*;
+use rand::Rng;
 
 use crate::{
     cursor::Cursor,
     pico8::{
         audio::{Sfx, SfxChannels},
-        Cart, ClearEvent, Clearable, LoadCart, Map, P8Map,
-    },
+        Cart, ClearEvent, Clearable, LoadCart, Map },
     DrawState, DropPolicy, N9Color, N9Entity, Nano9Camera, N9Canvas,
 
 };
 
-#[cfg(feature = "level")]
-use crate::level;
 use std::{
     borrow::Cow,
-    path::Path,
     any::TypeId,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -649,8 +642,8 @@ impl Pico8<'_, '_> {
         }
     }
 
-    fn fset(&mut self, index: u8, flag_index: Option<u8>, value: u8) {
-        let mut flags = &mut self.state.sprite_sheets.flags;
+    fn fset(&mut self, index: usize, flag_index: Option<u8>, value: u8) {
+        let flags = &mut self.state.sprite_sheets.flags;
         // let cart = self
         //     .state
         //     .cart
@@ -659,17 +652,16 @@ impl Pico8<'_, '_> {
         //     .expect("cart");
         match flag_index {
             Some(flag_index) => {
-                let v = flags[index as usize];
                 if value != 0 {
                     // Set the bit.
-                    flags[index as usize] |= 1 << flag_index;
+                    flags[index] |= 1 << flag_index;
                 } else {
                     // Unset the bit.
-                    flags[index as usize] &= !(1 << flag_index);
+                    flags[index] &= !(1 << flag_index);
                 }
             }
             None => {
-                flags[index as usize] = value;
+                flags[index] = value;
             }
         }
     }
@@ -695,7 +687,7 @@ impl Pico8<'_, '_> {
                                           tile_layer.get_tile(pos.x as i32, pos.y as i32)
                                                     .map(|layer_tile| layer_tile.id() as isize)
                                       }
-                                      tiled::LayerType::Objects(object_layer) => {
+                                      tiled::LayerType::Objects(_object_layer) => {
                                           // for object in object_layer.objects() {
                                           // }
                                           Some(-1)
@@ -709,7 +701,7 @@ impl Pico8<'_, '_> {
     }
 
     fn mset(&mut self, pos: UVec2, sprite_index: u8) {
-        let mut map: &mut Map = &mut self.state.maps;
+        let map: &mut Map = &mut self.state.maps;
         // let cart = self
         //     .state
         //     .cart
@@ -721,7 +713,7 @@ impl Pico8<'_, '_> {
                 map[(pos.x + pos.y * MAP_COLUMNS) as usize] = sprite_index;
             }
             #[cfg(feature = "level")]
-            Map::Level(ref mut map) => {
+            Map::Level(ref mut _map) => {
                 todo!()
             }
         }
@@ -868,7 +860,7 @@ impl Pico8<'_, '_> {
             None,
         );
 
-        let mut image = Image::new(
+        let image = Image::new(
             Extent3d {
                 width: size.x,
                 height: size.y,
@@ -940,7 +932,7 @@ impl Pico8<'_, '_> {
             None,
         );
 
-        let mut image = Image::new(
+        let image = Image::new(
             Extent3d {
                 width: size.x,
                 height: size.y,
@@ -1010,7 +1002,7 @@ impl Pico8<'_, '_> {
             None,
         );
 
-        let mut image = Image::new(
+        let image = Image::new(
             Extent3d {
                 width: size.x,
                 height: size.y,
@@ -1023,7 +1015,6 @@ impl Pico8<'_, '_> {
         );
         let handle = self.images.add(image);
         let clearable = Clearable::default();
-        let offset = 0.5;
         let id = self
             .commands
             .spawn((
@@ -1078,7 +1069,7 @@ impl Pico8<'_, '_> {
             None,
         );
 
-        let mut image = Image::new(
+        let image = Image::new(
             Extent3d {
                 width: size.x,
                 height: size.y,
@@ -1090,7 +1081,6 @@ impl Pico8<'_, '_> {
             RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
         );
 
-        let offset = 0.5;
         let handle = self.images.add(image);
         let clearable = Clearable::default();
         let id = self
@@ -1195,7 +1185,7 @@ impl Command for AudioCommand {
                                 .entity(available_channel)
                                 .insert((AudioPlayer(sfx), PlaybackSettings::REMOVE));
                                 }
-                                Audio::AudioSource(source) => {
+                                Audio::AudioSource(_source) => {
                                     todo!();
                                 }
                             }
@@ -1212,7 +1202,7 @@ impl Command for AudioCommand {
                             .entity(chan)
                             .insert((AudioPlayer(sfx.clone()), PlaybackSettings::REMOVE));
                             }
-                            Audio::AudioSource(source) => {
+                            Audio::AudioSource(_source) => {
                                 todo!()
                             }
                         }
@@ -1229,16 +1219,16 @@ impl Command for AudioCommand {
 
 impl FromWorld for Pico8State {
     fn from_world(world: &mut World) -> Self {
-        let layout = {
-            let mut layouts = world.resource_mut::<Assets<TextureAtlasLayout>>();
-            layouts.add(TextureAtlasLayout::from_grid(
-                PICO8_SPRITE_SIZE,
-                PICO8_TILE_COUNT.x,
-                PICO8_TILE_COUNT.y,
-                None,
-                None,
-            ))
-        };
+        // let layout = {
+        //     let mut layouts = world.resource_mut::<Assets<TextureAtlasLayout>>();
+        //     layouts.add(TextureAtlasLayout::from_grid(
+        //         PICO8_SPRITE_SIZE,
+        //         PICO8_TILE_COUNT.x,
+        //         PICO8_TILE_COUNT.y,
+        //         None,
+        //         None,
+        //     ))
+        // };
         let asset_server = world.resource::<AssetServer>();
 
         let pixel_art_settings = |settings: &mut ImageLoaderSettings| {
@@ -1549,7 +1539,7 @@ fn attach_api(app: &mut App) {
         })
         .register(
             "fset",
-            |ctx: FunctionCallContext, n: u8, f_or_v: u8, v: Option<u8>| {
+            |ctx: FunctionCallContext, n: usize, f_or_v: u8, v: Option<u8>| {
                 let (f, v) = v.map(|v| (Some(f_or_v), v)).unwrap_or((None, f_or_v));
                 with_pico8(&ctx, move |pico8| {
                     pico8.fset(n, f, v);

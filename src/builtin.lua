@@ -216,9 +216,20 @@ coresume = coroutine.resume
 costatus = coroutine.status
 yield = coroutine.yield
 
-function _eval(str)
-    local f = loadstring(str)
-    return f()
+function _eval(str, output)
+    local chunk, err = load("return " .. str)
+    if not chunk then
+        -- Try it without returning anything.
+        chunk, err = load(str)
+        if not chunk then
+            return nil, err
+        end
+    end
+    local v = chunk()
+    if output and world.message then
+        world.message(tostr(v))
+    end
+    return v
 end
 
 -- function run(breadcrumb)

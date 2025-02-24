@@ -1,13 +1,7 @@
 use bevy::{
     asset::{embedded_asset, io::Reader, AssetLoader, LoadContext, AssetPath, io::AssetSourceId},
     image::{ImageLoaderSettings, ImageSampler},
-    reflect::TypePath,
-    render::{
-        render_asset::RenderAssetUsages,
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
-    },
     prelude::*,
-
 };
 use bevy_mod_scripting::core::script::ScriptComponent;
 use serde::Deserialize;
@@ -177,7 +171,7 @@ impl AssetLoader for ConfigLoader {
 
         let mut sprite_sheets = vec![];
                 for (i, sheet) in config.sprite_sheets.into_iter().enumerate() {
-                    let flags: Vec<u8>;
+                    // let flags: Vec<u8>;
                     if sheet.path.extension() == Some(OsStr::new("tsx")) {
                         #[cfg(feature = "level")]
                         {
@@ -242,7 +236,7 @@ impl AssetLoader for ConfigLoader {
                                     .load(pico8::PICO8_BORDER),
                 maps: config.maps.into_iter().map(|map| {
                     match map {
-                        Map::P8 { p8: path } => todo!(),
+                        Map::P8 { p8: _path } => todo!(),
                         Map::Ldtk { ldtk: path } => {
                             #[cfg(not(feature = "level"))]
                             Err(ConfigLoaderError::MissingFeature(format!("This config has an LDTK map; consider using the '--features=level' flag.", &sheet.path)))?;
@@ -285,8 +279,7 @@ impl AssetLoader for ConfigLoader {
                                                                  height: None,
                                                              }
                                                          },
-                                                         Font::Path { path, height } => {
-
+                                                         Font::Path { path, height: _ } => {
                                                              pico8::N9Font {
                                                                  handle: load_context.load(path),
                                                                  height: None,

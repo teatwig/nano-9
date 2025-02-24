@@ -1,7 +1,5 @@
 #![allow(deprecated)]
 use bevy::{
-    audio::AudioPlugin,
-    ecs::prelude::Condition,
     prelude::*,
     reflect::Reflect,
     render::{
@@ -15,7 +13,6 @@ use bevy::{
 
 use bevy_mod_scripting::{
     core::{
-        ConfigureScriptPlugin,
         asset::ScriptAsset,
         bindings::{function::namespace::NamespaceBuilder, script_value::ScriptValue},
         callback_labels,
@@ -25,7 +22,7 @@ use bevy_mod_scripting::{
     lua::LuaScriptingPlugin,
 };
 
-use crate::{error::ErrorState, pico8::Cart, screens, N9Var, config::*};
+use crate::{error::ErrorState, N9Var, config::*};
 
 #[derive(Component)]
 pub struct Nano9Sprite;
@@ -58,7 +55,6 @@ impl Default for DrawState {
 
 pub fn setup_canvas(
     mut canvas: Option<ResMut<N9Canvas>>,
-    mut commands: Commands,
     mut assets: ResMut<Assets<Image>>,
 ) {
     if let Some(ref mut canvas) = canvas {
@@ -87,40 +83,6 @@ pub mod call {
     Init => "_init",
     Eval => "_eval",
     Draw => "_draw"); // TODO: Should permit trailing comma
-}
-
-pub fn set_background(
-    screen: Query<Entity, With<Nano9Sprite>>,
-    writer: EventWriter<ScriptCallbackEvent>,
-) {
-    if let Ok(id) = screen.get_single() {
-        // writer.send(ScriptCallbackEvent::new_for_all(
-        //     call::SetGlobal,
-        //     vec![ScriptValue::String("background".into()),
-        //          ScriptValue::Reference(Arc::new(Mutex::new(N9Entity { entity: id,
-        //                                                   drop: DropPolicy::Nothing })))]));
-        // events.send(
-        //     LuaEvent {
-        //         hook_name: "_set_global".to_owned(),
-        //         args: {
-        //             let mut args = Variadic::new();
-        //             args.push(N9Arg::String("background".into()));
-        //             args.push(N9Arg::Sprite(Arc::new(Mutex::new(N9Sprite {
-        //                 entity: id,
-        //                 drop: DropPolicy::Nothing,
-        //             }))));
-        //             // args.push(N9Arg::DropPolicy(DropPolicy::Nothing));
-        //             // N9Arg::SetSprite {
-        //             // name: "background".into(),
-        //             // sprite: id,
-        //             // drop: DropPolicy::Nothing,
-        //             args
-        //         },
-        //         recipients: Recipients::All,
-        //     },
-        //     0,
-        // );
-    }
 }
 
 // pub fn set_camera(
@@ -204,7 +166,7 @@ pub fn fullscreen_key(
 
 pub fn sync_window_size(
     mut resize_event: EventReader<WindowResized>,
-    mut canvas: Res<N9Canvas>,
+    canvas: Res<N9Canvas>,
     // mut query: Query<&mut Sprite, With<Nano9Sprite>>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
     mut orthographic: Single<&mut OrthographicProjection, With<Nano9Camera>>,
@@ -368,7 +330,8 @@ fn add_info(app: &mut App) {
         })
         .register("debug", |s: String| {
             bevy::log::debug!(s);
-        });
+        })
+        ;
 }
 
 impl Plugin for Nano9Plugin {
@@ -379,7 +342,12 @@ impl Plugin for Nano9Plugin {
         lua_scripting_plugin
             .scripting_plugin
             .add_context_initializer(
-                |script_id: &str, context: &mut bevy_mod_scripting::lua::mlua::Lua| {
+                |_script_id: &str, context: &mut bevy_mod_scripting::lua::mlua::Lua| {
+                    context.globals()
+                        .set("_eval_string", context.create_function(|ctx, arg: String| {
+                            Ok(ctx.load(format!("tostring({arg})")).eval::<String>()?)
+                        })?)?;
+
                     context
                         .load(include_str!("builtin.lua"))
                         .exec()
@@ -406,9 +374,9 @@ impl Plugin for Nano9Plugin {
             (
                 (
                     (send_init, event_handler::<call::Init, LuaScriptingPlugin>)
-                        .run_if(on_asset_change::<crate::pico8::Pico8State>()),
-                    (send_update, /*send_update60*/).run_if(in_state(ErrorState::None)),
-                    event_handler::<call::Update, LuaScriptingPlugin>,
+                        .run_if(on_asset_change::<ScriptAsset>()),
+                    (send_update, event_handler::<call::Update, LuaScriptingPlugin>).run_if(in_state(ErrorState::None)),
+                    event_handler::<call::Eval, LuaScriptingPlugin>,
                     // event_handler::<call::Update60, LuaScriptingPlugin>,
                 )
                     .chain(),
@@ -416,7 +384,7 @@ impl Plugin for Nano9Plugin {
                 event_handler::<call::Draw, LuaScriptingPlugin>,
             )
                 .chain()
-                .run_if(in_state(screens::Screen::Playing).and_then(in_state(ErrorState::None))),
+                .run_if(in_state(ErrorState::None)),
         );
 
         // bevy_ecs_ldtk will add this plugin, so let's not add that if it's present.

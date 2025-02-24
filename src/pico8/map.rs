@@ -1,8 +1,5 @@
 use bevy::prelude::*;
-use crate::{
-    pico8::{self, Clearable},
-    cursor::Cursor,
-};
+use crate::pico8::{self, Clearable};
 
 #[cfg(feature = "level")]
 use crate::level;
@@ -36,7 +33,7 @@ impl P8Map {
         size: UVec2,
         mask: Option<u8>,
         sprite_sheets: &[pico8::SpriteSheet],
-        mut commands: &mut Commands,
+        commands: &mut Commands,
     ) -> Result<Entity, pico8::Error> {
         let map_size = TilemapSize::from(size);
         // Create a tilemap entity a little early.

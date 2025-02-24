@@ -1,7 +1,29 @@
-use crate::error::ErrorState;
-use bevy::{core::FrameCount, prelude::*};
+use crate::{call, error::ErrorState};
+use bevy::{core::FrameCount, prelude::*,
+    ecs::system::{SystemParam, SystemState},
+};
+use bevy_mod_scripting::core::event::ScriptCallbackEvent;
 use bevy_minibuffer::prelude::*;
 
+use bevy_mod_scripting::{
+    core::{
+        asset::{AssetPathToLanguageMapper, Language, ScriptAssetSettings, ScriptAsset},
+        bindings::{
+            WorldAccessGuard,
+            access_map::ReflectAccessId,
+            function::{
+                from::FromScript,
+                into_ref::IntoScriptRef,
+                namespace::{GlobalNamespace, NamespaceBuilder},
+                script_function::FunctionCallContext,
+            },
+            script_value::ScriptValue,
+            ReflectReference,
+        },
+        error::InteropError,
+    },
+    lua::mlua::prelude::LuaError,
+};
 mod count;
 pub use count::*;
 
@@ -14,7 +36,9 @@ pub struct Nano9Acts {
 impl Default for Nano9Acts {
     fn default() -> Self {
         Self {
-            acts: Acts::new([Act::new(toggle_pause).bind(keyseq! { Space N P })]),
+            acts: Acts::new([Act::new(toggle_pause).bind(keyseq! { Space N P }),
+                             Act::new(lua_eval).bind(keyseq! { Space N E }),
+            ]),
         }
     }
 }
@@ -29,8 +53,38 @@ impl ActsPlugin for Nano9Acts {
 }
 
 impl Plugin for Nano9Acts {
-    fn build(&self, _app: &mut App) {
+    fn build(&self, app: &mut App) {
         self.warn_on_unused_acts();
+        let world = app.world_mut();
+        NamespaceBuilder::<World>::new_unregistered(world)
+            .register("message", |ctx: FunctionCallContext, s: String| {
+                with_minibuffer(&ctx, |minibuffer|
+                                Ok(minibuffer.message(s)))
+            });
+    }
+}
+
+fn with_minibuffer<X>(
+    ctx: &FunctionCallContext,
+    f: impl FnOnce(&mut Minibuffer) -> Result<X, Error>,
+) -> Result<X, InteropError> {
+    let world_guard = ctx.world()?;
+    let raid = ReflectAccessId::for_global();
+    if world_guard.claim_global_access() {
+        let world = world_guard.as_unsafe_world_cell()?;
+        let world = unsafe { world.world_mut() };
+        let mut system_state: SystemState<Minibuffer> = SystemState::new(world);
+        let mut minibuffer = system_state.get_mut(world);
+        let r = f(&mut minibuffer);
+        system_state.apply(world);
+        unsafe { world_guard.release_global_access() };
+        r.map_err(|e| InteropError::external_error(Box::new(e)))
+    } else {
+        Err(InteropError::cannot_claim_access(
+            raid,
+            world_guard.get_access_location(raid),
+            "with_minibuffer",
+        ))
     }
 }
 
@@ -45,4 +99,16 @@ pub fn toggle_pause(
         },
         ErrorState::Messages { .. } => ErrorState::None,
     });
+}
+
+pub fn lua_eval(mut minibuffer: Minibuffer) {
+    minibuffer
+        .prompt::<TextField>("Lua Eval: ")
+        .observe(
+            |mut trigger: Trigger<Submit<String>>, mut writer: EventWriter<ScriptCallbackEvent>| {
+                let input = trigger.event_mut().take_result().unwrap();
+                writer.send(ScriptCallbackEvent::new_for_all(call::Eval,
+                                                             vec![ScriptValue::String(input.into()), ScriptValue::Bool(true)]));
+            },
+        );
 }

@@ -31,6 +31,8 @@ bitflags = "2.8.0"
 # tiled = "0.13.0"
 tiled = { git = "https://github.com/mapeditor/rs-tiled.git", rev = "c434e1be8904917bacc1286c5334b721f1f6deef", features = ["world"] }
 # regex = "1.11.1"
+# XXX: Don't leave this here.
+# bevy_mod_debugdump = "0.12.1"
 
 [features]
 default = [ "level" ]

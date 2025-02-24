@@ -16,7 +16,7 @@ pub mod level;
 // mod nano9;
 pub mod pico8;
 mod plugin;
-pub mod screens;
+// pub mod screens;
 // mod sprite;
 // mod text;
 pub mod minibuffer;
@@ -48,7 +48,7 @@ pub(crate) fn plugin(app: &mut App) {
     app.add_plugins((
         // demo::plugin,
         config::plugin,
-        screens::plugin,
+        // screens::plugin,
         entity::plugin,
         // assets::plugin,
         // api::plugin,

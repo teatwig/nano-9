@@ -330,7 +330,7 @@ impl CartParts {
             let mut lines = content.lines();
             let columns = lines.next().map(|l| l.len());
             if let Some(columns) = columns {
-                let rows = lines.count() + 1;
+                // let rows = lines.count() + 1;
                 for line in content.lines() {
                     if line.len() == 0 {
                         continue;

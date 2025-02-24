@@ -2,7 +2,6 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use crate::pico8::Clearable;
 use bevy_ecs_tiled::{TiledMapPluginConfig, prelude::*};
-use std::path::Path;
 // pub mod ldtk;
 // use ldtk::*;
 pub(crate) mod tiled;
@@ -14,7 +13,7 @@ pub struct Map {
 }
 
 impl Map {
-    pub fn map(&self, screen_start: Vec2, level: usize, mut commands: &mut Commands) -> Entity {
+    pub fn map(&self, screen_start: Vec2, _level: usize, commands: &mut Commands) -> Entity {
         // commands.insert_resource(LevelSelection::index(level));
         let clearable = Clearable::default();
 
