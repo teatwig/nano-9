@@ -152,16 +152,16 @@ fn main() -> io::Result<()> {
             acts::tape::TapeActs::default(),
             bevy_minibuffer_inspector::WorldActs::default(),
             crate::minibuffer::Nano9Acts::default(),
-            CountComponentsActs::default()
-                .add::<Text>("text")
-                .add::<TilemapType>("map")
-                .add::<TilePos>("tile")
-                .add::<Sprite>("sprite")
-                .add::<Clearable>("clearables"),
+            // CountComponentsActs::default()
+            //     .add::<Text>("text")
+            //     .add::<TilemapType>("map")
+            //     .add::<TilePos>("tile")
+            //     .add::<Sprite>("sprite")
+            //     .add::<Clearable>("clearables"),
             toggle_fps
             // inspector::AssetActs::default().add::<Image>(),
         ));
-        #[cfg(feature = "level")]
+        #[cfg(feature = "user_properties")]
         app.add_systems(Startup, |reg: Res<AppTypeRegistry>| {
             bevy_ecs_tiled::map::export_types_filtered(&reg, "all-export-types.json",
                                                   |name| {

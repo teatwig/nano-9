@@ -105,10 +105,13 @@ pub fn lua_eval(mut minibuffer: Minibuffer) {
     minibuffer
         .prompt::<TextField>("Lua Eval: ")
         .observe(
-            |mut trigger: Trigger<Submit<String>>, mut writer: EventWriter<ScriptCallbackEvent>| {
-                let input = trigger.event_mut().take_result().unwrap();
-                writer.send(ScriptCallbackEvent::new_for_all(call::Eval,
-                                                             vec![ScriptValue::String(input.into()), ScriptValue::Bool(true)]));
+            |mut trigger: Trigger<Submit<String>>, mut writer: EventWriter<ScriptCallbackEvent>, mut commands: Commands| {
+                if let Ok(input) = trigger.event_mut().take_result() {
+                    writer.send(ScriptCallbackEvent::new_for_all(call::Eval,
+                                                                 vec![ScriptValue::String(input.into()), ScriptValue::Bool(true)]));
+                } else {
+                    commands.entity(trigger.entity()).despawn_recursive();
+                }
             },
         );
 }
