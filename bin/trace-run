@@ -1,0 +1,2 @@
+#!/bin/sh
+RUST_LOG="info,bevy_minibuffer=trace,nano-9=trace" cargo run "$@"
