@@ -205,6 +205,8 @@ struct UpdateCameraPos(UVec2);
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("No such {0:?}")]
+    NoSuch(Cow<'static, str>),
     #[error("No asset {0:?} loaded")]
     NoAsset(Cow<'static, str>),
     #[error("texture access error: {0}")]
@@ -213,6 +215,8 @@ pub enum Error {
     NoSuchButton(u8),
     #[error("invalid argument {0}")]
     InvalidArgument(Cow<'static, str>),
+    #[error("unsupported {0}")]
+    Unsupported(Cow<'static, str>),
     #[error("no sfx channel {0}")]
     NoChannel(u8),
     #[error("all sfx channels are busy")]
@@ -237,7 +241,8 @@ pub struct Pico8<'w, 's> {
     sfx_channels: Res<'w, SfxChannels>,
     time: Res<'w, Time>,
     #[cfg(feature = "level")]
-    tiled_maps: ResMut<'w, Assets<bevy_ecs_tiled::prelude::TiledMap>>,
+    tiled: crate::level::tiled::Level<'w, 's>,
+    // tiled_maps: ResMut<'w, Assets<bevy_ecs_tiled::prelude::TiledMap>>,
     // audio_sinks: Query<'w, 's, Option<&'static mut AudioSink>>,
 }
 
@@ -610,14 +615,12 @@ impl Pico8<'_, '_> {
         Ok(())
     }
 
-    pub fn fget(&self, index: usize, flag_index: Option<u8>) -> u8 {
+    pub fn fget(&self, index: Option<usize>, flag_index: Option<u8>) -> u8 {
+        if index.is_none() {
+            return 0;
+        }
+        let index = index.unwrap();
         let flags = &self.state.sprite_sheets.flags;
-        // let cart = self
-        //     .state
-        //     .cart
-        //     .as_ref()
-        //     .and_then(|cart| self.carts.get(cart))
-        //     .expect("cart");
         if let Some(v) = flags.get(index) {
             match flag_index {
                 Some(flag_index) => {
@@ -644,12 +647,6 @@ impl Pico8<'_, '_> {
 
     pub fn fset(&mut self, index: usize, flag_index: Option<u8>, value: u8) {
         let flags = &mut self.state.sprite_sheets.flags;
-        // let cart = self
-        //     .state
-        //     .cart
-        //     .as_ref()
-        //     .and_then(|cart| self.carts.get_mut(cart))
-        //     .expect("cart");
         match flag_index {
             Some(flag_index) => {
                 if value != 0 {
@@ -675,89 +672,35 @@ impl Pico8<'_, '_> {
 
             #[cfg(feature = "level")]
             Map::Level(ref map) => {
-                self.tiled_maps.get(&map.handle)
-                    .and_then(|tiled_map| {
-                              let tile_size = UVec2::new(tiled_map.map.tile_width, tiled_map.map.tile_width);
-                              tiled_map.map.get_layer(layer_index.unwrap_or(0)).and_then(|layer| {
-                                  match layer.layer_type() {
-                                      tiled::LayerType::Tiles(tile_layer) => {
-                                          tile_layer.get_tile(pos.x as i32, pos.y as i32)
-                                                    .and_then(|layer_tile| layer_tile.get_tile().map(|tile| tile.properties.clone()))
-                                      }
-                                      tiled::LayerType::Objects(object_layer) => {
-                                          let mut result = None;
-                                          dbg!(pos);
-                                          dbg!(tile_size);
-                                          let posf = pos * tile_size.as_vec2();
-                                          dbg!(posf);
-                                          for object in object_layer.objects() {
-                                              /// The tiles in Tiled are positioned by their bottom left.
-                                              let obj_rect = Rect::new(object.x,
-                                                                       object.y - tile_size.y as f32,
-                                                                       object.x + tile_size.x as f32,
-                                                                       object.y);
-                                              // dbg!(obj_rect);
-                                              if obj_rect.contains(posf) {
-                                                  dbg!(object.id());
-                                                  dbg!(&object.user_type);
-                                                  result = Some(object.properties.clone());
-                                                  dbg!(&result);
-                                                  break;
-                                              }
-                                          }
-                                          result
-                                      }
-                                      _ => None
-                                  }
-                              })
-                    })
+                self.tiled.mgetp(&map.handle, pos, map_index, layer_index)
             }
         }
     }
 
-    pub fn mget(&self, pos: UVec2, map_index: Option<usize>) -> Vec<Option<isize>> {
+    pub fn mget(&self, pos: Vec2, map_index: Option<usize>, layer_index: Option<usize>) -> Option<usize> {
         let map: &Map = &self.state.maps.get(map_index).expect("No such map");
         match *map {
-            Map::P8(ref map) => vec![Some(map[(pos.x + pos.y * MAP_COLUMNS) as usize] as isize)],
+            Map::P8(ref map) => Some(map[(pos.x as u32 + pos.y as u32 * MAP_COLUMNS) as usize] as usize),
 
             #[cfg(feature = "level")]
             Map::Level(ref map) => {
-                self.tiled_maps.get(&map.handle)
-                    .map(|tiled_map|
-                              tiled_map.map.layers().map(|layer| {
-                                  match layer.layer_type() {
-                                      tiled::LayerType::Tiles(tile_layer) => {
-                                          tile_layer.get_tile(pos.x as i32, pos.y as i32)
-                                                    .map(|layer_tile| layer_tile.id() as isize)
-                                      }
-                                      tiled::LayerType::Objects(_object_layer) => {
-                                          // for object in object_layer.objects() {
-                                          // }
-                                          Some(-1)
-                                      }
-                                      _ => Some(-2)
-                                  }
-                              }).collect()
-                    ).unwrap_or(vec![])
+                self.tiled.mget(&map.handle, pos, map_index, layer_index)
             }
         }
     }
 
-    pub fn mset(&mut self, pos: UVec2, sprite_index: u8) {
-        let map: &mut Map = &mut self.state.maps;
-        // let cart = self
-        //     .state
-        //     .cart
-        //     .as_ref()
-        //     .and_then(|cart| self.carts.get_mut(cart))
-        //     .expect("cart");
+    pub fn mset(&mut self, pos: Vec2, sprite_index: usize, map_index: Option<usize>, layer_index: Option<usize>) -> Result<(), Error> {
+        let map: &mut Map = &mut self.state.maps.get_mut(map_index).expect("No such map");
         match *map {
             Map::P8(ref mut map) => {
-                map[(pos.x + pos.y * MAP_COLUMNS) as usize] = sprite_index;
+                map
+                    .get_mut((pos.x as u32 + pos.y as u32 * MAP_COLUMNS) as usize)
+                    .map(|value| *value = sprite_index as u8)
+                    .ok_or(Error::NoSuch("map entry".into()))
             }
             #[cfg(feature = "level")]
-            Map::Level(ref mut _map) => {
-                todo!()
+            Map::Level(ref mut map) => {
+                self.tiled.mset(&map.handle, pos, sprite_index, map_index, layer_index)
             }
         }
     }
@@ -1370,7 +1313,6 @@ pub(crate) fn plugin(app: &mut App) {
             },
         );
 }
-
 
 #[cfg(test)]
 mod test {

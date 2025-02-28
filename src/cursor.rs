@@ -11,6 +11,10 @@ impl<T> Cursor<T> {
     pub fn get(&self, index: Option<usize>) -> Option<&T> {
         self.inner.get(index.unwrap_or(self.pos))
     }
+
+    pub fn get_mut(&mut self, index: Option<usize>) -> Option<&mut T> {
+        self.inner.get_mut(index.unwrap_or(self.pos))
+    }
 }
 
 impl<T> From<Vec<T>> for Cursor<T> {

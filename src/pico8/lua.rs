@@ -250,9 +250,9 @@ pub(crate) fn plugin(app: &mut App) {
                 })
             },
         )
-        .register("fget", |ctx: FunctionCallContext, n: isize, f: Option<u8>| {
+        .register("fget", |ctx: FunctionCallContext, n: Option<usize>, f: Option<u8>| {
             with_pico8(&ctx, move |pico8| {
-                let v = if n >= 0 { pico8.fget(n as usize, f) } else { 0 };
+                let v = pico8.fget(n, f);
                 Ok(if f.is_some() {
                     ScriptValue::Bool(v == 1)
                 } else {
@@ -270,34 +270,14 @@ pub(crate) fn plugin(app: &mut App) {
                 })
             },
         )
-        .register("mget", |ctx: FunctionCallContext, x: u32, y: u32, map_index: Option<usize>| {
+        .register("mget", |ctx: FunctionCallContext, x: f32, y: f32, map_index: Option<usize>, layer_index: Option<usize>| {
             with_pico8(&ctx, move |pico8| {
-                let values = pico8.mget(UVec2::new(x, y), map_index);
-                // if values.len() == 1 {
-                //     Ok(ScriptValue::Integer(values[0] as i64))
-                // } else if values.len() == 0 {
-                //     Ok(ScriptValue::Unit)
-                // } else {
-                if map_index.is_some() {
-                    // NOTE: We use a vector here, but it's important to
-                    // understand that in Lua a list `{0, 1, nil, 2}` will only
-                    // register as a list with two elements.
-                    Ok(ScriptValue::List(values.into_iter().map(|x| match x {
-                        Some(x) => ScriptValue::Integer(x as i64),
-                        None => ScriptValue::Unit
-                    }).collect()))
-                } else {
-                    Ok(match values[0] {
-                        Some(x) => ScriptValue::Integer(x as i64),
-                        None => ScriptValue::Unit
-                    })
-                }
+                Ok(pico8.mget(Vec2::new(x, y), map_index, layer_index))
             })
         })
-        .register("mset", |ctx: FunctionCallContext, x: u32, y: u32, v: u8| {
+        .register("mset", |ctx: FunctionCallContext, x: f32, y: f32, v: usize, map_index: Option<usize>, layer_index: Option<usize>| {
             with_pico8(&ctx, move |pico8| {
-                pico8.mset(UVec2::new(x, y), v);
-                Ok(())
+                pico8.mset(Vec2::new(x, y), v, map_index, layer_index)
             })
         })
         .register("sub", |s: String, start: isize, end: Option<isize>| {
