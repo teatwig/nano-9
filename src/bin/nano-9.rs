@@ -150,7 +150,6 @@ fn main() -> io::Result<()> {
             BasicActs::default(),
             acts::universal::UniversalArgActs::default(),
             acts::tape::TapeActs::default(),
-            bevy_minibuffer_inspector::WorldActs::default(),
             crate::minibuffer::Nano9Acts::default(),
             // CountComponentsActs::default()
             //     .add::<Text>("text")
@@ -161,8 +160,12 @@ fn main() -> io::Result<()> {
             toggle_fps
             // inspector::AssetActs::default().add::<Image>(),
         ));
-        #[cfg(feature = "user_properties")]
-        app.add_systems(Startup, |reg: Res<AppTypeRegistry>| {
+
+    #[cfg(feature = "inspector")]
+    app
+        .add_acts(bevy_minibuffer_inspector::WorldActs::default());
+    #[cfg(all(feature = "level", feature = "user_properties"))]
+    app.add_systems(Startup, |reg: Res<AppTypeRegistry>| {
             bevy_ecs_tiled::map::export_types_filtered(&reg, "all-export-types.json",
                                                   |name| {
                                                       true

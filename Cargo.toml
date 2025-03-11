@@ -14,7 +14,7 @@ bytemuck = "1.16.3"
 thiserror = "1.0.63"
 # bevy_pixel_buffer = "0.7.0"
 bevy_minibuffer = "0.3.0"
-bevy_minibuffer_inspector = "0.1.0"
+bevy_minibuffer_inspector = { version = "0.1.0", optional = true }
 serde = { version = "1.0.217", features = ["derive"] }
 bevy_ecs_tilemap = "0.15.0"
 keyseq = { version = "0.5.0", features = ["bevy"] }
@@ -42,6 +42,7 @@ default = [ "level" ]
 level = [ "dep:bevy_ecs_tiled", "dep:serde_json" ]
 user_properties = [ "bevy_ecs_tiled/user_properties" ]
 # level = [ "dep:bevy_ecs_tiled", "dep:serde_json" ]
+inspector = [ "dep:bevy_minibuffer_inspector" ]
 
 [dev-dependencies]
 bevy = "0.15"
