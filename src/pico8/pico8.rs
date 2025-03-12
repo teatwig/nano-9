@@ -31,6 +31,7 @@ use bevy_mod_scripting::{
     lua::mlua::prelude::LuaError,
 };
 use rand::Rng;
+use bitvec::prelude::*;
 
 use crate::{
     cursor::Cursor,
@@ -204,6 +205,12 @@ pub struct SpriteSheet {
 #[derive(Event, Debug)]
 struct UpdateCameraPos(UVec2);
 
+#[derive(Default, Debug, Resource)]
+struct Buttons {
+    curr: BitArray<[u8; 1]>,
+    last: BitArray<[u8; 1]>,
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("No such {0:?}")]
@@ -237,15 +244,50 @@ pub struct Pico8<'w, 's> {
     pub state: ResMut<'w, Pico8State>,
     commands: Commands<'w, 's>,
     canvas: Res<'w, N9Canvas>,
-    keys: Res<'w, ButtonInput<KeyCode>>,
-    gamepads: Query<'w, 's, (Entity, &'static Gamepad)>,
+    // keys: Res<'w, ButtonInput<KeyCode>>,
+    // gamepads: Query<'w, 's, (Entity, &'static Gamepad)>,
     // map: Option<Res<'w, Map>>,
+    buttons: Res<'w, Buttons>,
     sfx_channels: Res<'w, SfxChannels>,
     time: Res<'w, Time>,
     #[cfg(feature = "level")]
     tiled: crate::level::tiled::Level<'w, 's>,
     // tiled_maps: ResMut<'w, Assets<bevy_ecs_tiled::prelude::TiledMap>>,
     // audio_sinks: Query<'w, 's, Option<&'static mut AudioSink>>,
+}
+
+/// TODO: Handle multiple controllers.
+fn fill_input(keys: Res<ButtonInput<KeyCode>>, gamepads: Query<(Entity, &'static Gamepad)>, mut buttons: ResMut<Buttons>) {
+    buttons.last = buttons.curr;
+    buttons.curr = BitArray::ZERO;
+
+    // buttons.curr.set(0, keys.pressed(KeyCode::ArrowLeft)
+    for b in 0..=5 {
+        let keyboard = keys.pressed(match b {
+            0 => KeyCode::ArrowLeft,
+            1 => KeyCode::ArrowRight,
+            2 => KeyCode::ArrowUp,
+            3 => KeyCode::ArrowDown,
+            4 => KeyCode::KeyZ,
+            5 => KeyCode::KeyX,
+            _ => unreachable!()
+        });
+        let (button, dir_maybe) = match b {
+            0 => (GamepadButton::DPadLeft, Some(Vec2::NEG_X)),
+            1 => (GamepadButton::DPadRight, Some(Vec2::X)),
+            2 => (GamepadButton::DPadUp, Some(Vec2::Y)),
+            3 => (GamepadButton::DPadDown, Some(Vec2::NEG_Y)),
+            4 => (GamepadButton::South, None),
+            5 => (GamepadButton::East, None),
+            _ => unreachable!()
+        };
+        let gamepad = gamepads.iter().any(|(id, gamepad)| {
+            gamepad.pressed(button) ||
+                dir_maybe.map(|dir| gamepad.left_stick().dot(dir) > ANALOG_STICK_THRESHOLD)
+                         .unwrap_or(false)
+        });
+        buttons.curr.set(b, keyboard || gamepad);
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -462,38 +504,63 @@ impl Pico8<'_, '_> {
         }
     }
 
+    // pub fn btnp(&self, b: Option<u8>) -> Result<bool, Error> {
+    //     match b {
+    //         Some(b) => {
+    //             let keyboard = self.keys.just_pressed(match b {
+    //                 0 => Ok(KeyCode::ArrowLeft),
+    //                 1 => Ok(KeyCode::ArrowRight),
+    //                 2 => Ok(KeyCode::ArrowUp),
+    //                 3 => Ok(KeyCode::ArrowDown),
+    //                 4 => Ok(KeyCode::KeyZ),
+    //                 5 => Ok(KeyCode::KeyX),
+    //                 x => Err(Error::NoSuchButton(x)),
+    //             }?);
+    //             let (button, dir_maybe) = match b {
+    //                     0 => Ok((GamepadButton::DPadLeft, Some(Vec2::NEG_X))),
+    //                     1 => Ok((GamepadButton::DPadRight, Some(Vec2::X))),
+    //                     2 => Ok((GamepadButton::DPadUp, Some(Vec2::Y))),
+    //                     3 => Ok((GamepadButton::DPadDown, Some(Vec2::NEG_Y))),
+    //                     4 => Ok((GamepadButton::South, None)),
+    //                     5 => Ok((GamepadButton::East, None)),
+    //                     x => Err(Error::NoSuchButton(x)),
+    //                 }?;
+    //             let gamepad = self.gamepads.iter().any(|(id, gamepad)| {
+    //                 gamepad.just_pressed(button) ||
+    //                     // XXX: Does this count as just pressed? This is murky.
+    //                 dir_maybe.map(|dir| gamepad.left_stick().dot(dir) > ANALOG_STICK_THRESHOLD)
+    //                          .unwrap_or(false)
+    //             });
+    //             Ok(keyboard || gamepad)
+    //         }
+    //         None => {
+    //             let keyboard = self.keys.get_just_pressed().len() != 0;
+    //             let gamepad = self.gamepads.iter().any(|(id, gamepad)| {
+    //                 gamepad.get_just_pressed().count() != 0
+    //             });
+    //             Ok(keyboard || gamepad)
+    //         }
+    //     }
+    // }
+    // pub fn btnp(&self, b: Option<u8>) -> Result<bool, Error> {
+    //     match b {
+    //         Some(b) => {
+    //             self.buttons.curr.get(b as usize).ok_or(Error::NoSuchButton(b))
+    //         }
+    //         None => {
+    //             Ok(self.buttons.any())
+    //         }
+    //     }
+    // }
     pub fn btnp(&self, b: Option<u8>) -> Result<bool, Error> {
         match b {
             Some(b) => {
-                let keyboard = self.keys.just_pressed(match b {
-                    0 => Ok(KeyCode::ArrowLeft),
-                    1 => Ok(KeyCode::ArrowRight),
-                    2 => Ok(KeyCode::ArrowUp),
-                    3 => Ok(KeyCode::ArrowDown),
-                    4 => Ok(KeyCode::KeyZ),
-                    5 => Ok(KeyCode::KeyX),
-                    x => Err(Error::NoSuchButton(x)),
-                }?);
-                let (button, dir_maybe) = match b {
-                        0 => Ok((GamepadButton::DPadLeft, Some(Vec2::NEG_X))),
-                        1 => Ok((GamepadButton::DPadRight, Some(Vec2::X))),
-                        2 => Ok((GamepadButton::DPadUp, Some(Vec2::Y))),
-                        3 => Ok((GamepadButton::DPadDown, Some(Vec2::NEG_Y))),
-                        4 => Ok((GamepadButton::South, None)),
-                        5 => Ok((GamepadButton::East, None)),
-                        x => Err(Error::NoSuchButton(x)),
-                    }?;
-                let gamepad = self.gamepads.iter().any(|(id, gamepad)| {
-                    dir_maybe.map(|dir| gamepad.left_stick().dot(dir) > ANALOG_STICK_THRESHOLD).unwrap_or(false) || gamepad.just_pressed(button)
-                });
-                Ok(keyboard || gamepad)
+                let curr = self.buttons.curr.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))?;
+                let last = self.buttons.last.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))?;
+                Ok(curr && !last)
             }
             None => {
-                let keyboard = self.keys.get_just_pressed().len() != 0;
-                let gamepad = self.gamepads.iter().any(|(id, gamepad)| {
-                    gamepad.get_just_pressed().count() != 0
-                });
-                Ok(keyboard || gamepad)
+                Ok(self.buttons.curr.any() && (self.buttons.curr & !self.buttons.last).any())
             }
         }
     }
@@ -501,35 +568,10 @@ impl Pico8<'_, '_> {
     pub fn btn(&self, b: Option<u8>) -> Result<bool, Error> {
         match b {
             Some(b) => {
-                let keyboard = self.keys.pressed(match b {
-                    0 => Ok(KeyCode::ArrowLeft),
-                    1 => Ok(KeyCode::ArrowRight),
-                    2 => Ok(KeyCode::ArrowUp),
-                    3 => Ok(KeyCode::ArrowDown),
-                    4 => Ok(KeyCode::KeyZ),
-                    5 => Ok(KeyCode::KeyX),
-                    x => Err(Error::NoSuchButton(x)),
-                }?);
-                let (button, dir_maybe) = match b {
-                        0 => Ok((GamepadButton::DPadLeft, Some(Vec2::NEG_X))),
-                        1 => Ok((GamepadButton::DPadRight, Some(Vec2::X))),
-                        2 => Ok((GamepadButton::DPadUp, Some(Vec2::Y))),
-                        3 => Ok((GamepadButton::DPadDown, Some(Vec2::NEG_Y))),
-                        4 => Ok((GamepadButton::South, None)),
-                        5 => Ok((GamepadButton::East, None)),
-                        x => Err(Error::NoSuchButton(x)),
-                    }?;
-                let gamepad = self.gamepads.iter().any(|(id, gamepad)| {
-                    dir_maybe.map(|dir| gamepad.left_stick().dot(dir) > ANALOG_STICK_THRESHOLD).unwrap_or(false) || gamepad.pressed(button)
-                });
-                Ok(keyboard || gamepad)
+                self.buttons.curr.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))
             }
             None => {
-                let keyboard = self.keys.get_pressed().len() != 0;
-                let gamepad = self.gamepads.iter().any(|(id, gamepad)| {
-                    gamepad.get_pressed().count() != 0
-                });
-                Ok(keyboard || gamepad)
+                Ok(self.buttons.curr.any())
             }
         }
     }
@@ -1326,6 +1368,7 @@ pub(crate) fn plugin(app: &mut App) {
     app
         .init_asset::<Pico8State>()
         .init_resource::<Pico8State>()
+        .init_resource::<Buttons>()
         .register_type::<P8Flags>()
         .add_systems(
             PreStartup,
@@ -1344,6 +1387,7 @@ pub(crate) fn plugin(app: &mut App) {
                     .push(AssetPathToLanguageMapper { map: path_to_lang });
             },
         )
+        .add_systems(PreUpdate, fill_input)
         .add_observer(
             |trigger: Trigger<UpdateCameraPos>,
              camera: Single<&mut Transform, With<Nano9Camera>>| {
