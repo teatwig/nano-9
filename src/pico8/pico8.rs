@@ -8,6 +8,10 @@ use bevy::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
     sprite::Anchor,
+
+    input::gamepad::{
+        GamepadConnectionEvent, GamepadEvent,
+    },
 };
 use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 
@@ -205,11 +209,22 @@ pub struct SpriteSheet {
 #[derive(Event, Debug)]
 struct UpdateCameraPos(UVec2);
 
-#[derive(Default, Debug, Resource)]
+#[derive(Default, Debug, Clone)]
 struct Buttons {
+    from: Option<Entity>,
     curr: BitArray<[u8; 1]>,
     last: BitArray<[u8; 1]>,
 }
+
+#[derive(Debug, Resource, Deref, DerefMut)]
+struct PlayerInputs(Vec<Buttons>);
+
+impl Default for PlayerInputs {
+    fn default() -> Self {
+        PlayerInputs(vec![Buttons::default(); 2])
+    }
+}
+
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -247,7 +262,7 @@ pub struct Pico8<'w, 's> {
     // keys: Res<'w, ButtonInput<KeyCode>>,
     // gamepads: Query<'w, 's, (Entity, &'static Gamepad)>,
     // map: Option<Res<'w, Map>>,
-    buttons: Res<'w, Buttons>,
+    player_inputs: Res<'w, PlayerInputs>,
     sfx_channels: Res<'w, SfxChannels>,
     time: Res<'w, Time>,
     #[cfg(feature = "level")]
@@ -256,37 +271,76 @@ pub struct Pico8<'w, 's> {
     // audio_sinks: Query<'w, 's, Option<&'static mut AudioSink>>,
 }
 
-/// TODO: Handle multiple controllers.
-fn fill_input(keys: Res<ButtonInput<KeyCode>>, gamepads: Query<(Entity, &'static Gamepad)>, mut buttons: ResMut<Buttons>) {
-    buttons.last = buttons.curr;
-    buttons.curr = BitArray::ZERO;
+fn fill_input(mut connection_events: EventReader<GamepadConnectionEvent>,
+              keys: Res<ButtonInput<KeyCode>>,
+              gamepads: Query<&Gamepad>,
+              mut player_inputs: ResMut<PlayerInputs>) {
+    for event in connection_events.read() {
+        info!("{event:?}");
+        if event.connected() {
+            match player_inputs.iter_mut().find(|buttons| buttons.from.is_none()) {
+                Some(buttons) => buttons.from = Some(event.gamepad),
+                None => player_inputs.push(Buttons {
+                    from: Some(event.gamepad),
+                    ..default()
+                })
+            }
+        } else {
+            // disconnected
+            match player_inputs.iter_mut().find(|buttons| buttons.from == Some(event.gamepad)) {
+                Some(buttons) => buttons.from = None,
+                None => {
+                    warn!("Gamepad disconnected but not present in player inputs.");
+                }
+            }
+        }
+    }
+    for (i, mut buttons) in player_inputs.iter_mut().enumerate() {
+        buttons.last = buttons.curr;
+        buttons.curr = BitArray::ZERO;
 
-    // buttons.curr.set(0, keys.pressed(KeyCode::ArrowLeft)
-    for b in 0..=5 {
-        let keyboard = keys.pressed(match b {
-            0 => KeyCode::ArrowLeft,
-            1 => KeyCode::ArrowRight,
-            2 => KeyCode::ArrowUp,
-            3 => KeyCode::ArrowDown,
-            4 => KeyCode::KeyZ,
-            5 => KeyCode::KeyX,
-            _ => unreachable!()
-        });
-        let (button, dir_maybe) = match b {
-            0 => (GamepadButton::DPadLeft, Some(Vec2::NEG_X)),
-            1 => (GamepadButton::DPadRight, Some(Vec2::X)),
-            2 => (GamepadButton::DPadUp, Some(Vec2::Y)),
-            3 => (GamepadButton::DPadDown, Some(Vec2::NEG_Y)),
-            4 => (GamepadButton::South, None),
-            5 => (GamepadButton::East, None),
-            _ => unreachable!()
-        };
-        let gamepad = gamepads.iter().any(|(id, gamepad)| {
-            gamepad.pressed(button) ||
-                dir_maybe.map(|dir| gamepad.left_stick().dot(dir) > ANALOG_STICK_THRESHOLD)
-                         .unwrap_or(false)
-        });
-        buttons.curr.set(b, keyboard || gamepad);
+        // buttons.curr.set(0, keys.pressed(KeyCode::ArrowLeft)
+        for b in 0..=5 {
+            let key_pressed = match i {
+                0 => match b {
+                    0 => keys.pressed(KeyCode::ArrowLeft),
+                    1 => keys.pressed(KeyCode::ArrowRight),
+                    2 => keys.pressed(KeyCode::ArrowUp),
+                    3 => keys.pressed(KeyCode::ArrowDown),
+                    4 => keys.any_pressed([KeyCode::KeyZ, KeyCode::KeyC, KeyCode::KeyN, KeyCode::NumpadSubtract]),
+                    5 => keys.any_pressed([KeyCode::KeyX, KeyCode::KeyV, KeyCode::KeyM, KeyCode::Numpad8]),
+                    _ => unreachable!()
+                },
+                1 => match b {
+                    0 => keys.pressed(KeyCode::KeyS),
+                    1 => keys.pressed(KeyCode::KeyF),
+                    2 => keys.pressed(KeyCode::KeyE),
+                    3 => keys.pressed(KeyCode::KeyD),
+                    4 => keys.any_pressed([KeyCode::ShiftLeft, KeyCode::Tab]),
+                    5 => keys.any_pressed([KeyCode::KeyA, KeyCode::KeyQ]),
+                    _ => unreachable!()
+                },
+                _ => false
+            };
+            let (button, dir_maybe) = match b {
+                0 => (GamepadButton::DPadLeft, Some(Vec2::NEG_X)),
+                1 => (GamepadButton::DPadRight, Some(Vec2::X)),
+                2 => (GamepadButton::DPadUp, Some(Vec2::Y)),
+                3 => (GamepadButton::DPadDown, Some(Vec2::NEG_Y)),
+                4 => (GamepadButton::South, None),
+                5 => (GamepadButton::East, None),
+                _ => unreachable!()
+            };
+            let button_pressed = buttons.from.and_then(|id| {
+                // We have a gamepad.
+                gamepads.get(id).ok().map(|gamepad| {
+                    gamepad.pressed(button) ||
+                        dir_maybe.map(|dir| gamepad.left_stick().dot(dir) > ANALOG_STICK_THRESHOLD)
+                                .unwrap_or(false)
+                })
+            }).unwrap_or(false);
+            buttons.curr.set(b, key_pressed || button_pressed);
+        }
     }
 }
 
@@ -504,74 +558,32 @@ impl Pico8<'_, '_> {
         }
     }
 
-    // pub fn btnp(&self, b: Option<u8>) -> Result<bool, Error> {
-    //     match b {
-    //         Some(b) => {
-    //             let keyboard = self.keys.just_pressed(match b {
-    //                 0 => Ok(KeyCode::ArrowLeft),
-    //                 1 => Ok(KeyCode::ArrowRight),
-    //                 2 => Ok(KeyCode::ArrowUp),
-    //                 3 => Ok(KeyCode::ArrowDown),
-    //                 4 => Ok(KeyCode::KeyZ),
-    //                 5 => Ok(KeyCode::KeyX),
-    //                 x => Err(Error::NoSuchButton(x)),
-    //             }?);
-    //             let (button, dir_maybe) = match b {
-    //                     0 => Ok((GamepadButton::DPadLeft, Some(Vec2::NEG_X))),
-    //                     1 => Ok((GamepadButton::DPadRight, Some(Vec2::X))),
-    //                     2 => Ok((GamepadButton::DPadUp, Some(Vec2::Y))),
-    //                     3 => Ok((GamepadButton::DPadDown, Some(Vec2::NEG_Y))),
-    //                     4 => Ok((GamepadButton::South, None)),
-    //                     5 => Ok((GamepadButton::East, None)),
-    //                     x => Err(Error::NoSuchButton(x)),
-    //                 }?;
-    //             let gamepad = self.gamepads.iter().any(|(id, gamepad)| {
-    //                 gamepad.just_pressed(button) ||
-    //                     // XXX: Does this count as just pressed? This is murky.
-    //                 dir_maybe.map(|dir| gamepad.left_stick().dot(dir) > ANALOG_STICK_THRESHOLD)
-    //                          .unwrap_or(false)
-    //             });
-    //             Ok(keyboard || gamepad)
-    //         }
-    //         None => {
-    //             let keyboard = self.keys.get_just_pressed().len() != 0;
-    //             let gamepad = self.gamepads.iter().any(|(id, gamepad)| {
-    //                 gamepad.get_just_pressed().count() != 0
-    //             });
-    //             Ok(keyboard || gamepad)
-    //         }
-    //     }
-    // }
-    // pub fn btnp(&self, b: Option<u8>) -> Result<bool, Error> {
-    //     match b {
-    //         Some(b) => {
-    //             self.buttons.curr.get(b as usize).ok_or(Error::NoSuchButton(b))
-    //         }
-    //         None => {
-    //             Ok(self.buttons.any())
-    //         }
-    //     }
-    // }
-    pub fn btnp(&self, b: Option<u8>) -> Result<bool, Error> {
+    pub fn btnp(&self, b: Option<u8>, player: Option<u8>) -> Result<bool, Error> {
+        let Some(buttons) = self.player_inputs.get(player.unwrap_or(0) as usize) else {
+            return Err(Error::NoSuch("player".into()));
+        };
         match b {
             Some(b) => {
-                let curr = self.buttons.curr.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))?;
-                let last = self.buttons.last.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))?;
+                let curr = buttons.curr.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))?;
+                let last = buttons.last.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))?;
                 Ok(curr && !last)
             }
             None => {
-                Ok(self.buttons.curr.any() && (self.buttons.curr & !self.buttons.last).any())
+                Ok(buttons.curr.any() && (buttons.curr & !buttons.last).any())
             }
         }
     }
 
-    pub fn btn(&self, b: Option<u8>) -> Result<bool, Error> {
+    pub fn btn(&self, b: Option<u8>, player: Option<u8>) -> Result<bool, Error> {
+        let Some(buttons) = self.player_inputs.get(player.unwrap_or(0) as usize) else {
+            return Err(Error::NoSuch("player".into()));
+        };
         match b {
             Some(b) => {
-                self.buttons.curr.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))
+                buttons.curr.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))
             }
             None => {
-                Ok(self.buttons.curr.any())
+                Ok(buttons.curr.any())
             }
         }
     }
@@ -1368,7 +1380,7 @@ pub(crate) fn plugin(app: &mut App) {
     app
         .init_asset::<Pico8State>()
         .init_resource::<Pico8State>()
-        .init_resource::<Buttons>()
+        .init_resource::<PlayerInputs>()
         .register_type::<P8Flags>()
         .add_systems(
             PreStartup,

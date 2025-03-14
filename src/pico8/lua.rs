@@ -85,11 +85,11 @@ pub(crate) fn plugin(app: &mut App) {
     let world = app.world_mut();
 
     NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-        .register("btnp", |ctx: FunctionCallContext, b: Option<u8>| {
-            with_pico8(&ctx, |pico8| pico8.btnp(b))
+        .register("btnp", |ctx: FunctionCallContext, b: Option<u8>, p: Option<u8>| {
+            with_pico8(&ctx, |pico8| pico8.btnp(b, p))
         })
-        .register("btn", |ctx: FunctionCallContext, b: Option<u8>| {
-            with_pico8(&ctx, |pico8| pico8.btn(b))
+        .register("btn", |ctx: FunctionCallContext, b: Option<u8>, p: Option<u8>| {
+            with_pico8(&ctx, |pico8| pico8.btn(b, p))
         })
         .register("cls", |ctx: FunctionCallContext, c: Option<N9Color>| {
             with_pico8(&ctx, |pico8| pico8.cls(c))
