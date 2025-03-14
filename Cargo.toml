@@ -48,7 +48,7 @@ inspector = [ "dep:bevy_minibuffer_inspector" ]
 bevy = "0.15"
 
 [[bin]]
-name = "nano-9"
+name = "n9"
 test = false
 bench = false
 
