@@ -42,6 +42,12 @@ fn main() -> io::Result<()> {
         path
     };
     let mut app = App::new();
+    let pwd = AssetSourceId::Name("pwd".into());
+    let mut builder = AssetSourceBuilder::platform_default(env::current_dir()?.to_str().expect("pwd dir"), None);
+    builder.watcher = None;
+    builder.processed_watcher = None;
+
+    app.register_asset_source(&pwd, builder);
     let source = AssetSourceId::Default;
     let nano9_plugin;
     if script_path.extension() == Some(OsStr::new("toml")) {
@@ -75,7 +81,8 @@ fn main() -> io::Result<()> {
         nano9_plugin = Nano9Plugin {
             config
         };
-    } else if script_path.ends_with(".p8") {
+
+    } else if script_path.extension() == Some(OsStr::new("p8")) {
         eprintln!("loading cart");
         let path = PathBuf::from(script_path.clone());
         app.add_systems(
@@ -92,7 +99,7 @@ fn main() -> io::Result<()> {
             },
         );
         nano9_plugin = Nano9Plugin { config: Config::pico8() };
-    } else {
+    } else if script_path.extension() == Some(OsStr::new("lua")) {
         eprintln!("loading lua");
         let path = PathBuf::from(script_path.clone());
         let asset_path = AssetPath::from_path(&path).with_source(&source);
@@ -116,6 +123,9 @@ fn main() -> io::Result<()> {
                 commands.spawn(ScriptComponent(vec![asset_path.path().to_str().unwrap().to_string().into()]));
             },
         );
+    } else {
+        eprintln!("Only accepts .p8, .lua, and .toml files.");
+        process::exit(1);
     }
 
     app

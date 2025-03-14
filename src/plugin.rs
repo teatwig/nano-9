@@ -1,5 +1,6 @@
 #![allow(deprecated)]
 use bevy::{
+    image::ImageSampler,
     prelude::*,
     reflect::Reflect,
     render::{
@@ -58,7 +59,7 @@ pub fn setup_canvas(
     mut assets: ResMut<Assets<Image>>,
 ) {
     if let Some(ref mut canvas) = canvas {
-        let image = Image::new_fill(
+        let mut image = Image::new_fill(
             Extent3d {
                 width: canvas.size.x,
                 height: canvas.size.y,
@@ -69,6 +70,7 @@ pub fn setup_canvas(
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
         );
+        image.sampler = ImageSampler::nearest();
 
         canvas.handle = assets.add(image);
     }
