@@ -9,43 +9,40 @@ use bevy_ecs_tilemap::prelude::{TilePos, TilemapType};
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::{asset::ScriptAsset, script::ScriptComponent};
 use nano_9::{minibuffer::*, pico8::*, *, config::Config};
-use std::{fs, ffi::OsStr, env, io, path::{Path, PathBuf}, borrow::Cow};
+use std::{fs, ffi::OsStr, env, io, path::{Path, PathBuf}, borrow::Cow, process};
 
 #[derive(Resource)]
 struct InitState(Handle<Pico8State>);
 
+fn usage(mut output: impl io::Write) -> io::Result<()> {
+    writeln!(output, "usage: n9 <FILE>")?;
+    writeln!(output, "Nano-9 accepts cart.p8 or game/Nano9.toml files")
+}
+
 fn main() -> io::Result<()> {
     let args = env::args();
-    let script: String = args
+    let Some(arg) = args
         .skip(1)
-        .next()
-        // .map(|s| format!("../{s}"))
-        .unwrap_or("scripts/main.lua".into());
-    dbg!(&script);
+        .next() else {
+            usage(std::io::stderr())?;
+            process::exit(2);
+        };
+    if arg == "--help" || arg == "-h" {
+        usage(std::io::stdout())?;
+        process::exit(0);
+    }
+    let script = arg;
     let script_path = {
         let mut path = PathBuf::from(&script);
     dbg!(&path);
         if path.is_dir() {
-            path.push("nano9.toml")
+            path.push("Nano9.toml")
         }
     dbg!(&path);
         path
     };
     let mut app = App::new();
-    let pwd = AssetSourceId::Name("pwd".into());
-    let mut builder = AssetSourceBuilder::platform_default(env::current_dir()?.to_str().expect("pwd dir"), None);
-    builder.watcher = None;
-    builder.processed_watcher = None;
-
-    app.register_asset_source(&pwd,
-                              builder);
-    // let source = AssetSourceId::Name("nano9".into());
     let source = AssetSourceId::Default;
-    // if let Ok(cwd) = env::current_dir() {
-    //     app.register_asset_source("cwd",
-    //                               AssetSourceBuilder::platform_default
-
-    // }
     let nano9_plugin;
     if script_path.extension() == Some(OsStr::new("toml")) {
         eprintln!("loading config");
