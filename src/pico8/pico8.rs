@@ -540,12 +540,13 @@ impl Pico8<'_, '_> {
     pub fn map(
         &mut self,
         map_pos: UVec2,
-        screen_start: Vec2,
+        mut screen_start: Vec2,
         size: UVec2,
         mask: Option<u8>,
         map_index: Option<usize>,
     ) -> Result<Entity, Error> {
         let map_index = map_index.unwrap_or(0);
+        screen_start.y = -screen_start.y;
         match self.state.maps.inner.get(map_index).ok_or(Error::InvalidArgument("no map".into()))? {
             Map::P8(ref map) => {
                 map.map(map_pos, screen_start, size, mask, &self.state.sprite_sheets.inner,

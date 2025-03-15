@@ -71,7 +71,6 @@ pub fn setup_canvas(
             RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
         );
         image.sampler = ImageSampler::nearest();
-
         canvas.handle = assets.add(image);
     }
 }
@@ -262,6 +261,7 @@ pub fn send_init(
     mut writer: EventWriter<ScriptCallbackEvent>,
     // mut loaded: EventReader<OnScriptLoaded>,
 ) {
+    info!("calling init");
     // todo!("PUT INIT ELSEWHERE like Lua's on_script_loaded()");
     // for e in loaded.read() {
     // eprintln!("init {}", e.sid);
@@ -375,18 +375,16 @@ impl Plugin for Nano9Plugin {
             Update,
             (
                 (
-                    (send_init, event_handler::<call::Init, LuaScriptingPlugin>)
-                        .run_if(on_asset_change::<ScriptAsset>()),
-                    (send_update, event_handler::<call::Update, LuaScriptingPlugin>).run_if(in_state(ErrorState::None)),
+                    (send_init.run_if(on_asset_change::<ScriptAsset>()),
+                     event_handler::<call::Init, LuaScriptingPlugin>).chain(),
+                    (send_update.run_if(in_state(ErrorState::None)), event_handler::<call::Update, LuaScriptingPlugin>).chain(),
                     event_handler::<call::Eval, LuaScriptingPlugin>,
                     // event_handler::<call::Update60, LuaScriptingPlugin>,
-                )
-                    .chain(),
+                ).chain(),
                 send_draw.run_if(in_state(ErrorState::None)),
                 event_handler::<call::Draw, LuaScriptingPlugin>,
-            )
-                .chain()
-                .run_if(in_state(ErrorState::None)),
+            ).chain()
+             .run_if(in_state(ErrorState::None)),
         );
 
         // bevy_ecs_ldtk will add this plugin, so let's not add that if it's present.

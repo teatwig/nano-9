@@ -27,8 +27,8 @@ pub(crate) fn plugin(app: &mut App) {
             PostUpdate,
             (
                 load_cart,
-                (send_init, event_handler::<call::Init, LuaScriptingPlugin>)
-                    .run_if(on_asset_change::<Cart>()),
+                // (send_init, event_handler::<call::Init, LuaScriptingPlugin>)
+                //     .run_if(on_asset_change::<Cart>()),
             )
                 .chain(),
         );

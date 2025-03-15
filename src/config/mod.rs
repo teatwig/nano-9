@@ -3,10 +3,14 @@ use bevy::{
     image::{ImageLoaderSettings, ImageSampler},
     prelude::*,
 };
-use bevy_mod_scripting::core::script::ScriptComponent;
+use bevy_mod_scripting::core::{
+    script::ScriptComponent,
+    event::ScriptCallbackEvent,
+    bindings::script_value::ScriptValue,
+};
 use serde::Deserialize;
 use std::{ops::Deref, path::PathBuf, ffi::OsStr, io};
-use crate::pico8;
+use crate::{call, pico8};
 #[cfg(feature = "level")]
 use crate::level::{self, tiled::*};
 
@@ -311,6 +315,14 @@ pub fn update_asset(mut reader: EventReader<AssetEvent<pico8::Pico8State>>,
                     info!("Insert Pico8State {:?}.", state);
                     commands.insert_resource(state.clone());
                     commands.spawn(ScriptComponent(vec!["main.lua".into()]));
+                    commands.send_event(
+
+    // writer.send(
+        ScriptCallbackEvent::new_for_all(
+        call::Init,
+        vec![ScriptValue::Unit],
+    )//);
+                    );
                 } else {
                     error!("Pico8State not available.");
                 }

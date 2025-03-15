@@ -28,10 +28,10 @@ impl<'w, 's> Level<'w, 's> {
                          }
                          tiled::LayerType::Objects(object_layer) => {
                             let mut result = None;
-                            dbg!(pos);
-                            dbg!(tile_size);
+                            // dbg!(pos);
+                            // dbg!(tile_size);
                             let posf = pos * tile_size.as_vec2();
-                            dbg!(posf);
+                            // dbg!(posf);
                             for object in object_layer.objects() {
                                 /// The tiles in Tiled are positioned by their bottom left.
                                 let obj_rect = Rect::new(object.x,
@@ -68,10 +68,10 @@ impl<'w, 's> Level<'w, 's> {
                         }
                         tiled::LayerType::Objects(object_layer) => {
                             let mut result = None;
-                            dbg!(pos);
-                            dbg!(tile_size);
+                            // dbg!(pos);
+                            // dbg!(tile_size);
                             let posf = pos * tile_size.as_vec2();
-                            dbg!(posf);
+                            // dbg!(posf);
                             for object in object_layer.objects() {
                                 /// The tiles in Tiled are positioned by their bottom left.
                                 let obj_rect = Rect::new(object.x,
@@ -80,14 +80,14 @@ impl<'w, 's> Level<'w, 's> {
                                                          object.y);
                                 // dbg!(obj_rect);
                                 if obj_rect.contains(posf) {
-                                    dbg!(object.id());
-                                    dbg!(&object.user_type);
+                                    // dbg!(object.id());
+                                    // dbg!(&object.user_type);
                                     let mut properties = object.properties.clone();
                                     properties.insert("class".to_owned(), tiled::PropertyValue::StringValue(object.user_type.clone()));
                                     // result = Some([("class".into(), tiled::PropertyValue::StringValue(object.user_type.clone())),
                                     //                ("custom".into(), tiled::PropertyValue::ClassValue { property_type: "custom".into(), properties: object.properties.clone() })].into_iter().collect());
                                     result = Some(properties);
-                                    dbg!(&result);
+                                    // dbg!(&result);
                                     break;
                                 }
                             }
@@ -116,10 +116,10 @@ impl<'w, 's> Level<'w, 's> {
                             Ok(())
                         }
                         tiled::LayerType::Objects(object_layer) => {
-                            dbg!(pos);
-                            dbg!(tile_size);
+                            // dbg!(pos);
+                            // dbg!(tile_size);
                             let posf = pos * tile_size.as_vec2();
-                            dbg!(posf);
+                            // dbg!(posf);
                             for object in object_layer.objects() {
                                 /// The tiles in Tiled are positioned by their bottom left.
                                 let obj_rect = Rect::new(object.x,
