@@ -30,6 +30,7 @@ use bevy_mod_scripting::{
             script_value::ScriptValue,
             ReflectReference,
         },
+        docgen::typed_through::{TypedThrough, ThroughTypeInfo},
         error::InteropError,
     },
     lua::mlua::prelude::LuaError,
@@ -361,6 +362,68 @@ impl From<u8> for SfxCommand {
 enum Radii {
     Radii(u32, u32),
     Radius(u32),
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub enum PropBy {
+    Pos(Vec2),
+    Name(Cow<'static, str>),
+}
+
+impl From<Vec2> for PropBy {
+    fn from(v: Vec2) -> Self {
+        PropBy::Pos(v)
+    }
+}
+
+impl From<String> for PropBy {
+    fn from(v: String) -> Self {
+        PropBy::Name(v.into())
+    }
+}
+
+// impl Default for PropBy {
+//     fn default() -> Self {
+//         PropBy::Pos(Vec2::ZERO)
+//     }
+// }
+
+impl TypedThrough for PropBy {
+    fn through_type_info() -> ThroughTypeInfo {
+        ThroughTypeInfo::TypeInfo(<PropBy as bevy::reflect::Typed>::type_info())
+    }
+}
+
+fn script_value_to_f32(value: &ScriptValue) -> Option<f32> {
+    match value {
+        ScriptValue::Float(f) => Some(*f as f32),
+        ScriptValue::Integer(i) => Some(*i as f32),
+        _ => None
+    }
+}
+
+impl FromScript for PropBy {
+    type This<'w> = Self;
+    fn from_script(
+        value: ScriptValue,
+        _world: WorldAccessGuard<'_>,
+    ) -> Result<Self::This<'_>, InteropError> {
+        match value {
+            ScriptValue::String(n) => Ok(PropBy::Name(n.into())),
+            ScriptValue::List(l) => {
+                let x = l.get(0).and_then(script_value_to_f32).unwrap_or(0.0);
+                let y = l.get(1).and_then(script_value_to_f32).unwrap_or(0.0);
+                Ok(PropBy::Pos(Vec2::new(x, y)))
+            }
+            ScriptValue::Map(v) => {
+                let x = v.get("x").and_then(script_value_to_f32).unwrap_or(0.0);
+                let y = v.get("y").and_then(script_value_to_f32).unwrap_or(0.0);
+                Ok(PropBy::Pos(Vec2::new(x, y)))
+            }
+            // ScriptValue::Unit => Ok(N9Color::Pen),
+            _ => Err(InteropError::impossible_conversion(TypeId::of::<PropBy>())),
+        }
+    }
 }
 
 impl From<Radii> for UVec2 {
@@ -761,14 +824,14 @@ impl Pico8<'_, '_> {
 
     #[cfg(feature = "level")]
     /// Get properties
-    pub fn mgetp(&self, pos: Vec2, map_index: Option<usize>, layer_index: Option<usize>) -> Option<tiled::Properties> {
+    pub fn mgetp(&self, prop_by: PropBy, map_index: Option<usize>, layer_index: Option<usize>) -> Option<tiled::Properties> {
         let map: &Map = &self.state.maps.get(map_index).expect("No such map");
         match *map {
             Map::P8(ref map) => None,
 
             #[cfg(feature = "level")]
             Map::Level(ref map) => {
-                self.tiled.mgetp(&map.handle, pos, map_index, layer_index)
+                self.tiled.mgetp(&map.handle, prop_by, map_index, layer_index)
             }
         }
     }

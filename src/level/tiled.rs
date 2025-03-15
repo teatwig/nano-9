@@ -4,7 +4,7 @@ use bevy::{
     prelude::*};
 use bevy_ecs_tiled::{prelude::{TiledMap, TiledMapHandle}, map::components::TiledIdStorage};
 use tiled::{Tileset, PropertyValue};
-use crate::pico8;
+use crate::pico8::{self, PropBy};
 use std::{path::Path, io::ErrorKind};
 
 #[derive(SystemParam)]
@@ -55,7 +55,8 @@ impl<'w, 's> Level<'w, 's> {
                  })
             )
     }
-    pub fn mgetp(&self, map_handle: &Handle<TiledMap>, pos: Vec2, map_index: Option<usize>, layer_index: Option<usize>) -> Option<tiled::Properties> {
+
+    pub fn mgetp(&self, map_handle: &Handle<TiledMap>, prop_by: pico8::PropBy, map_index: Option<usize>, layer_index: Option<usize>) -> Option<tiled::Properties> {
         self.tiled_maps
             .get(map_handle)
             .and_then(|tiled_map| {
@@ -63,35 +64,69 @@ impl<'w, 's> Level<'w, 's> {
                 tiled_map.map.get_layer(layer_index.unwrap_or(0)).and_then(|layer| {
                     match layer.layer_type() {
                         tiled::LayerType::Tiles(tile_layer) => {
+
+                            match prop_by {
+                                PropBy::Pos(pos) => {
                             tile_layer.get_tile(pos.x as i32, pos.y as i32)
                                       .and_then(|layer_tile| layer_tile.get_tile().map(|tile| tile.properties.clone()))
-                        }
-                        tiled::LayerType::Objects(object_layer) => {
-                            let mut result = None;
-                            // dbg!(pos);
-                            // dbg!(tile_size);
-                            let posf = pos * tile_size.as_vec2();
-                            // dbg!(posf);
-                            for object in object_layer.objects() {
-                                /// The tiles in Tiled are positioned by their bottom left.
-                                let obj_rect = Rect::new(object.x,
-                                                         object.y - tile_size.y as f32,
-                                                         object.x + tile_size.x as f32,
-                                                         object.y);
-                                // dbg!(obj_rect);
-                                if obj_rect.contains(posf) {
-                                    // dbg!(object.id());
-                                    // dbg!(&object.user_type);
-                                    let mut properties = object.properties.clone();
-                                    properties.insert("class".to_owned(), tiled::PropertyValue::StringValue(object.user_type.clone()));
-                                    // result = Some([("class".into(), tiled::PropertyValue::StringValue(object.user_type.clone())),
-                                    //                ("custom".into(), tiled::PropertyValue::ClassValue { property_type: "custom".into(), properties: object.properties.clone() })].into_iter().collect());
-                                    result = Some(properties);
-                                    // dbg!(&result);
-                                    break;
+                                }
+                                PropBy::Name(name) => {
+                                    warn!("Cannot look up by name {name:?} on a tile layer.");
+                                    None
                                 }
                             }
-                            result
+                        }
+                        tiled::LayerType::Objects(object_layer) => {
+                            // dbg!(pos);
+                            // dbg!(tile_size);
+                            match prop_by {
+                                PropBy::Pos(pos) => {
+                                    let posf = pos * tile_size.as_vec2();
+                                    // dbg!(posf);
+                                    for object in object_layer.objects() {
+                                        /// The tiles in Tiled are positioned by their bottom left.
+                                        let obj_rect = Rect::new(object.x,
+                                                                 object.y - tile_size.y as f32,
+                                                                 object.x + tile_size.x as f32,
+                                                                 object.y);
+                                        // dbg!(obj_rect);
+                                        if obj_rect.contains(posf) {
+                                            // dbg!(object.id());
+                                            // dbg!(&object.user_type);
+                                            let mut properties = object.properties.clone();
+
+                                            insert_object_fields(&mut properties, &object);
+                                            // result = Some([("class".into(), tiled::PropertyValue::StringValue(object.user_type.clone())),
+                                            //                ("custom".into(), tiled::PropertyValue::ClassValue { property_type: "custom".into(), properties: object.properties.clone() })].into_iter().collect());
+                                            return Some(properties);
+                                            // dbg!(&result);
+                                        }
+                                    }
+                                    None
+                                }
+                                PropBy::Name(name) => {
+                                    for object in object_layer.objects() {
+                                        /// The tiles in Tiled are positioned by their bottom left.
+                                        let obj_rect = Rect::new(object.x,
+                                                                 object.y - tile_size.y as f32,
+                                                                 object.x + tile_size.x as f32,
+                                                                 object.y);
+                                        // dbg!(obj_rect);
+                                        if object.name == name {
+                                            // dbg!(object.id());
+                                            // dbg!(&object.user_type);
+                                            let mut properties = object.properties.clone();
+                                            insert_object_fields(&mut properties, &object);
+                                            // result = Some([("class".into(), tiled::PropertyValue::StringValue(object.user_type.clone())),
+                                            //                ("custom".into(), tiled::PropertyValue::ClassValue { property_type: "custom".into(), properties: object.properties.clone() })].into_iter().collect());
+                                            return Some(properties);
+                                            // dbg!(&result);
+                                        }
+                                    }
+                                    None
+                                }
+
+                            }
                         }
                         _ => None
                     }
@@ -162,6 +197,21 @@ impl<'w, 's> Level<'w, 's> {
             })
     }
 }
+
+fn insert_object_fields(properties: &mut tiled::Properties, object: &tiled::Object) {
+    properties.insert("x".to_owned(), tiled::PropertyValue::FloatValue(object.x));
+    properties.insert("y".to_owned(), tiled::PropertyValue::FloatValue(object.y));
+    match object.shape {
+        tiled::ObjectShape::Rect { width, height } => {
+            properties.insert("width".to_owned(), tiled::PropertyValue::FloatValue(width));
+            properties.insert("height".to_owned(), tiled::PropertyValue::FloatValue(height));
+        }
+        _ => {}
+    }
+    properties.insert("class".to_owned(),
+                        tiled::PropertyValue::StringValue(object.user_type.clone()));
+}
+
 
 pub(crate) fn layout_from_tileset(tileset: &Tileset) -> TextureAtlasLayout {
     TextureAtlasLayout::from_grid(

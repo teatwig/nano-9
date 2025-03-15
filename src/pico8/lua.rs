@@ -37,7 +37,7 @@ use crate::{
     pico8::{
         Pico8, Error, Spr, SfxCommand,
         audio::{Sfx, SfxChannels},
-        Cart, ClearEvent, Clearable, LoadCart, Map },
+        Cart, ClearEvent, Clearable, LoadCart, Map, PropBy },
     DrawState, DropPolicy, N9Color, N9Entity, Nano9Camera, N9Canvas,
 
 };
@@ -389,9 +389,10 @@ pub(crate) fn plugin(app: &mut App) {
 
     #[cfg(feature = "level")]
     NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-        .register("mgetp", |ctx: FunctionCallContext, x: f32, y: f32, map_index: Option<usize>, layer_index: Option<usize>| {
+        .register("mgetp", |ctx: FunctionCallContext, prop_by: ScriptValue, map_index: Option<usize>, layer_index: Option<usize>| {
+            let prop_by = PropBy::from_script(prop_by, ctx.world()?)?;
             with_pico8(&ctx, move |pico8| {
-                Ok(pico8.mgetp(Vec2::new(x, y), map_index, layer_index)
+                Ok(pico8.mgetp(prop_by, map_index, layer_index)
                     .map(|p| from_properties(&p)))
             })
         });
