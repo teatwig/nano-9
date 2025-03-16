@@ -5,6 +5,8 @@
 - [ ] Add pause or other state to stop Lua evaluation
       Can't use inspector while it's churning.
 - [ ] Add front matter to .n9 file which is .toml followed by .lua
+- [ ] Add sspr for character faces
+- [ ] Fix tiled import for lilly's house inside
 ## Nano-9
 - [ ] Check collisions example
 - [ ] make sprite flags generic
