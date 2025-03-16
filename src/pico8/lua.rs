@@ -137,6 +137,36 @@ pub(crate) fn plugin(app: &mut App) {
                 })
             },
         )
+        // sspr( sx, sy, sw, sh, dx, dy, [dw,] [dh,] [flip_x,] [flip_y], [sheet_index] )
+        .register(
+            "sspr",
+            |ctx: FunctionCallContext,
+             n: ScriptValue,
+             sx: f32,
+             sy: f32,
+             sw: f32,
+             sh: f32,
+             dx: f32,
+             dy: f32,
+             dw: Option<f32>,
+             dh: Option<f32>,
+             flip_x: Option<bool>,
+             flip_y: Option<bool>,
+             sheet_index: Option<usize>|
+            {
+                let sprite_rect = Rect::new(sx, sy, sx + sw, sy + sh);
+                let pos = Vec2::new(dx, dy);
+                let size = dw
+                    .or(dh)
+                    .is_some()
+                    .then(|| Vec2::new(dw.unwrap_or(sw), dh.unwrap_or(sh)));
+                let flip = (flip_x.is_some() || flip_y.is_some())
+                    .then(|| BVec2::new(flip_x.unwrap_or(false), flip_y.unwrap_or(false)));
+                // We get back an entity. Not doing anything with it here yet.
+                let _id = with_pico8(&ctx, move |pico8| pico8.sspr(sprite_rect, pos, size, flip, sheet_index))?;
+                Ok(())
+            },
+        )
         // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
         .register(
             "spr",

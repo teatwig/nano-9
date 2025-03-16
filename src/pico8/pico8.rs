@@ -468,6 +468,42 @@ impl Pico8<'_, '_> {
         // self.cart_state.set(CartState::Loading(cart));
     }
 
+    /// sspr( sx, sy, sw, sh, dx, dy, [dw,] [dh,] [flip_x,] [flip_y,] [sheet_index])
+    pub fn sspr(
+        &mut self,
+        sprite_rect: Rect,
+        screen_pos: Vec2,
+        screen_size: Option<Vec2>,
+        flip: Option<BVec2>,
+        sheet_index: Option<usize>,
+    ) -> Result<Entity, Error> {
+        let x = screen_pos.x;
+        let y = screen_pos.y;
+        let flip = flip.unwrap_or_default();
+        let sheet_index = sheet_index.unwrap_or(0);
+        let sheet = &self.state.sprite_sheets.inner[sheet_index];
+        let sprite =
+            Sprite {
+                image: sheet.handle.clone(),
+                anchor: Anchor::TopLeft,
+                rect: Some(sprite_rect),
+                custom_size: screen_size,
+                flip_x: flip.x,
+                flip_y: flip.y,
+                ..default()
+            };
+        let clearable = Clearable::default();
+        Ok(self
+            .commands
+            .spawn((
+                Name::new("spr"),
+                sprite,
+                Transform::from_xyz(x as f32, -y as f32, clearable.suggest_z()),
+                clearable,
+            ))
+            .id())
+    }
+
     /// spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
     pub fn spr(
         &mut self,

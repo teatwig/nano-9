@@ -2,10 +2,10 @@
 ## Pico-8
 - [x] fix z-fighting, use frameCount + some increment
 - [x] fix sub char splitting
-- [ ] Add pause or other state to stop Lua evaluation
+- [x] Add pause or other state to stop Lua evaluation
       Can't use inspector while it's churning.
 - [ ] Add front matter to .n9 file which is .toml followed by .lua
-- [ ] Add sspr for character faces
+- [x] Add sspr for character faces
 - [ ] Fix tiled import for lilly's house inside
 ## Nano-9
 - [ ] Check collisions example
