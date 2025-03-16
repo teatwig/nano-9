@@ -217,6 +217,32 @@ struct Buttons {
     last: BitArray<[u8; 1]>,
 }
 
+impl Buttons {
+    pub fn btnp(&self, b: Option<u8>) -> Result<bool, Error> {
+        match b {
+            Some(b) => {
+                let curr = self.curr.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))?;
+                let last = self.last.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))?;
+                Ok(curr && !last)
+            }
+            None => {
+                Ok((self.curr & (self.curr & !self.last)).any())
+            }
+        }
+    }
+
+    pub fn btn(&self, b: Option<u8>) -> Result<bool, Error> {
+        match b {
+            Some(b) => {
+                self.curr.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))
+            }
+            None => {
+                Ok(self.curr.any())
+            }
+        }
+    }
+}
+
 #[derive(Debug, Resource, Deref, DerefMut)]
 struct PlayerInputs(Vec<Buttons>);
 
@@ -626,30 +652,14 @@ impl Pico8<'_, '_> {
         let Some(buttons) = self.player_inputs.get(player.unwrap_or(0) as usize) else {
             return Err(Error::NoSuch("player".into()));
         };
-        match b {
-            Some(b) => {
-                let curr = buttons.curr.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))?;
-                let last = buttons.last.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))?;
-                Ok(curr && !last)
-            }
-            None => {
-                Ok(buttons.curr.any() && (buttons.curr & !buttons.last).any())
-            }
-        }
+        buttons.btnp(b)
     }
 
     pub fn btn(&self, b: Option<u8>, player: Option<u8>) -> Result<bool, Error> {
         let Some(buttons) = self.player_inputs.get(player.unwrap_or(0) as usize) else {
             return Err(Error::NoSuch("player".into()));
         };
-        match b {
-            Some(b) => {
-                buttons.curr.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))
-            }
-            None => {
-                Ok(buttons.curr.any())
-            }
-        }
+        buttons.btn(b)
     }
 
     // print(text, [x,] [y,] [color])
@@ -1477,11 +1487,36 @@ pub(crate) fn plugin(app: &mut App) {
 
 #[cfg(test)]
 mod test {
+    use super::*;
 
     #[test]
     fn test_suffix_match() {
         let s = "a\\0";
         assert_eq!(s.len(), 3);
         assert!(s.ends_with("\\0"));
+    }
+
+    #[test]
+    fn test_buttons() {
+        let mut b = Buttons::default();
+        assert!(!b.btn(None).unwrap());
+        assert!(!b.btnp(None).unwrap());
+        b.curr.set(0, true);
+        assert!(b.btn(None).unwrap());
+        assert!(b.btnp(None).unwrap());
+        b.last.set(1, true);
+        assert!(b.btn(None).unwrap());
+        assert!(b.btnp(None).unwrap());
+        b.curr.set(1, true);
+        assert!(b.btn(None).unwrap());
+        assert!(b.btnp(None).unwrap());
+        b.last = b.curr;
+        assert!(b.btn(None).unwrap());
+        assert!(!b.btnp(None).unwrap());
+        b.curr.set(0, false);
+        b.curr.set(1, false);
+        b.last.set(1, false);
+        assert!(!b.btn(None).unwrap());
+        assert!(!b.btnp(None).unwrap());
     }
 }
