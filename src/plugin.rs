@@ -23,7 +23,7 @@ use bevy_mod_scripting::{
     lua::LuaScriptingPlugin,
 };
 
-use crate::{error::ErrorState, N9Var, config::*};
+use crate::{error::ErrorState, N9Var, config::*, pico8::fill_input};
 
 #[derive(Component)]
 pub struct Nano9Sprite;
@@ -233,20 +233,10 @@ pub fn send_update(
     mut writer: EventWriter<ScriptCallbackEvent>,
     frame_count: Res<bevy::core::FrameCount>,
 ) {
-    if frame_count.0 % 2 == 0 {
-        writer.send(ScriptCallbackEvent::new_for_all(
-            call::Update,
-            vec![ScriptValue::Unit],
-        ));
-        // events.send(
-        //     LuaEvent {
-        //         hook_name: "_update".to_owned(),
-        //         args: N9Args::new(),
-        //         recipients: Recipients::All,
-        //     },
-        //     1,
-        // )
-    }
+    writer.send(ScriptCallbackEvent::new_for_all(
+        call::Update,
+        vec![ScriptValue::Unit],
+    ));
 }
 
 pub fn send_update60(mut writer: EventWriter<ScriptCallbackEvent>) {
@@ -358,7 +348,8 @@ impl Plugin for Nano9Plugin {
                 },
             );
         // let resolution = settings.canvas_size.as_vec2() * settings.pixel_scale;
-        app.insert_resource(bevy::winit::WinitSettings {
+        app
+            .insert_resource(bevy::winit::WinitSettings {
             // focused_mode: bevy::winit::UpdateMode::Continuous,
             focused_mode: bevy::winit::UpdateMode::reactive(Duration::from_millis(16)),
             unfocused_mode: bevy::winit::UpdateMode::reactive_low_power(Duration::from_millis(
@@ -375,16 +366,17 @@ impl Plugin for Nano9Plugin {
             Update,
             (
                 (
+                    fill_input,
                     (send_init.run_if(on_asset_change::<ScriptAsset>()),
                      event_handler::<call::Init, LuaScriptingPlugin>).chain(),
-                    (send_update.run_if(in_state(ErrorState::None)), event_handler::<call::Update, LuaScriptingPlugin>).chain(),
+                    (send_update.run_if(in_state(ErrorState::None)),
+                     event_handler::<call::Update, LuaScriptingPlugin>).chain(),
                     event_handler::<call::Eval, LuaScriptingPlugin>,
                     // event_handler::<call::Update60, LuaScriptingPlugin>,
                 ).chain(),
                 send_draw.run_if(in_state(ErrorState::None)),
                 event_handler::<call::Draw, LuaScriptingPlugin>,
             ).chain()
-             .run_if(in_state(ErrorState::None)),
         );
 
         // bevy_ecs_ldtk will add this plugin, so let's not add that if it's present.

@@ -34,11 +34,23 @@ impl<'w, 's> Level<'w, 's> {
                             // dbg!(posf);
                             for object in object_layer.objects() {
                                 /// The tiles in Tiled are positioned by their bottom left.
-                                let obj_rect = Rect::new(object.x,
-                                                         object.y - tile_size.y as f32,
-                                                         object.x + tile_size.x as f32,
-                                                         object.y);
-                                // dbg!(obj_rect);
+
+
+                                let obj_rect = match object.shape {
+                                    tiled::ObjectShape::Rect { width, height } => {
+                                        Rect::new(object.x,
+                                                  object.y,
+                                                  object.x + width,
+                                                  object.y + height)
+                                    }
+                                    _ => {
+                                        Rect::new(object.x,
+                                                  object.y - tile_size.y as f32,
+                                                  object.x + tile_size.x as f32,
+                                                  object.y)
+                                    }
+                                };
+                                dbg!(obj_rect);
                                 if obj_rect.contains(posf) {
                                     result = object.properties.get("p8flags")
                                         .and_then(|value| match value {
@@ -85,10 +97,20 @@ impl<'w, 's> Level<'w, 's> {
                                     // dbg!(posf);
                                     for object in object_layer.objects() {
                                         /// The tiles in Tiled are positioned by their bottom left.
-                                        let obj_rect = Rect::new(object.x,
-                                                                 object.y - tile_size.y as f32,
-                                                                 object.x + tile_size.x as f32,
-                                                                 object.y);
+                                        let obj_rect = match object.shape {
+                                            tiled::ObjectShape::Rect { width, height } => {
+                                                Rect::new(object.x,
+                                                          object.y,
+                                                          object.x + width,
+                                                          object.y + height)
+                                            }
+                                            _ => {
+                                                Rect::new(object.x,
+                                                          object.y - tile_size.y as f32,
+                                                          object.x + tile_size.x as f32,
+                                                          object.y)
+                                            }
+                                        };
                                         // dbg!(obj_rect);
                                         if obj_rect.contains(posf) {
                                             // dbg!(object.id());

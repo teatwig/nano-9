@@ -211,7 +211,7 @@ pub struct SpriteSheet {
 struct UpdateCameraPos(UVec2);
 
 #[derive(Default, Debug, Clone)]
-struct Buttons {
+pub struct Buttons {
     from: Option<Entity>,
     curr: BitArray<[u8; 1]>,
     last: BitArray<[u8; 1]>,
@@ -219,6 +219,9 @@ struct Buttons {
 
 impl Buttons {
     pub fn btnp(&self, b: Option<u8>) -> Result<bool, Error> {
+        // if self.curr.any() || self.last.any() {
+        //     dbg!(self);
+        // }
         match b {
             Some(b) => {
                 let curr = self.curr.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))?;
@@ -244,7 +247,7 @@ impl Buttons {
 }
 
 #[derive(Debug, Resource, Deref, DerefMut)]
-struct PlayerInputs(Vec<Buttons>);
+pub struct PlayerInputs(Vec<Buttons>);
 
 impl Default for PlayerInputs {
     fn default() -> Self {
@@ -298,7 +301,7 @@ pub struct Pico8<'w, 's> {
     // audio_sinks: Query<'w, 's, Option<&'static mut AudioSink>>,
 }
 
-fn fill_input(mut connection_events: EventReader<GamepadConnectionEvent>,
+pub(crate) fn fill_input(mut connection_events: EventReader<GamepadConnectionEvent>,
               keys: Res<ButtonInput<KeyCode>>,
               gamepads: Query<&Gamepad>,
               mut player_inputs: ResMut<PlayerInputs>) {
@@ -324,7 +327,7 @@ fn fill_input(mut connection_events: EventReader<GamepadConnectionEvent>,
     }
     for (i, mut buttons) in player_inputs.iter_mut().enumerate() {
         buttons.last = buttons.curr;
-        buttons.curr = BitArray::ZERO;
+        buttons.curr.fill(false);
 
         // buttons.curr.set(0, keys.pressed(KeyCode::ArrowLeft)
         for b in 0..=5 {
@@ -1509,7 +1512,6 @@ pub(crate) fn plugin(app: &mut App) {
                     .push(AssetPathToLanguageMapper { map: path_to_lang });
             },
         )
-        .add_systems(PreUpdate, fill_input)
         .add_observer(
             |trigger: Trigger<UpdateCameraPos>,
              camera: Single<&mut Transform, With<Nano9Camera>>| {
