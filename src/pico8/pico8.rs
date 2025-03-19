@@ -396,6 +396,7 @@ enum Radii {
 #[derive(Debug, Clone, Reflect)]
 pub enum PropBy {
     Pos(Vec2),
+    Rect(Rect),
     Name(Cow<'static, str>),
 }
 
@@ -447,7 +448,13 @@ impl FromScript for PropBy {
             ScriptValue::Map(v) => {
                 let x = v.get("x").and_then(script_value_to_f32).unwrap_or(0.0);
                 let y = v.get("y").and_then(script_value_to_f32).unwrap_or(0.0);
-                Ok(PropBy::Pos(Vec2::new(x, y)))
+                let w = v.get("width").and_then(script_value_to_f32);
+                let h = v.get("height").and_then(script_value_to_f32);
+                if w.is_some() && h.is_some() {
+                    Ok(PropBy::Rect(Rect::from_corners(Vec2::new(x, y), Vec2::new(x + w.unwrap(), y + h.unwrap()))))
+                } else {
+                    Ok(PropBy::Pos(Vec2::new(x, y)))
+                }
             }
             // ScriptValue::Unit => Ok(N9Color::Pen),
             _ => Err(InteropError::impossible_conversion(TypeId::of::<PropBy>())),

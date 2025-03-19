@@ -28,28 +28,9 @@ impl<'w, 's> Level<'w, 's> {
                          }
                          tiled::LayerType::Objects(object_layer) => {
                             let mut result = None;
-                            // dbg!(pos);
-                            // dbg!(tile_size);
                             let posf = pos * tile_size.as_vec2();
-                            // dbg!(posf);
                             for object in object_layer.objects() {
-                                /// The tiles in Tiled are positioned by their bottom left.
-                                let obj_rect = match object.shape {
-                                    tiled::ObjectShape::Rect { width, height } => {
-                                        Rect::new(object.x,
-                                                  object.y,
-                                                  object.x + width,
-                                                  object.y + height)
-                                    }
-                                    _ => {
-                                        Rect::new(object.x,
-                                                  object.y - tile_size.y as f32,
-                                                  object.x + tile_size.x as f32,
-                                                  object.y)
-                                    }
-                                };
-                                dbg!(obj_rect);
-                                if obj_rect.contains(posf) {
+                                if shape_contains(&object, tile_size, posf) {
                                     result = object.properties.get("p8flags")
                                         .and_then(|value| match value {
                                             PropertyValue::IntValue(i) => Some(*i as usize),
@@ -74,7 +55,6 @@ impl<'w, 's> Level<'w, 's> {
                 tiled_map.map.get_layer(layer_index.unwrap_or(0)).and_then(|layer| {
                     match layer.layer_type() {
                         tiled::LayerType::Tiles(tile_layer) => {
-
                             match prop_by {
                                 PropBy::Pos(pos) => {
                                     tile_layer.get_tile(pos.x as i32, pos.y as i32)
@@ -84,6 +64,10 @@ impl<'w, 's> Level<'w, 's> {
                                     warn!("Cannot look up by name {name:?} on a tile layer.");
                                     None
                                 }
+                                PropBy::Rect(_) => {
+                                    warn!("Cannot look up by rect");
+                                    None
+                                }
                             }
                         }
                         tiled::LayerType::Objects(object_layer) => {
@@ -91,22 +75,18 @@ impl<'w, 's> Level<'w, 's> {
                                 PropBy::Pos(pos) => {
                                     let posf = pos * tile_size.as_vec2();
                                     for object in object_layer.objects() {
-                                        /// The tiles in Tiled are positioned by their bottom left.
-                                        let obj_rect = match object.shape {
-                                            tiled::ObjectShape::Rect { width, height } => {
-                                                Rect::new(object.x,
-                                                          object.y,
-                                                          object.x + width,
-                                                          object.y + height)
-                                            }
-                                            _ => {
-                                                Rect::new(object.x,
-                                                          object.y - tile_size.y as f32,
-                                                          object.x + tile_size.x as f32,
-                                                          object.y)
-                                            }
-                                        };
-                                        if obj_rect.contains(posf) {
+                                        if shape_contains(&object, tile_size, posf) {
+                                            let mut properties = object.properties.clone();
+
+                                            insert_object_fields(&mut properties, &object);
+                                            return Some(properties);
+                                        }
+                                    }
+                                    None
+                                }
+                                PropBy::Rect(rect) => {
+                                    for object in object_layer.objects() {
+                                        if shape_intersects(&object, tile_size, rect) {
                                             let mut properties = object.properties.clone();
 
                                             insert_object_fields(&mut properties, &object);
@@ -151,28 +131,9 @@ impl<'w, 's> Level<'w, 's> {
                             Ok(())
                         }
                         tiled::LayerType::Objects(object_layer) => {
-                            // dbg!(pos);
-                            // dbg!(tile_size);
                             let posf = pos * tile_size.as_vec2();
-                            // dbg!(posf);
                             for object in object_layer.objects() {
-                                /// The tiles in Tiled are positioned by their bottom left.
-                                let obj_rect = match object.shape {
-                                    tiled::ObjectShape::Rect { width, height } => {
-                                        Rect::new(object.x,
-                                                    object.y,
-                                                    object.x + width,
-                                                    object.y + height)
-                                    }
-                                    _ => {
-                                        Rect::new(object.x,
-                                                    object.y - tile_size.y as f32,
-                                                    object.x + tile_size.x as f32,
-                                                    object.y)
-                                    }
-                                };
-                                // dbg!(obj_rect);
-                                if obj_rect.contains(posf) {
+                                if shape_contains(&object, tile_size, posf) {
                                     let mut sprite_id = None;
                                     for (tiled_id_storage, handle) in &self.tiled_id_storage {
                                         if handle.0 == *map_handle {
@@ -205,6 +166,40 @@ impl<'w, 's> Level<'w, 's> {
                     }
                 })
             })
+    }
+}
+
+fn shape_contains(object: &tiled::ObjectData, tile_size: UVec2, point: Vec2) -> bool {
+    match object.shape {
+        tiled::ObjectShape::Rect { width, height } => {
+            Rect::new(object.x,
+                      object.y,
+                      object.x + width,
+                      object.y + height).contains(point)
+        }
+        _ => {
+            Rect::new(object.x,
+                      object.y - tile_size.y as f32,
+                      object.x + tile_size.x as f32,
+                      object.y).contains(point)
+        }
+    }
+}
+
+fn shape_intersects(object: &tiled::ObjectData, tile_size: UVec2, rect: Rect) -> bool {
+    match object.shape {
+        tiled::ObjectShape::Rect { width, height } => {
+            !Rect::new(object.x,
+                      object.y,
+                      object.x + width,
+                      object.y + height).intersect(rect).is_empty()
+        }
+        _ => {
+            !Rect::new(object.x,
+                      object.y - tile_size.y as f32,
+                      object.x + tile_size.x as f32,
+                      object.y).intersect(rect).is_empty()
+        }
     }
 }
 
