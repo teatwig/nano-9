@@ -1,25 +1,21 @@
 use bevy::{
-    asset::{AssetPath, embedded_asset},
+    asset::{embedded_asset, AssetPath},
     ecs::system::{SystemParam, SystemState},
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
+    input::gamepad::{GamepadConnectionEvent, GamepadEvent},
     prelude::*,
     render::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
     sprite::Anchor,
-
-    input::gamepad::{
-        GamepadConnectionEvent, GamepadEvent,
-    },
 };
 use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 
 use bevy_mod_scripting::{
     core::{
-        asset::{AssetPathToLanguageMapper, Language, ScriptAssetSettings, ScriptAsset},
+        asset::{AssetPathToLanguageMapper, Language, ScriptAsset, ScriptAssetSettings},
         bindings::{
-            WorldAccessGuard,
             access_map::ReflectAccessId,
             function::{
                 from::FromScript,
@@ -28,33 +24,33 @@ use bevy_mod_scripting::{
                 script_function::FunctionCallContext,
             },
             script_value::ScriptValue,
-            ReflectReference,
+            ReflectReference, WorldAccessGuard,
         },
-        docgen::typed_through::{TypedThrough, ThroughTypeInfo},
+        docgen::typed_through::{ThroughTypeInfo, TypedThrough},
         error::InteropError,
     },
     lua::mlua::prelude::LuaError,
 };
-use rand::Rng;
 use bitvec::prelude::*;
+use rand::Rng;
 
 use crate::{
     cursor::Cursor,
     pico8::{
         audio::{Sfx, SfxChannels},
-        Cart, ClearEvent, Clearable, LoadCart, Map },
-    DrawState, DropPolicy, N9Color, N9Entity, Nano9Camera, N9Canvas,
-
+        Cart, ClearEvent, Clearable, LoadCart, Map,
+    },
+    DrawState, DropPolicy, N9Canvas, N9Color, N9Entity, Nano9Camera,
 };
 
 use std::{
-    borrow::Cow,
     any::TypeId,
+    borrow::Cow,
+    ffi::OsStr,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    ffi::OsStr,
 };
 
 pub const PICO8_PALETTE: &str = "embedded://nano_9/pico8/pico-8-palette.png";
@@ -160,13 +156,21 @@ impl FromScript for Spr {
         _world: WorldAccessGuard<'_>,
     ) -> Result<Self::This<'_>, InteropError> {
         match value {
-            ScriptValue::Integer(n) => Ok(if n >= 0 { Spr::Cur { sprite: n as usize } } else { Spr::Set { sheet: n.abs() as usize } }),
+            ScriptValue::Integer(n) => Ok(if n >= 0 {
+                Spr::Cur { sprite: n as usize }
+            } else {
+                Spr::Set {
+                    sheet: n.abs() as usize,
+                }
+            }),
             ScriptValue::List(list) => {
                 assert_eq!(list.len(), 2, "Expect two elements for spr.");
                 let mut iter = list.into_iter().map(|v| match v {
-                    ScriptValue::Integer(n) => { Ok(n as usize) }
-                    x => Err(InteropError::external_error(Box::new(Error::InvalidArgument(format!("{x:?}").into()))))
-                    });
+                    ScriptValue::Integer(n) => Ok(n as usize),
+                    x => Err(InteropError::external_error(Box::new(
+                        Error::InvalidArgument(format!("{x:?}").into()),
+                    ))),
+                });
                 let sprite = iter.next().expect("sprite index")?;
                 let sheet = iter.next().expect("sheet index")?;
                 Ok(Spr::From { sprite, sheet })
@@ -179,9 +183,13 @@ impl FromScript for Spr {
 impl From<i64> for Spr {
     fn from(index: i64) -> Self {
         if index >= 0 {
-            Spr::Cur { sprite: index as usize }
+            Spr::Cur {
+                sprite: index as usize,
+            }
         } else {
-            Spr::Set { sheet: index.abs().saturating_sub(1) as usize }
+            Spr::Set {
+                sheet: index.abs().saturating_sub(1) as usize,
+            }
         }
     }
 }
@@ -204,7 +212,6 @@ pub struct SpriteSheet {
     pub layout: Handle<TextureAtlasLayout>,
     pub sprite_size: UVec2,
     pub flags: Vec<u8>,
-
 }
 
 #[derive(Event, Debug)]
@@ -224,24 +231,30 @@ impl Buttons {
         // }
         match b {
             Some(b) => {
-                let curr = self.curr.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))?;
-                let last = self.last.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))?;
+                let curr = self
+                    .curr
+                    .get(b as usize)
+                    .map(|x| *x.as_ref())
+                    .ok_or(Error::NoSuchButton(b))?;
+                let last = self
+                    .last
+                    .get(b as usize)
+                    .map(|x| *x.as_ref())
+                    .ok_or(Error::NoSuchButton(b))?;
                 Ok(curr && !last)
             }
-            None => {
-                Ok((self.curr & (self.curr & !self.last)).any())
-            }
+            None => Ok((self.curr & (self.curr & !self.last)).any()),
         }
     }
 
     pub fn btn(&self, b: Option<u8>) -> Result<bool, Error> {
         match b {
-            Some(b) => {
-                self.curr.get(b as usize).map(|x| *x.as_ref()).ok_or(Error::NoSuchButton(b))
-            }
-            None => {
-                Ok(self.curr.any())
-            }
+            Some(b) => self
+                .curr
+                .get(b as usize)
+                .map(|x| *x.as_ref())
+                .ok_or(Error::NoSuchButton(b)),
+            None => Ok(self.curr.any()),
         }
     }
 }
@@ -254,7 +267,6 @@ impl Default for PlayerInputs {
         PlayerInputs(vec![Buttons::default(); 2])
     }
 }
-
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -301,23 +313,31 @@ pub struct Pico8<'w, 's> {
     // audio_sinks: Query<'w, 's, Option<&'static mut AudioSink>>,
 }
 
-pub(crate) fn fill_input(mut connection_events: EventReader<GamepadConnectionEvent>,
-              keys: Res<ButtonInput<KeyCode>>,
-              gamepads: Query<&Gamepad>,
-              mut player_inputs: ResMut<PlayerInputs>) {
+pub(crate) fn fill_input(
+    mut connection_events: EventReader<GamepadConnectionEvent>,
+    keys: Res<ButtonInput<KeyCode>>,
+    gamepads: Query<&Gamepad>,
+    mut player_inputs: ResMut<PlayerInputs>,
+) {
     for event in connection_events.read() {
         info!("{event:?}");
         if event.connected() {
-            match player_inputs.iter_mut().find(|buttons| buttons.from.is_none()) {
+            match player_inputs
+                .iter_mut()
+                .find(|buttons| buttons.from.is_none())
+            {
                 Some(buttons) => buttons.from = Some(event.gamepad),
                 None => player_inputs.push(Buttons {
                     from: Some(event.gamepad),
                     ..default()
-                })
+                }),
             }
         } else {
             // disconnected
-            match player_inputs.iter_mut().find(|buttons| buttons.from == Some(event.gamepad)) {
+            match player_inputs
+                .iter_mut()
+                .find(|buttons| buttons.from == Some(event.gamepad))
+            {
                 Some(buttons) => buttons.from = None,
                 None => {
                     warn!("Gamepad disconnected but not present in player inputs.");
@@ -337,9 +357,19 @@ pub(crate) fn fill_input(mut connection_events: EventReader<GamepadConnectionEve
                     1 => keys.pressed(KeyCode::ArrowRight),
                     2 => keys.pressed(KeyCode::ArrowUp),
                     3 => keys.pressed(KeyCode::ArrowDown),
-                    4 => keys.any_pressed([KeyCode::KeyZ, KeyCode::KeyC, KeyCode::KeyN, KeyCode::NumpadSubtract]),
-                    5 => keys.any_pressed([KeyCode::KeyX, KeyCode::KeyV, KeyCode::KeyM, KeyCode::Numpad8]),
-                    _ => unreachable!()
+                    4 => keys.any_pressed([
+                        KeyCode::KeyZ,
+                        KeyCode::KeyC,
+                        KeyCode::KeyN,
+                        KeyCode::NumpadSubtract,
+                    ]),
+                    5 => keys.any_pressed([
+                        KeyCode::KeyX,
+                        KeyCode::KeyV,
+                        KeyCode::KeyM,
+                        KeyCode::Numpad8,
+                    ]),
+                    _ => unreachable!(),
                 },
                 1 => match b {
                     0 => keys.pressed(KeyCode::KeyS),
@@ -348,9 +378,9 @@ pub(crate) fn fill_input(mut connection_events: EventReader<GamepadConnectionEve
                     3 => keys.pressed(KeyCode::KeyD),
                     4 => keys.any_pressed([KeyCode::ShiftLeft, KeyCode::Tab]),
                     5 => keys.any_pressed([KeyCode::KeyA, KeyCode::KeyQ]),
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 },
-                _ => false
+                _ => false,
             };
             let (button, dir_maybe) = match b {
                 0 => (GamepadButton::DPadLeft, Some(Vec2::NEG_X)),
@@ -359,16 +389,20 @@ pub(crate) fn fill_input(mut connection_events: EventReader<GamepadConnectionEve
                 3 => (GamepadButton::DPadDown, Some(Vec2::NEG_Y)),
                 4 => (GamepadButton::South, None),
                 5 => (GamepadButton::East, None),
-                _ => unreachable!()
+                _ => unreachable!(),
             };
-            let button_pressed = buttons.from.and_then(|id| {
-                // We have a gamepad.
-                gamepads.get(id).ok().map(|gamepad| {
-                    gamepad.pressed(button) ||
-                        dir_maybe.map(|dir| gamepad.left_stick().dot(dir) > ANALOG_STICK_THRESHOLD)
+            let button_pressed = buttons
+                .from
+                .and_then(|id| {
+                    // We have a gamepad.
+                    gamepads.get(id).ok().map(|gamepad| {
+                        gamepad.pressed(button)
+                            || dir_maybe
+                                .map(|dir| gamepad.left_stick().dot(dir) > ANALOG_STICK_THRESHOLD)
                                 .unwrap_or(false)
+                    })
                 })
-            }).unwrap_or(false);
+                .unwrap_or(false);
             buttons.curr.set(b, key_pressed || button_pressed);
         }
     }
@@ -428,7 +462,7 @@ fn script_value_to_f32(value: &ScriptValue) -> Option<f32> {
     match value {
         ScriptValue::Float(f) => Some(*f as f32),
         ScriptValue::Integer(i) => Some(*i as f32),
-        _ => None
+        _ => None,
     }
 }
 
@@ -451,7 +485,10 @@ impl FromScript for PropBy {
                 let w = v.get("width").and_then(script_value_to_f32);
                 let h = v.get("height").and_then(script_value_to_f32);
                 if w.is_some() && h.is_some() {
-                    Ok(PropBy::Rect(Rect::from_corners(Vec2::new(x, y), Vec2::new(x + w.unwrap(), y + h.unwrap()))))
+                    Ok(PropBy::Rect(Rect::from_corners(
+                        Vec2::new(x, y),
+                        Vec2::new(x + w.unwrap(), y + h.unwrap()),
+                    )))
                 } else {
                     Ok(PropBy::Pos(Vec2::new(x, y)))
                 }
@@ -491,16 +528,15 @@ impl Pico8<'_, '_> {
         let flip = flip.unwrap_or_default();
         let sheet_index = sheet_index.unwrap_or(0);
         let sheet = &self.state.sprite_sheets.inner[sheet_index];
-        let sprite =
-            Sprite {
-                image: sheet.handle.clone(),
-                anchor: Anchor::TopLeft,
-                rect: Some(sprite_rect),
-                custom_size: screen_size,
-                flip_x: flip.x,
-                flip_y: flip.y,
-                ..default()
-            };
+        let sprite = Sprite {
+            image: sheet.handle.clone(),
+            anchor: Anchor::TopLeft,
+            rect: Some(sprite_rect),
+            custom_size: screen_size,
+            flip_x: flip.x,
+            flip_y: flip.y,
+            ..default()
+        };
         let clearable = Clearable::default();
         Ok(self
             .commands
@@ -681,15 +717,23 @@ impl Pico8<'_, '_> {
     ) -> Result<Entity, Error> {
         let map_index = map_index.unwrap_or(0);
         screen_start.y = -screen_start.y;
-        match self.state.maps.inner.get(map_index).ok_or(Error::InvalidArgument("no map".into()))? {
-            Map::P8(ref map) => {
-                map.map(map_pos, screen_start, size, mask, &self.state.sprite_sheets.inner,
-                        &mut self.commands)
-            }
+        match self
+            .state
+            .maps
+            .inner
+            .get(map_index)
+            .ok_or(Error::InvalidArgument("no map".into()))?
+        {
+            Map::P8(ref map) => map.map(
+                map_pos,
+                screen_start,
+                size,
+                mask,
+                &self.state.sprite_sheets.inner,
+                &mut self.commands,
+            ),
             #[cfg(feature = "level")]
-            Map::Level(ref map) => {
-                Ok(map.map(screen_start, 0, &mut self.commands))
-            }
+            Map::Level(ref map) => Ok(map.map(screen_start, 0, &mut self.commands)),
         }
     }
 
@@ -879,42 +923,57 @@ impl Pico8<'_, '_> {
 
     #[cfg(feature = "level")]
     /// Get properties
-    pub fn mgetp(&self, prop_by: PropBy, map_index: Option<usize>, layer_index: Option<usize>) -> Option<tiled::Properties> {
+    pub fn mgetp(
+        &self,
+        prop_by: PropBy,
+        map_index: Option<usize>,
+        layer_index: Option<usize>,
+    ) -> Option<tiled::Properties> {
         let map: &Map = &self.state.maps.get(map_index).expect("No such map");
         match *map {
             Map::P8(ref map) => None,
 
             #[cfg(feature = "level")]
-            Map::Level(ref map) => {
-                self.tiled.mgetp(&map.handle, prop_by, map_index, layer_index)
-            }
+            Map::Level(ref map) => self
+                .tiled
+                .mgetp(&map.handle, prop_by, map_index, layer_index),
         }
     }
 
-    pub fn mget(&self, pos: Vec2, map_index: Option<usize>, layer_index: Option<usize>) -> Option<usize> {
+    pub fn mget(
+        &self,
+        pos: Vec2,
+        map_index: Option<usize>,
+        layer_index: Option<usize>,
+    ) -> Option<usize> {
         let map: &Map = &self.state.maps.get(map_index).expect("No such map");
         match *map {
-            Map::P8(ref map) => Some(map[(pos.x as u32 + pos.y as u32 * MAP_COLUMNS) as usize] as usize),
+            Map::P8(ref map) => {
+                Some(map[(pos.x as u32 + pos.y as u32 * MAP_COLUMNS) as usize] as usize)
+            }
 
             #[cfg(feature = "level")]
-            Map::Level(ref map) => {
-                self.tiled.mget(&map.handle, pos, map_index, layer_index)
-            }
+            Map::Level(ref map) => self.tiled.mget(&map.handle, pos, map_index, layer_index),
         }
     }
 
-    pub fn mset(&mut self, pos: Vec2, sprite_index: usize, map_index: Option<usize>, layer_index: Option<usize>) -> Result<(), Error> {
+    pub fn mset(
+        &mut self,
+        pos: Vec2,
+        sprite_index: usize,
+        map_index: Option<usize>,
+        layer_index: Option<usize>,
+    ) -> Result<(), Error> {
         let map: &mut Map = &mut self.state.maps.get_mut(map_index).expect("No such map");
         match *map {
-            Map::P8(ref mut map) => {
-                map
-                    .get_mut((pos.x as u32 + pos.y as u32 * MAP_COLUMNS) as usize)
-                    .map(|value| *value = sprite_index as u8)
-                    .ok_or(Error::NoSuch("map entry".into()))
-            }
+            Map::P8(ref mut map) => map
+                .get_mut((pos.x as u32 + pos.y as u32 * MAP_COLUMNS) as usize)
+                .map(|value| *value = sprite_index as u8)
+                .ok_or(Error::NoSuch("map entry".into())),
             #[cfg(feature = "level")]
             Map::Level(ref mut map) => {
-                self.tiled.mset(&map.handle, pos, sprite_index, map_index, layer_index)
+                self.tiled
+                    .mset(&map.handle, pos, sprite_index, map_index, layer_index)
             }
         }
     }
@@ -1182,7 +1241,9 @@ impl Pico8<'_, '_> {
     ) -> Result<Entity, Error> {
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         // let min = a.min(b);
-        let size: UVec2 = ((lower_right - upper_left) + IVec2::ONE).try_into().unwrap();
+        let size: UVec2 = ((lower_right - upper_left) + IVec2::ONE)
+            .try_into()
+            .unwrap();
         // // let size = UVec2::new((a.x - b.x).abs() + 1,
         // //                       (a.y - b.y).abs() + 1);
         // let size = UVec2::new(delta.x.abs() as u32, delta.y.abs() as u32) + UVec2::ONE;
@@ -1232,7 +1293,11 @@ impl Pico8<'_, '_> {
                     // }),
                     ..default()
                 },
-                Transform::from_xyz(upper_left.x as f32, -(upper_left.y as f32), clearable.suggest_z()),
+                Transform::from_xyz(
+                    upper_left.x as f32,
+                    -(upper_left.y as f32),
+                    clearable.suggest_z(),
+                ),
                 clearable,
             ))
             .id();
@@ -1247,7 +1312,9 @@ impl Pico8<'_, '_> {
     ) -> Result<Entity, Error> {
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         // let min = a.min(b);
-        let size: UVec2 = ((lower_right - upper_left) + IVec2::ONE).try_into().unwrap();
+        let size: UVec2 = ((lower_right - upper_left) + IVec2::ONE)
+            .try_into()
+            .unwrap();
         // // let size = UVec2::new((a.x - b.x).abs() + 1,
         // //                       (a.y - b.y).abs() + 1);
         // let size = UVec2::new(delta.x.abs() as u32, delta.y.abs() as u32) + UVec2::ONE;
@@ -1300,7 +1367,11 @@ impl Pico8<'_, '_> {
                     // }),
                     ..default()
                 },
-                Transform::from_xyz(upper_left.x as f32, -(upper_left.y as f32), clearable.suggest_z()),
+                Transform::from_xyz(
+                    upper_left.x as f32,
+                    -(upper_left.y as f32),
+                    clearable.suggest_z(),
+                ),
                 clearable,
             ))
             .id();
@@ -1374,16 +1445,16 @@ impl Command for AudioCommand {
                         {
                             match audio {
                                 Audio::Sfx(sfx) => {
-                            let (sfx, release) = Sfx::get_stoppable_handle(sfx, world);
-                            let mut commands = world.commands();
-                            if let Some(release) = release {
-                                commands
-                                    .entity(available_channel)
-                                    .insert(SfxRelease(release));
-                            }
-                            commands
-                                .entity(available_channel)
-                                .insert((AudioPlayer(sfx), PlaybackSettings::REMOVE));
+                                    let (sfx, release) = Sfx::get_stoppable_handle(sfx, world);
+                                    let mut commands = world.commands();
+                                    if let Some(release) = release {
+                                        commands
+                                            .entity(available_channel)
+                                            .insert(SfxRelease(release));
+                                    }
+                                    commands
+                                        .entity(available_channel)
+                                        .insert((AudioPlayer(sfx), PlaybackSettings::REMOVE));
                                 }
                                 Audio::AudioSource(_source) => {
                                     todo!();
@@ -1398,9 +1469,9 @@ impl Command for AudioCommand {
                         let mut commands = world.commands();
                         match audio {
                             Audio::Sfx(sfx) => {
-                        commands
-                            .entity(chan)
-                            .insert((AudioPlayer(sfx.clone()), PlaybackSettings::REMOVE));
+                                commands
+                                    .entity(chan)
+                                    .insert((AudioPlayer(sfx.clone()), PlaybackSettings::REMOVE));
                             }
                             Audio::AudioSource(_source) => {
                                 todo!()
@@ -1415,7 +1486,6 @@ impl Command for AudioCommand {
         }
     }
 }
-
 
 impl FromWorld for Pico8State {
     fn from_world(world: &mut World) -> Self {
@@ -1437,14 +1507,17 @@ impl FromWorld for Pico8State {
         };
 
         Pico8State {
-            palette: Palette { handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
-                               row: 0 },
+            palette: Palette {
+                handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
+                row: 0,
+            },
             border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
             code: Handle::<ScriptAsset>::default(),
             font: vec![N9Font {
                 handle: asset_server.load(PICO8_FONT),
                 height: Some(7.0),
-            }].into(),
+            }]
+            .into(),
             draw_state: DrawState::default(),
             audio_banks: Vec::new().into(),
             sprite_sheets: Vec::new().into(),
@@ -1496,8 +1569,7 @@ pub(crate) fn plugin(app: &mut App) {
     embedded_asset!(app, "pico-8-palette.png");
     embedded_asset!(app, "rect-border.png");
     embedded_asset!(app, "pico-8.ttf");
-    app
-        .init_asset::<Pico8State>()
+    app.init_asset::<Pico8State>()
         .init_resource::<Pico8State>()
         .init_resource::<PlayerInputs>()
         .register_type::<P8Flags>()

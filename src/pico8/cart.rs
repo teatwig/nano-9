@@ -118,28 +118,41 @@ fn load_cart(
                 settings.sampler = ImageSampler::nearest();
             };
             let state = Pico8State {
-                palette: Palette { handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
-                                   row: 0 },
+                palette: Palette {
+                    handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
+                    row: 0,
+                },
                 border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
-                maps: vec![P8Map { entries: cart.map.clone(), sheet_index: 0 }.into()].into(),
-                audio_banks: vec![AudioBank(cart.sfx.clone().into_iter().map(Audio::Sfx).collect())].into(),
-                sprite_sheets: vec![SpriteSheet { handle: cart.sprites.clone(),
-                                                  sprite_size: UVec2::splat(8),
-                                                  flags: cart.flags.clone(),
-                                                  layout: layouts.add(TextureAtlasLayout::from_grid(
-                    PICO8_SPRITE_SIZE,
-                    PICO8_TILE_COUNT.x,
-                    PICO8_TILE_COUNT.y,
-                    None,
-                    None,
-                )),
-                }].into(),
+                maps: vec![P8Map {
+                    entries: cart.map.clone(),
+                    sheet_index: 0,
+                }
+                .into()]
+                .into(),
+                audio_banks: vec![AudioBank(
+                    cart.sfx.clone().into_iter().map(Audio::Sfx).collect(),
+                )]
+                .into(),
+                sprite_sheets: vec![SpriteSheet {
+                    handle: cart.sprites.clone(),
+                    sprite_size: UVec2::splat(8),
+                    flags: cart.flags.clone(),
+                    layout: layouts.add(TextureAtlasLayout::from_grid(
+                        PICO8_SPRITE_SIZE,
+                        PICO8_TILE_COUNT.x,
+                        PICO8_TILE_COUNT.y,
+                        None,
+                        None,
+                    )),
+                }]
+                .into(),
                 code: cart.lua.clone(),
                 draw_state: DrawState::default(),
                 font: vec![N9Font {
                     handle: asset_server.load(PICO8_FONT),
                     height: Some(7.0),
-                }].into()
+                }]
+                .into(),
             };
             commands.insert_resource(state);
             info!("State inserted");

@@ -1,5 +1,5 @@
 use bevy::{
-    asset::{AssetPath, embedded_asset},
+    asset::{embedded_asset, AssetPath},
     ecs::system::{SystemParam, SystemState},
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
     prelude::*,
@@ -13,9 +13,8 @@ use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 
 use bevy_mod_scripting::{
     core::{
-        asset::{AssetPathToLanguageMapper, Language, ScriptAssetSettings, ScriptAsset},
+        asset::{AssetPathToLanguageMapper, Language, ScriptAsset, ScriptAssetSettings},
         bindings::{
-            WorldAccessGuard,
             access_map::ReflectAccessId,
             function::{
                 from::FromScript,
@@ -24,7 +23,7 @@ use bevy_mod_scripting::{
                 script_function::FunctionCallContext,
             },
             script_value::ScriptValue,
-            ReflectReference,
+            ReflectReference, WorldAccessGuard,
         },
         error::InteropError,
     },
@@ -35,24 +34,23 @@ use rand::Rng;
 use crate::{
     cursor::Cursor,
     pico8::{
-        Pico8, Error, Spr, SfxCommand,
         audio::{Sfx, SfxChannels},
-        Cart, ClearEvent, Clearable, LoadCart, Map, PropBy },
-    DrawState, DropPolicy, N9Color, N9Entity, Nano9Camera, N9Canvas,
-
+        Cart, ClearEvent, Clearable, Error, LoadCart, Map, Pico8, PropBy, SfxCommand, Spr,
+    },
+    DrawState, DropPolicy, N9Canvas, N9Color, N9Entity, Nano9Camera,
 };
 
+#[cfg(feature = "level")]
+use std::collections::HashMap;
 use std::{
-    borrow::Cow,
     any::TypeId,
+    borrow::Cow,
+    ffi::OsStr,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    ffi::OsStr,
 };
-#[cfg(feature = "level")]
-use std::collections::HashMap;
 
 fn with_pico8<X>(
     ctx: &FunctionCallContext,
@@ -85,12 +83,18 @@ pub(crate) fn plugin(app: &mut App) {
     let world = app.world_mut();
 
     NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-        .register("btnp", |ctx: FunctionCallContext, b: Option<u8>, p: Option<u8>| {
-            with_pico8(&ctx, |pico8| pico8.btnp(b, p))
-        })
-        .register("btn", |ctx: FunctionCallContext, b: Option<u8>, p: Option<u8>| {
-            with_pico8(&ctx, |pico8| pico8.btn(b, p))
-        })
+        .register(
+            "btnp",
+            |ctx: FunctionCallContext, b: Option<u8>, p: Option<u8>| {
+                with_pico8(&ctx, |pico8| pico8.btnp(b, p))
+            },
+        )
+        .register(
+            "btn",
+            |ctx: FunctionCallContext, b: Option<u8>, p: Option<u8>| {
+                with_pico8(&ctx, |pico8| pico8.btn(b, p))
+            },
+        )
         .register("cls", |ctx: FunctionCallContext, c: Option<N9Color>| {
             with_pico8(&ctx, |pico8| pico8.cls(c))
         })
@@ -152,8 +156,7 @@ pub(crate) fn plugin(app: &mut App) {
              dh: Option<f32>,
              flip_x: Option<bool>,
              flip_y: Option<bool>,
-             sheet_index: Option<usize>|
-            {
+             sheet_index: Option<usize>| {
                 let sprite_rect = Rect::new(sx, sy, sx + sw, sy + sh);
                 let pos = Vec2::new(dx, dy);
                 let size = dw
@@ -163,7 +166,9 @@ pub(crate) fn plugin(app: &mut App) {
                 let flip = (flip_x.is_some() || flip_y.is_some())
                     .then(|| BVec2::new(flip_x.unwrap_or(false), flip_y.unwrap_or(false)));
                 // We get back an entity. Not doing anything with it here yet.
-                let _id = with_pico8(&ctx, move |pico8| pico8.sspr(sprite_rect, pos, size, flip, sheet_index))?;
+                let _id = with_pico8(&ctx, move |pico8| {
+                    pico8.sspr(sprite_rect, pos, size, flip, sheet_index)
+                })?;
                 Ok(())
             },
         )
@@ -178,7 +183,6 @@ pub(crate) fn plugin(app: &mut App) {
              h: Option<f32>,
              flip_x: Option<bool>,
              flip_y: Option<bool>| {
-
                 let pos = IVec2::new(
                     x.map(|a| a.round() as i32).unwrap_or(0),
                     y.map(|a| a.round() as i32).unwrap_or(0),
@@ -280,16 +284,19 @@ pub(crate) fn plugin(app: &mut App) {
                 })
             },
         )
-        .register("fget", |ctx: FunctionCallContext, n: Option<usize>, f: Option<u8>| {
-            with_pico8(&ctx, move |pico8| {
-                let v = pico8.fget(n, f);
-                Ok(if f.is_some() {
-                    ScriptValue::Bool(v == 1)
-                } else {
-                    ScriptValue::Integer(v as i64)
+        .register(
+            "fget",
+            |ctx: FunctionCallContext, n: Option<usize>, f: Option<u8>| {
+                with_pico8(&ctx, move |pico8| {
+                    let v = pico8.fget(n, f);
+                    Ok(if f.is_some() {
+                        ScriptValue::Bool(v == 1)
+                    } else {
+                        ScriptValue::Integer(v as i64)
+                    })
                 })
-            })
-        })
+            },
+        )
         .register(
             "fset",
             |ctx: FunctionCallContext, n: usize, f_or_v: u8, v: Option<u8>| {
@@ -300,16 +307,31 @@ pub(crate) fn plugin(app: &mut App) {
                 })
             },
         )
-        .register("mget", |ctx: FunctionCallContext, x: f32, y: f32, map_index: Option<usize>, layer_index: Option<usize>| {
-            with_pico8(&ctx, move |pico8| {
-                Ok(pico8.mget(Vec2::new(x, y), map_index, layer_index))
-            })
-        })
-        .register("mset", |ctx: FunctionCallContext, x: f32, y: f32, v: usize, map_index: Option<usize>, layer_index: Option<usize>| {
-            with_pico8(&ctx, move |pico8| {
-                pico8.mset(Vec2::new(x, y), v, map_index, layer_index)
-            })
-        })
+        .register(
+            "mget",
+            |ctx: FunctionCallContext,
+             x: f32,
+             y: f32,
+             map_index: Option<usize>,
+             layer_index: Option<usize>| {
+                with_pico8(&ctx, move |pico8| {
+                    Ok(pico8.mget(Vec2::new(x, y), map_index, layer_index))
+                })
+            },
+        )
+        .register(
+            "mset",
+            |ctx: FunctionCallContext,
+             x: f32,
+             y: f32,
+             v: usize,
+             map_index: Option<usize>,
+             layer_index: Option<usize>| {
+                with_pico8(&ctx, move |pico8| {
+                    pico8.mset(Vec2::new(x, y), v, map_index, layer_index)
+                })
+            },
+        )
         .register("sub", |s: String, start: isize, end: Option<isize>| {
             Pico8::sub(&s, start, end)
         })
@@ -418,22 +440,28 @@ pub(crate) fn plugin(app: &mut App) {
         );
 
     #[cfg(feature = "level")]
-    NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-        .register("mgetp", |ctx: FunctionCallContext, prop_by: ScriptValue, map_index: Option<usize>, layer_index: Option<usize>| {
+    NamespaceBuilder::<GlobalNamespace>::new_unregistered(world).register(
+        "mgetp",
+        |ctx: FunctionCallContext,
+         prop_by: ScriptValue,
+         map_index: Option<usize>,
+         layer_index: Option<usize>| {
             let prop_by = PropBy::from_script(prop_by, ctx.world()?)?;
             with_pico8(&ctx, move |pico8| {
-                Ok(pico8.mgetp(prop_by, map_index, layer_index)
+                Ok(pico8
+                    .mgetp(prop_by, map_index, layer_index)
                     .map(|p| from_properties(&p)))
             })
-        });
-
+        },
+    );
 }
 
 #[cfg(feature = "level")]
 fn from_properties(properties: &tiled::Properties) -> ScriptValue {
-    let map: HashMap<String, ScriptValue> = properties.iter().flat_map(|(name, value)| {
-        from_property(value).map(|v| (name.to_owned(), v))
-    }).collect();
+    let map: HashMap<String, ScriptValue> = properties
+        .iter()
+        .flat_map(|(name, value)| from_property(value).map(|v| (name.to_owned(), v)))
+        .collect();
     ScriptValue::Map(map)
 }
 
@@ -448,8 +476,13 @@ fn from_property(v: &tiled::PropertyValue) -> Option<ScriptValue> {
         PropertyValue::StringValue(s) => Some(ScriptValue::String(s.to_owned().into())),
         PropertyValue::FileValue(f) => Some(ScriptValue::String(f.to_owned().into())),
         PropertyValue::ObjectValue(_number) => None,
-        PropertyValue::ClassValue { property_type, properties } => {
-            Some(ScriptValue::Map([(property_type.to_owned(), from_properties(properties))].into_iter().collect()))
-        }
+        PropertyValue::ClassValue {
+            property_type,
+            properties,
+        } => Some(ScriptValue::Map(
+            [(property_type.to_owned(), from_properties(properties))]
+                .into_iter()
+                .collect(),
+        )),
     }
 }

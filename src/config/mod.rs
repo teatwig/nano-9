@@ -1,18 +1,16 @@
+#[cfg(feature = "level")]
+use crate::level::{self, tiled::*};
+use crate::{call, pico8};
 use bevy::{
-    asset::{embedded_asset, io::Reader, AssetLoader, LoadContext, AssetPath, io::AssetSourceId},
+    asset::{embedded_asset, io::AssetSourceId, io::Reader, AssetLoader, AssetPath, LoadContext},
     image::{ImageLoaderSettings, ImageSampler},
     prelude::*,
 };
 use bevy_mod_scripting::core::{
-    script::ScriptComponent,
-    event::ScriptCallbackEvent,
-    bindings::script_value::ScriptValue,
+    bindings::script_value::ScriptValue, event::ScriptCallbackEvent, script::ScriptComponent,
 };
 use serde::Deserialize;
-use std::{ops::Deref, path::PathBuf, ffi::OsStr, io};
-use crate::{call, pico8};
-#[cfg(feature = "level")]
-use crate::level::{self, tiled::*};
+use std::{ffi::OsStr, io, ops::Deref, path::PathBuf};
 
 pub const DEFAULT_CANVAS_SIZE: UVec2 = UVec2::splat(128);
 pub const DEFAULT_SCREEN_SIZE: UVec2 = UVec2::splat(512);
@@ -51,7 +49,7 @@ pub enum AudioBank {
     // #[serde(rename = "p8")]
     P8 { p8: PathBuf, count: usize },
     // #[serde(rename = "paths")]
-    Paths { paths: Vec<PathBuf> }
+    Paths { paths: Vec<PathBuf> },
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -107,7 +105,6 @@ pub enum ConfigLoaderError {
     MissingFeature(String),
     #[error("Could not load dependency: {0}")]
     Load(#[from] bevy::asset::LoadDirectError),
-
 }
 
 #[derive(Default)]
@@ -134,37 +131,41 @@ impl AssetLoader for ConfigLoader {
         dbg!(&config);
         dbg!(config.sprite_sheets.len());
         let mut layouts: Vec<Option<Handle<TextureAtlasLayout>>> = vec![];
-            // let mut layout_assets = world.resource_mut::<Assets<TextureAtlasLayout>>();
-            for (i, sheet) in config.sprite_sheets.iter().enumerate() {
-                if sheet.path.extension() == Some(OsStr::new("tsx")) {
-                    #[cfg(feature = "level")]
-                    {
-                        // let mut loader = tiled::Loader::new();
-                        // let tileset = loader.load_tsx_tileset(&sheet.path).unwrap();
-                        // Some(layout_assets.add(layout_from_tileset(&tileset)))
-                        // Some(load_context.add_labeled_asset(format!("atlas{i}"), layout_from_tileset(&tileset)))
-                        let tileset = load_context
-                            .loader()
-                            .immediate()
-                            .load::<bevy_ecs_tiled::prelude::TiledSet>(&*sheet.path)
-                            .await?;
-                        layouts.push(Some(load_context.add_labeled_asset(format!("atlas{i}"), layout_from_tileset(&tileset.get().0))));
-                    }
-                    #[cfg(not(feature = "level"))]
-                    Err(ConfigLoaderError::MissingFeature(format!("Can not load {:?} file without 'level' feature.", &sheet.path)))?;
+        // let mut layout_assets = world.resource_mut::<Assets<TextureAtlasLayout>>();
+        for (i, sheet) in config.sprite_sheets.iter().enumerate() {
+            if sheet.path.extension() == Some(OsStr::new("tsx")) {
+                #[cfg(feature = "level")]
+                {
+                    // let mut loader = tiled::Loader::new();
+                    // let tileset = loader.load_tsx_tileset(&sheet.path).unwrap();
+                    // Some(layout_assets.add(layout_from_tileset(&tileset)))
+                    // Some(load_context.add_labeled_asset(format!("atlas{i}"), layout_from_tileset(&tileset)))
+                    let tileset = load_context
+                        .loader()
+                        .immediate()
+                        .load::<bevy_ecs_tiled::prelude::TiledSet>(&*sheet.path)
+                        .await?;
+                    layouts.push(Some(load_context.add_labeled_asset(
+                        format!("atlas{i}"),
+                        layout_from_tileset(&tileset.get().0),
+                    )));
+                }
+                #[cfg(not(feature = "level"))]
+                Err(ConfigLoaderError::MissingFeature(format!(
+                    "Can not load {:?} file without 'level' feature.",
+                    &sheet.path
+                )))?;
+            } else {
+                if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
+                    layouts.push(Some(load_context.add_labeled_asset(
+                        format!("atlas{i}"),
+                        TextureAtlasLayout::from_grid(size, counts.x, counts.y, None, None),
+                    )))
                 } else {
-                    if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
-                        layouts.push(Some(load_context.add_labeled_asset(format!("atlas{i}"), TextureAtlasLayout::from_grid(
-                            size,
-                            counts.x,
-                            counts.y,
-                            None,
-                            None))))
-                    } else {
-                        layouts.push(None);
-                    }
+                    layouts.push(None);
                 }
             }
+        }
         dbg!(&layouts);
         let code_path = config.code.unwrap_or_else(|| "main.lua".into());
 
@@ -174,60 +175,64 @@ impl AssetLoader for ConfigLoader {
         };
 
         let mut sprite_sheets = vec![];
-                for (i, sheet) in config.sprite_sheets.into_iter().enumerate() {
-                    // let flags: Vec<u8>;
-                    if sheet.path.extension() == Some(OsStr::new("tsx")) {
-                        #[cfg(feature = "level")]
-                        {
-                            let tiledset = load_context
-                                .loader()
-                                .immediate()
-                                .load::<bevy_ecs_tiled::prelude::TiledSet>(&*sheet.path)
-                                .await?;
-                            let tileset = &tiledset.get().0;
-                            let handle = load_context.add_labeled_asset(format!("atlas{i}"), layout_from_tileset(tileset));
-                            let tile_size = UVec2::new(tileset.tile_width, tileset.tile_height);
-                            if let Some(sprite_size) = sheet.sprite_size {
-                                assert_eq!(sprite_size, tile_size);
-                            }
-                            let flags = flags_from_tileset(&tileset);
-                            sprite_sheets.push(pico8::SpriteSheet {
-                                handle: load_context.loader()
-                                    .with_settings(pixel_art_settings)
-                                    .load(&*tileset.image.as_ref().expect("tileset image").source),
-                                 //load_context
-                                    // .load_with_settings(&*tileset.image.expect("tileset image").source,
-                                    //                     pixel_art_settings),
-                                sprite_size: tile_size,
-                                flags,
-                                layout: handle,
-                            })
-                        }
-                        #[cfg(not(feature = "level"))]
-                        panic!("Can not load {:?} file without 'level' feature.", &sheet.path);
-                    } else {
-
-                        let layout = if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
-                            Some(load_context.add_labeled_asset(format!("atlas{i}"), TextureAtlasLayout::from_grid(
-                                size,
-                                counts.x,
-                                counts.y,
-                                None,
-                                None)))
-                        } else {
-                            None
-                        };
-                        sprite_sheets.push(pico8::SpriteSheet {
-                            handle: load_context.loader()
-                                        .with_settings(pixel_art_settings)
-                                        .load(&*sheet.path),
-                            sprite_size: sheet.sprite_size.unwrap_or(UVec2::splat(8)),
-                            flags: vec![],
-                            layout: layout.unwrap_or(Handle::default()),
-                        })
+        for (i, sheet) in config.sprite_sheets.into_iter().enumerate() {
+            // let flags: Vec<u8>;
+            if sheet.path.extension() == Some(OsStr::new("tsx")) {
+                #[cfg(feature = "level")]
+                {
+                    let tiledset = load_context
+                        .loader()
+                        .immediate()
+                        .load::<bevy_ecs_tiled::prelude::TiledSet>(&*sheet.path)
+                        .await?;
+                    let tileset = &tiledset.get().0;
+                    let handle = load_context
+                        .add_labeled_asset(format!("atlas{i}"), layout_from_tileset(tileset));
+                    let tile_size = UVec2::new(tileset.tile_width, tileset.tile_height);
+                    if let Some(sprite_size) = sheet.sprite_size {
+                        assert_eq!(sprite_size, tile_size);
                     }
+                    let flags = flags_from_tileset(&tileset);
+                    sprite_sheets.push(pico8::SpriteSheet {
+                        handle: load_context
+                            .loader()
+                            .with_settings(pixel_art_settings)
+                            .load(&*tileset.image.as_ref().expect("tileset image").source),
+                        //load_context
+                        // .load_with_settings(&*tileset.image.expect("tileset image").source,
+                        //                     pixel_art_settings),
+                        sprite_size: tile_size,
+                        flags,
+                        layout: handle,
+                    })
                 }
-            let state = pico8::Pico8State {
+                #[cfg(not(feature = "level"))]
+                panic!(
+                    "Can not load {:?} file without 'level' feature.",
+                    &sheet.path
+                );
+            } else {
+                let layout =
+                    if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
+                        Some(load_context.add_labeled_asset(
+                            format!("atlas{i}"),
+                            TextureAtlasLayout::from_grid(size, counts.x, counts.y, None, None),
+                        ))
+                    } else {
+                        None
+                    };
+                sprite_sheets.push(pico8::SpriteSheet {
+                    handle: load_context
+                        .loader()
+                        .with_settings(pixel_art_settings)
+                        .load(&*sheet.path),
+                    sprite_size: sheet.sprite_size.unwrap_or(UVec2::splat(8)),
+                    flags: vec![],
+                    layout: layout.unwrap_or(Handle::default()),
+                })
+            }
+        }
+        let state = pico8::Pico8State {
                 code: load_context.load(&*code_path),
                 palette: pico8::Palette {
                     handle: load_context.loader()
@@ -304,9 +309,11 @@ impl AssetLoader for ConfigLoader {
     }
 }
 
-pub fn update_asset(mut reader: EventReader<AssetEvent<pico8::Pico8State>>,
-                    assets: Res<Assets<pico8::Pico8State>>,
-                    mut commands: Commands) {
+pub fn update_asset(
+    mut reader: EventReader<AssetEvent<pico8::Pico8State>>,
+    assets: Res<Assets<pico8::Pico8State>>,
+    mut commands: Commands,
+) {
     for e in reader.read() {
         info!("update asset event {e:?}");
         match e {
@@ -316,12 +323,8 @@ pub fn update_asset(mut reader: EventReader<AssetEvent<pico8::Pico8State>>,
                     commands.insert_resource(state.clone());
                     commands.spawn(ScriptComponent(vec!["main.lua".into()]));
                     commands.send_event(
-
-    // writer.send(
-        ScriptCallbackEvent::new_for_all(
-        call::Init,
-        vec![ScriptValue::Unit],
-    )//);
+                        // writer.send(
+                        ScriptCallbackEvent::new_for_all(call::Init, vec![ScriptValue::Unit]), //);
                     );
                 } else {
                     error!("Pico8State not available.");
@@ -336,29 +339,32 @@ impl Command for Config {
     fn apply(self, world: &mut World) {
         let layouts: Vec<Option<Handle<TextureAtlasLayout>>> = {
             let mut layout_assets = world.resource_mut::<Assets<TextureAtlasLayout>>();
-            self.sprite_sheets.iter().map(|sheet| {
-                if sheet.path.extension() == Some(OsStr::new("tsx")) {
-                    #[cfg(feature = "level")]
-                    {
-                        let mut loader = tiled::Loader::new();
-                        let tileset = loader.load_tsx_tileset(&sheet.path).unwrap();
-                        Some(layout_assets.add(layout_from_tileset(&tileset)))
-                    }
-                    #[cfg(not(feature = "level"))]
-                    panic!("Can not load {:?} file without 'level' feature.", &sheet.path);
-                } else {
-                    if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
-                        Some(layout_assets.add(TextureAtlasLayout::from_grid(
-                            size,
-                            counts.x,
-                            counts.y,
-                            None,
-                            None)))
+            self.sprite_sheets
+                .iter()
+                .map(|sheet| {
+                    if sheet.path.extension() == Some(OsStr::new("tsx")) {
+                        #[cfg(feature = "level")]
+                        {
+                            let mut loader = tiled::Loader::new();
+                            let tileset = loader.load_tsx_tileset(&sheet.path).unwrap();
+                            Some(layout_assets.add(layout_from_tileset(&tileset)))
+                        }
+                        #[cfg(not(feature = "level"))]
+                        panic!(
+                            "Can not load {:?} file without 'level' feature.",
+                            &sheet.path
+                        );
                     } else {
-                        None
+                        if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
+                            Some(layout_assets.add(TextureAtlasLayout::from_grid(
+                                size, counts.x, counts.y, None, None,
+                            )))
+                        } else {
+                            None
+                        }
                     }
-            }
-            }).collect()
+                })
+                .collect()
         };
         // let source = AssetSourceId::Name("nano9".into());
         let source = AssetSourceId::Default;
@@ -366,12 +372,12 @@ impl Command for Config {
         let code_path = AssetPath::from_path(&code_path).with_source(&source);
         let asset_server = world.resource::<AssetServer>();
         // insert the right Pico8State, right?
-            // It's available to load.
-            let pixel_art_settings = |settings: &mut ImageLoaderSettings| {
-                // Use `nearest` image sampling to preserve the pixel art style.
-                settings.sampler = ImageSampler::nearest();
-            };
-            let state = pico8::Pico8State {
+        // It's available to load.
+        let pixel_art_settings = |settings: &mut ImageLoaderSettings| {
+            // Use `nearest` image sampling to preserve the pixel art style.
+            settings.sampler = ImageSampler::nearest();
+        };
+        let state = pico8::Pico8State {
                 code: asset_server.load(&code_path),
                 palette: pico8::Palette {
                     handle: asset_server.load_with_settings(self.palette.as_ref().map(|p| p.path.as_str()).as_deref().unwrap_or(pico8::PICO8_PALETTE), pixel_art_settings),
@@ -472,8 +478,13 @@ impl Command for Config {
                                                          Font::Default { .. } => { panic!("Must use a path if not default font.") }
                                                      }).collect::<Vec<_>>().into(),
             };
-            world.insert_resource(state);
-        world.spawn(ScriptComponent(vec![code_path.path().to_str().unwrap().to_string().into()]));
+        world.insert_resource(state);
+        world.spawn(ScriptComponent(vec![code_path
+            .path()
+            .to_str()
+            .unwrap()
+            .to_string()
+            .into()]));
     }
 }
 
@@ -496,9 +507,11 @@ impl Config {
     pub fn inject_template(mut self) -> Self {
         if let Some(ref template) = self.template {
             match template.deref() {
-                "gameboy" => { self.inject_gameboy() },
-                "pico8" => { self.inject_pico8() },
-                x => { panic!("No template {x:?}") },
+                "gameboy" => self.inject_gameboy(),
+                "pico8" => self.inject_pico8(),
+                x => {
+                    panic!("No template {x:?}")
+                }
             }
             self
         } else {
@@ -525,11 +538,17 @@ impl Config {
             });
         }
         if self.palette.is_none() {
-            self.palette = Some(Palette { path: pico8::PICO8_PALETTE.into(), row: None });
+            self.palette = Some(Palette {
+                path: pico8::PICO8_PALETTE.into(),
+                row: None,
+            });
         }
 
         if self.fonts.is_empty() {
-            self.fonts.push(Font::Path { path: pico8::PICO8_FONT.into(), height: None });
+            self.fonts.push(Font::Path {
+                path: pico8::PICO8_FONT.into(),
+                height: None,
+            });
         }
     }
 
@@ -544,11 +563,17 @@ impl Config {
             });
         }
         if self.palette.is_none() {
-            self.palette = Some(Palette { path: "embedded://nano_9/config/gameboy-palettes.png".into(), row: Some(17) });
+            self.palette = Some(Palette {
+                path: "embedded://nano_9/config/gameboy-palettes.png".into(),
+                row: Some(17),
+            });
         }
 
         if self.fonts.is_empty() {
-            self.fonts.push(Font::Path { path: "embedded://nano_9/config/gameboy.ttf".into(), height: None });
+            self.fonts.push(Font::Path {
+                path: "embedded://nano_9/config/gameboy.ttf".into(),
+                height: None,
+            });
         }
     }
 
@@ -590,20 +615,26 @@ mod test {
 
     #[test]
     fn test_config_0() {
-        let config: Config = toml::from_str(r#"
+        let config: Config = toml::from_str(
+            r#"
 sprite_sheet = []
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         assert_eq!(config.sprite_sheets.len(), 0);
         assert!(config.screen.is_none());
     }
 
     #[test]
     fn test_config_1() {
-        let config: Config = toml::from_str(r#"
+        let config: Config = toml::from_str(
+            r#"
 [[sprite_sheet]]
 path = "sprites.png"
 sprite_size = [8, 8]
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         assert_eq!(config.sprite_sheets.len(), 1);
         assert_eq!(config.sprite_sheets[0].path, Path::new("sprites.png"));
         assert_eq!(config.sprite_sheets[0].sprite_size, Some(UVec2::splat(8)));
@@ -611,14 +642,20 @@ sprite_size = [8, 8]
 
     #[test]
     fn test_config_2() {
-        let config: Config = toml::from_str(r#"
+        let config: Config = toml::from_str(
+            r#"
 [screen]
 canvas_size = [128,128]
 [[sprite_sheet]]
 path = "sprites.png"
 sprite_size = [8, 8]
-"#).unwrap();
-        assert_eq!(config.screen.map(|s| s.canvas_size), Some(UVec2::splat(128)));
+"#,
+        )
+        .unwrap();
+        assert_eq!(
+            config.screen.map(|s| s.canvas_size),
+            Some(UVec2::splat(128))
+        );
         assert_eq!(config.sprite_sheets.len(), 1);
         assert_eq!(config.sprite_sheets[0].path, Path::new("sprites.png"));
         assert_eq!(config.sprite_sheets[0].sprite_size, Some(UVec2::splat(8)));
@@ -626,30 +663,48 @@ sprite_size = [8, 8]
 
     #[test]
     fn test_config_3() {
-        let config: Config = toml::from_str(r#"
+        let config: Config = toml::from_str(
+            r#"
 [[audio_bank]]
 p8 = "blah.p8"
 count = 1
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         assert_eq!(config.audio_banks.len(), 1);
-        assert_eq!(config.audio_banks[0], AudioBank::P8 { p8: "blah.p8".into(), count: 1 });
+        assert_eq!(
+            config.audio_banks[0],
+            AudioBank::P8 {
+                p8: "blah.p8".into(),
+                count: 1
+            }
+        );
     }
 
     #[test]
     fn test_config_4() {
-        let config: Config = toml::from_str(r#"
+        let config: Config = toml::from_str(
+            r#"
 [[audio_bank]]
 paths = [
 "blah.mp3"
 ]
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         assert_eq!(config.audio_banks.len(), 1);
-        assert_eq!(config.audio_banks[0], AudioBank::Paths { paths: vec!["blah.mp3".into()] });
+        assert_eq!(
+            config.audio_banks[0],
+            AudioBank::Paths {
+                paths: vec!["blah.mp3".into()]
+            }
+        );
     }
 
     #[test]
     fn test_config_5() {
-        let config: Config = toml::from_str(r#"
+        let config: Config = toml::from_str(
+            r#"
 [[font]]
 path = "blah.tff"
 [[font]]
@@ -657,7 +712,9 @@ path = "dee.tff"
 height = 3.0
 [[font]]
 default = true
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         assert_eq!(config.fonts.len(), 3);
         // assert_eq!(config.fonts[0].path, "blah.tff");
     }
@@ -665,12 +722,15 @@ default = true
     #[test]
     #[cfg(feature = "level")]
     fn test_config_6() {
-        let config: Config = toml::from_str(r#"
+        let config: Config = toml::from_str(
+            r#"
 [[map]]
 ldtk = "blah.ldtk"
 [[map]]
 p8 = "blah.p8"
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         assert_eq!(config.maps.len(), 2);
         // assert_eq!(config.fonts[0].path, "blah.tff");
     }

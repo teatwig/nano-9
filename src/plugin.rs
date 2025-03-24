@@ -23,7 +23,7 @@ use bevy_mod_scripting::{
     lua::LuaScriptingPlugin,
 };
 
-use crate::{error::ErrorState, N9Var, config::*, pico8::fill_input};
+use crate::{config::*, error::ErrorState, pico8::fill_input, N9Var};
 
 #[derive(Component)]
 pub struct Nano9Sprite;
@@ -54,10 +54,7 @@ impl Default for DrawState {
     }
 }
 
-pub fn setup_canvas(
-    mut canvas: Option<ResMut<N9Canvas>>,
-    mut assets: ResMut<Assets<Image>>,
-) {
+pub fn setup_canvas(mut canvas: Option<ResMut<N9Canvas>>, mut assets: ResMut<Assets<Image>>) {
     if let Some(ref mut canvas) = canvas {
         let mut image = Image::new_fill(
             Extent3d {
@@ -117,22 +114,27 @@ fn spawn_camera(mut commands: Commands, canvas: Option<Res<N9Canvas>>) {
     let handle = canvas.as_ref().map(|c| c.handle.clone());
     let canvas_size: UVec2 = canvas.map(|c| c.size).unwrap_or_default();
     commands
-        .spawn((Transform::from_xyz(canvas_size.x as f32 / 2.0, -(canvas_size.y as f32) / 2.0, 0.0),
-                InheritedVisibility::default(),
-                Name::new("dolly")))
+        .spawn((
+            Transform::from_xyz(
+                canvas_size.x as f32 / 2.0,
+                -(canvas_size.y as f32) / 2.0,
+                0.0,
+            ),
+            InheritedVisibility::default(),
+            Name::new("dolly"),
+        ))
         .with_children(|parent| {
-            let mut camera_commands = parent
-                .spawn((
-                    Camera2d,
-                    Msaa::Off,
-                    // Projection::from(projection),
-                    projection,
-                    IsDefaultUiCamera,
-                    InheritedVisibility::default(),
-                    Nano9Camera,
-                    N9Var::new("camera"),
-                    Name::new("camera"),
-                ));
+            let mut camera_commands = parent.spawn((
+                Camera2d,
+                Msaa::Off,
+                // Projection::from(projection),
+                projection,
+                IsDefaultUiCamera,
+                InheritedVisibility::default(),
+                Nano9Camera,
+                N9Var::new("camera"),
+                Name::new("camera"),
+            ));
             if let Some(handle) = handle {
                 camera_commands.with_children(|parent| {
                     parent.spawn((
@@ -187,26 +189,26 @@ pub fn sync_window_size(
         ) / window_scale;
         // let mut orthographic = orthographic.single_mut();
 
-            let canvas_size = canvas.size.as_vec2();
-            // let canvas_aspect = canvas_size.x / canvas_size.y;
-            // let window_aspect = window_size.x / window_size.y;
+        let canvas_size = canvas.size.as_vec2();
+        // let canvas_aspect = canvas_size.x / canvas_size.y;
+        // let window_aspect = window_size.x / window_size.y;
 
-            let new_scale =
+        let new_scale =
                 // Canvas is longer than it is tall. Fit the width first.
                 (window_size.y / canvas_size.y).min(window_size.x / canvas_size.x);
-            // info!("window_size {window_size}");
+        // info!("window_size {window_size}");
 
         // match *orthographic.into_inner() {
         //     Projection::Orthographic(ref mut orthographic) => {
 
-            // info!("oldscale {} new_scale {new_scale}", &orthographic.scale);
-                orthographic.scale = 1.0 / new_scale;
-            // }
+        // info!("oldscale {} new_scale {new_scale}", &orthographic.scale);
+        orthographic.scale = 1.0 / new_scale;
+        // }
         //     _ => { panic!("Not expecting a perspective"); }
 
         // }
-            // settings.pixel_scale = new_scale;
-            // orthographic.scaling_mode = ScalingMode::WindowSize;
+        // settings.pixel_scale = new_scale;
+        // orthographic.scaling_mode = ScalingMode::WindowSize;
         // }
         // transform.scale = Vec3::splat(new_scale);
 
@@ -287,11 +289,21 @@ pub struct Nano9Plugin {
 
 impl Nano9Plugin {
     pub fn window_plugin(&self) -> WindowPlugin {
-        let screen_size = self.config.screen.as_ref().and_then(|s| s.screen_size).unwrap_or(DEFAULT_SCREEN_SIZE);
+        let screen_size = self
+            .config
+            .screen
+            .as_ref()
+            .and_then(|s| s.screen_size)
+            .unwrap_or(DEFAULT_SCREEN_SIZE);
         WindowPlugin {
             primary_window: Some(Window {
                 resolution: screen_size.as_vec2().into(), //WindowResolution::new(resolution.x, resolution.y),
-                title: self.config.name.as_deref().unwrap_or_else(|| "Nano-9").into(),
+                title: self
+                    .config
+                    .name
+                    .as_deref()
+                    .unwrap_or_else(|| "Nano-9")
+                    .into(),
                 // Turn off vsync to maximize CPU/GPU usage
                 present_mode: PresentMode::AutoVsync,
                 // Let's not allow resizing.
@@ -322,23 +334,29 @@ fn add_info(app: &mut App) {
         })
         .register("debug", |s: String| {
             bevy::log::debug!(s);
-        })
-        ;
+        });
 }
 
 impl Plugin for Nano9Plugin {
     fn build(&self, app: &mut App) {
         // How do you enable shared context since it eats the plugin?
         let mut lua_scripting_plugin = LuaScriptingPlugin::default();
-        let canvas_size: UVec2 = self.config.screen.as_ref().map(|s| s.canvas_size).unwrap_or(DEFAULT_CANVAS_SIZE);
+        let canvas_size: UVec2 = self
+            .config
+            .screen
+            .as_ref()
+            .map(|s| s.canvas_size)
+            .unwrap_or(DEFAULT_CANVAS_SIZE);
         lua_scripting_plugin
             .scripting_plugin
             .add_context_initializer(
                 |_script_id: &str, context: &mut bevy_mod_scripting::lua::mlua::Lua| {
-                    context.globals()
-                        .set("_eval_string", context.create_function(|ctx, arg: String| {
+                    context.globals().set(
+                        "_eval_string",
+                        context.create_function(|ctx, arg: String| {
                             Ok(ctx.load(format!("tostring({arg})")).eval::<String>()?)
-                        })?)?;
+                        })?,
+                    )?;
 
                     context
                         .load(include_str!("builtin.lua"))
@@ -348,18 +366,25 @@ impl Plugin for Nano9Plugin {
                 },
             );
         // let resolution = settings.canvas_size.as_vec2() * settings.pixel_scale;
-        app
-            .insert_resource(bevy::winit::WinitSettings {
+        app.insert_resource(bevy::winit::WinitSettings {
             // focused_mode: bevy::winit::UpdateMode::Continuous,
             focused_mode: bevy::winit::UpdateMode::reactive(Duration::from_millis(16)),
             unfocused_mode: bevy::winit::UpdateMode::reactive_low_power(Duration::from_millis(
                 16 * 4,
             )),
         })
-           .insert_resource(N9Canvas { size: canvas_size, ..default() })
+        .insert_resource(N9Canvas {
+            size: canvas_size,
+            ..default()
+        })
         // Insert the config as a resource.
-            // TODO: Should we constrain it, if it wasn't provided as an option?
-        .insert_resource(Time::<Fixed>::from_seconds(1.0 / self.config.frames_per_second.unwrap_or(DEFAULT_FRAMES_PER_SECOND) as f64))
+        // TODO: Should we constrain it, if it wasn't provided as an option?
+        .insert_resource(Time::<Fixed>::from_seconds(
+            1.0 / self
+                .config
+                .frames_per_second
+                .unwrap_or(DEFAULT_FRAMES_PER_SECOND) as f64,
+        ))
         .add_plugins((lua_scripting_plugin, crate::plugin, add_info))
         .add_systems(Startup, (setup_canvas, spawn_camera).chain())
         .add_systems(
@@ -367,16 +392,24 @@ impl Plugin for Nano9Plugin {
             (
                 (
                     fill_input,
-                    (send_init.run_if(on_asset_change::<ScriptAsset>()),
-                     event_handler::<call::Init, LuaScriptingPlugin>).chain(),
-                    (send_update.run_if(in_state(ErrorState::None)),
-                     event_handler::<call::Update, LuaScriptingPlugin>).chain(),
+                    (
+                        send_init.run_if(on_asset_change::<ScriptAsset>()),
+                        event_handler::<call::Init, LuaScriptingPlugin>,
+                    )
+                        .chain(),
+                    (
+                        send_update.run_if(in_state(ErrorState::None)),
+                        event_handler::<call::Update, LuaScriptingPlugin>,
+                    )
+                        .chain(),
                     event_handler::<call::Eval, LuaScriptingPlugin>,
                     // event_handler::<call::Update60, LuaScriptingPlugin>,
-                ).chain(),
+                )
+                    .chain(),
                 send_draw.run_if(in_state(ErrorState::None)),
                 event_handler::<call::Draw, LuaScriptingPlugin>,
-            ).chain()
+            )
+                .chain(),
         );
 
         // bevy_ecs_ldtk will add this plugin, so let's not add that if it's present.

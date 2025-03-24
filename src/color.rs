@@ -3,11 +3,11 @@ use std::{any::TypeId, sync::Arc};
 
 use crate::ValueExt;
 use bevy_mod_scripting::{
+    core::docgen::typed_through::{ThroughTypeInfo, TypedThrough},
     core::{
         bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
         error::InteropError,
     },
-    core::docgen::typed_through::{TypedThrough, ThroughTypeInfo},
     lua::mlua::{
         self, prelude::LuaError, FromLua, Lua, UserData, UserDataFields, UserDataMethods, Value,
     },

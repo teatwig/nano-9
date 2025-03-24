@@ -1,15 +1,16 @@
 use crate::{call, error::ErrorState};
-use bevy::{core::FrameCount, prelude::*,
+use bevy::{
+    core::FrameCount,
     ecs::system::{SystemParam, SystemState},
+    prelude::*,
 };
-use bevy_mod_scripting::core::event::ScriptCallbackEvent;
 use bevy_minibuffer::prelude::*;
+use bevy_mod_scripting::core::event::ScriptCallbackEvent;
 
 use bevy_mod_scripting::{
     core::{
-        asset::{AssetPathToLanguageMapper, Language, ScriptAssetSettings, ScriptAsset},
+        asset::{AssetPathToLanguageMapper, Language, ScriptAsset, ScriptAssetSettings},
         bindings::{
-            WorldAccessGuard,
             access_map::ReflectAccessId,
             function::{
                 from::FromScript,
@@ -18,7 +19,7 @@ use bevy_mod_scripting::{
                 script_function::FunctionCallContext,
             },
             script_value::ScriptValue,
-            ReflectReference,
+            ReflectReference, WorldAccessGuard,
         },
         error::InteropError,
     },
@@ -36,8 +37,9 @@ pub struct Nano9Acts {
 impl Default for Nano9Acts {
     fn default() -> Self {
         Self {
-            acts: Acts::new([Act::new(toggle_pause).bind(keyseq! { Space N P }),
-                             Act::new(lua_eval).bind(keyseq! { Space N E }),
+            acts: Acts::new([
+                Act::new(toggle_pause).bind(keyseq! { Space N P }),
+                Act::new(lua_eval).bind(keyseq! { Space N E }),
             ]),
         }
     }
@@ -56,11 +58,12 @@ impl Plugin for Nano9Acts {
     fn build(&self, app: &mut App) {
         self.warn_on_unused_acts();
         let world = app.world_mut();
-        NamespaceBuilder::<World>::new_unregistered(world)
-            .register("message", |ctx: FunctionCallContext, s: String| {
-                with_minibuffer(&ctx, |minibuffer|
-                                Ok(minibuffer.message(s)))
-            });
+        NamespaceBuilder::<World>::new_unregistered(world).register(
+            "message",
+            |ctx: FunctionCallContext, s: String| {
+                with_minibuffer(&ctx, |minibuffer| Ok(minibuffer.message(s)))
+            },
+        );
     }
 }
 
@@ -102,16 +105,18 @@ pub fn toggle_pause(
 }
 
 pub fn lua_eval(mut minibuffer: Minibuffer) {
-    minibuffer
-        .prompt::<TextField>("Lua Eval: ")
-        .observe(
-            |mut trigger: Trigger<Submit<String>>, mut writer: EventWriter<ScriptCallbackEvent>, mut commands: Commands| {
-                if let Ok(input) = trigger.event_mut().take_result() {
-                    writer.send(ScriptCallbackEvent::new_for_all(call::Eval,
-                                                                 vec![ScriptValue::String(input.into()), ScriptValue::Bool(true)]));
-                } else {
-                    commands.entity(trigger.entity()).despawn_recursive();
-                }
-            },
-        );
+    minibuffer.prompt::<TextField>("Lua Eval: ").observe(
+        |mut trigger: Trigger<Submit<String>>,
+         mut writer: EventWriter<ScriptCallbackEvent>,
+         mut commands: Commands| {
+            if let Ok(input) = trigger.event_mut().take_result() {
+                writer.send(ScriptCallbackEvent::new_for_all(
+                    call::Eval,
+                    vec![ScriptValue::String(input.into()), ScriptValue::Bool(true)],
+                ));
+            } else {
+                commands.entity(trigger.entity()).despawn_recursive();
+            }
+        },
+    );
 }

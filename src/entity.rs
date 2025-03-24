@@ -2,15 +2,9 @@ use bevy::prelude::*;
 
 use crate::pico8::Clearable;
 use bevy_mod_scripting::{
-    core::{
-        bindings::{
-            function::{
-                from::Val,
-                namespace::NamespaceBuilder,
-                script_function::FunctionCallContext,
-            },
-            ThreadWorldContainer, WorldContainer,
-        },
+    core::bindings::{
+        function::{from::Val, namespace::NamespaceBuilder, script_function::FunctionCallContext},
+        ThreadWorldContainer, WorldContainer,
     },
     lua::mlua::{self, prelude::LuaError, FromLua, Lua, UserData, UserDataFields, Value},
 };
@@ -50,64 +44,70 @@ pub struct N9Entity {
 
 pub(crate) fn plugin(app: &mut App) {
     NamespaceBuilder::<N9Entity>::new(app.world_mut())
-        .register("retain",
-        |ctx: FunctionCallContext, this: Val<N9Entity>, z: Option<f32>| {
-            let world = ctx.world()?;
-            world.with_global_access(|world| {
-                let mut commands = world.commands();
-                commands.entity(this.entity).remove::<Clearable>();
-                if let Some(mut transform) = world.get_mut::<Transform>(this.entity) {
-                    transform.translation.z = z.unwrap_or(0.0);
-                }
-            })?;
-            Ok(this)
-        },
-    )
-        .register("name",
-        |ctx: FunctionCallContext, this: Val<N9Entity>, new_name: Option<String>| {
-            let world = ctx.world()?;
-            world.with_global_access(|world| {
-                if let Some(name) = new_name {
+        .register(
+            "retain",
+            |ctx: FunctionCallContext, this: Val<N9Entity>, z: Option<f32>| {
+                let world = ctx.world()?;
+                world.with_global_access(|world| {
                     let mut commands = world.commands();
-                    commands.entity(this.entity).insert(Name::new(name));
-                    None
-                } else {
-                    world.get::<Name>(this.entity).map(|n| n.as_str().to_string())
-                }
-            })
-        },
-    )
-        .register("vis",
-        |ctx: FunctionCallContext, this: Val<N9Entity>, vis: Option<bool>| {
-            let world = ctx.world()?;
-            world.with_global_access(|world| {
-                if let Some(vis) = vis {
-                    if let Some(mut visible) = world.get_mut::<Visibility>(this.entity) {
-                        *visible = match vis {
-                            // None => Visibility::Inherited,
-                            true => Visibility::Visible,
-                            false => Visibility::Hidden,
-                        };
+                    commands.entity(this.entity).remove::<Clearable>();
+                    if let Some(mut transform) = world.get_mut::<Transform>(this.entity) {
+                        transform.translation.z = z.unwrap_or(0.0);
                     }
-                    None
-                } else {
-                    world.get::<Visibility>(this.entity).map(|v| ! matches!(v, Visibility::Hidden))
-                }
-            })
-        },
-    )
-    .register("despawn",
-        |ctx: FunctionCallContext, this: Val<N9Entity>| {
-            let world = ctx.world()?;
-            world.with_global_access(|world| {
-                let mut commands = world.commands();
-                commands.entity(this.entity).despawn_recursive();
-            })?;
-            Ok(())
-        },
-    )
-        ;
-
+                })?;
+                Ok(this)
+            },
+        )
+        .register(
+            "name",
+            |ctx: FunctionCallContext, this: Val<N9Entity>, new_name: Option<String>| {
+                let world = ctx.world()?;
+                world.with_global_access(|world| {
+                    if let Some(name) = new_name {
+                        let mut commands = world.commands();
+                        commands.entity(this.entity).insert(Name::new(name));
+                        None
+                    } else {
+                        world
+                            .get::<Name>(this.entity)
+                            .map(|n| n.as_str().to_string())
+                    }
+                })
+            },
+        )
+        .register(
+            "vis",
+            |ctx: FunctionCallContext, this: Val<N9Entity>, vis: Option<bool>| {
+                let world = ctx.world()?;
+                world.with_global_access(|world| {
+                    if let Some(vis) = vis {
+                        if let Some(mut visible) = world.get_mut::<Visibility>(this.entity) {
+                            *visible = match vis {
+                                // None => Visibility::Inherited,
+                                true => Visibility::Visible,
+                                false => Visibility::Hidden,
+                            };
+                        }
+                        None
+                    } else {
+                        world
+                            .get::<Visibility>(this.entity)
+                            .map(|v| !matches!(v, Visibility::Hidden))
+                    }
+                })
+            },
+        )
+        .register(
+            "despawn",
+            |ctx: FunctionCallContext, this: Val<N9Entity>| {
+                let world = ctx.world()?;
+                world.with_global_access(|world| {
+                    let mut commands = world.commands();
+                    commands.entity(this.entity).despawn_recursive();
+                })?;
+                Ok(())
+            },
+        );
 }
 
 impl UserData for N9Entity {
@@ -131,10 +131,11 @@ impl UserData for N9Entity {
             //     name.mutate(|s| *s = value);
             // })
             // .map_err(|e| LuaError::ExternalError(Arc::new(e)))
-            world.with_or_insert_component_mut(this.entity, |name: &mut Name| {
-                name.mutate(|s| *s = value);
-            })
-            .map_err(|e| LuaError::ExternalError(Arc::new(e)))
+            world
+                .with_or_insert_component_mut(this.entity, |name: &mut Name| {
+                    name.mutate(|s| *s = value);
+                })
+                .map_err(|e| LuaError::ExternalError(Arc::new(e)))
         });
 
         // TODO: Try to do this one later.
