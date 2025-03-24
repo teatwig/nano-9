@@ -690,7 +690,7 @@ dependencies = [
 
 [[package]]
 name = "bevy_ecs_tiled"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "bevy",
  "bevy_ecs_tilemap",
@@ -1046,7 +1046,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting"
-version = "0.9.7"
+version = "0.9.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "584d9bed0c61799f061f6e6cb397aaf97c3f63e0904a62dbd5ca9b84bdcf4a3f"
 dependencies = [
  "bevy",
  "bevy_mod_scripting_core",
@@ -1057,15 +1059,19 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting_core"
-version = "0.9.7"
+version = "0.9.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ec213479f1a36baf373509eff2a263ba658890a521fb37b4d188cca0037e010"
 dependencies = [
  "bevy",
  "bevy_mod_scripting_derive",
  "dashmap",
  "derivative",
+ "fixedbitset 0.5.7",
  "itertools",
  "mlua",
  "parking_lot",
+ "petgraph",
  "profiling",
  "smallvec",
  "thiserror",
@@ -1073,7 +1079,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting_derive"
-version = "0.9.7"
+version = "0.9.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c4155c8f2e90793779068fabf5233586c54008965987c8298aa92ef72e134c0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1082,11 +1090,14 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting_functions"
-version = "0.9.7"
+version = "0.9.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f96c20663b89aee0356f3e9ee9405463ce91e82a89ba209491e91fd212aeac4"
 dependencies = [
  "bevy",
  "bevy_mod_scripting_core",
  "bevy_mod_scripting_derive",
+ "bevy_mod_scripting_lua",
  "profiling",
  "smol_str",
  "uuid",
@@ -1094,11 +1105,12 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting_lua"
-version = "0.9.7"
+version = "0.9.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45eecfb7ed9ee04ee15011eb7716c62fb6abd183f66ba339a0dac8d84c33edb9"
 dependencies = [
  "bevy",
  "bevy_mod_scripting_core",
- "bevy_mod_scripting_functions",
  "mlua",
  "parking_lot",
  "profiling",
@@ -4855,7 +4867,8 @@ dependencies = [
 [[package]]
 name = "tiled"
 version = "0.14.0"
-source = "git+https://github.com/mapeditor/rs-tiled.git?rev=c434e1be8904917bacc1286c5334b721f1f6deef#c434e1be8904917bacc1286c5334b721f1f6deef"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "963ef63fa3552ead705617d9f42de2b076c48a15f780e4d1c95dd52e9362a700"
 dependencies = [
  "base64 0.22.1",
  "flate2",
@@ -6337,3 +6350,7 @@ dependencies = [
 [[patch.unused]]
 name = "bevy-inspector-egui"
 version = "0.30.0"
+
+[[patch.unused]]
+name = "bevy_mod_scripting"
+version = "0.10.0"

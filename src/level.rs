@@ -23,10 +23,8 @@ impl Map {
         commands.spawn((TiledMapHandle(self.handle.clone()),
             // ldtk_map: self.handle.clone(),
                         Transform::from_xyz(screen_start.x, screen_start.y, clearable.suggest_z()),
-                        TiledMapSettings {
-                            layer_positioning: LayerPositioning::Anchor(TilemapAnchor::TopLeft),
-                            layer_z_offset: 1.0,
-                        },
+                        TilemapAnchor::TopLeft,
+                        TiledMapLayerZOffset(1.0),
                         Name::new("level"),
                         clearable,
                         InheritedVisibility::default(),
@@ -38,6 +36,7 @@ pub(crate) fn plugin(app: &mut App) {
     app//.add_plugins(LdtkPlugin)
         .add_plugins(TilemapPlugin)
         .add_plugins(TiledMapPlugin(TiledMapPluginConfig { tiled_types_export_file: None }))
+        .add_plugins(tiled::plugin)
         // .add_plugins(ldtk::LdtkPlugin)
         // .register_ldtk_entity::<Slime>("Slime")
         // .insert_resource(LevelSelection::index(0))

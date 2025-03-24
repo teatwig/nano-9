@@ -456,7 +456,6 @@ impl FromScript for PropBy {
                     Ok(PropBy::Pos(Vec2::new(x, y)))
                 }
             }
-            // ScriptValue::Unit => Ok(N9Color::Pen),
             _ => Err(InteropError::impossible_conversion(TypeId::of::<PropBy>())),
         }
     }

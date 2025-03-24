@@ -1,16 +1,83 @@
 use bevy::{
     asset::{AssetLoader, LoadContext, io::Reader},
     ecs::system::{SystemParam, SystemState},
+    math::bounding::Aabb2d,
     prelude::*};
-use bevy_ecs_tiled::{prelude::{TiledMap, TiledMapHandle}, map::components::TiledIdStorage};
-use tiled::{Tileset, PropertyValue};
+use bevy_ecs_tiled::{prelude::{TiledMapMarker, TiledMap, TiledMapHandle, TiledMapObject}, map::components::TiledMapStorage};
+use tiled::{Tileset, PropertyValue, LayerType};
 use crate::pico8::{self, PropBy};
 use std::{path::Path, io::ErrorKind};
+
+#[derive(Debug, Component, Reflect)]
+struct Covers {
+    layer: u32,
+    idx: u32,
+    aabb: Aabb2d,
+}
+
+pub(crate) fn plugin(app: &mut App) {
+    app
+        .register_type::<Covers>()
+        .add_systems(PreUpdate, add_covers);
+
+}
+
+fn add_covers(query: Query<(&TiledMapHandle, &TiledMapStorage),
+                           Added<TiledMapMarker>>,
+              tiled_maps: Res<Assets<TiledMap>>,
+              mut commands: Commands
+) {
+    for (handle, storage) in &query {
+        let Some(tiled_map) = tiled_maps.get(&handle.0) else { continue; };
+        let tile_size = Vec2::new(tiled_map.map.tile_width as f32,
+                                  tiled_map.map.tile_height as f32);
+        for layer in tiled_map.map.layers() {
+            match layer.layer_type() {
+                LayerType::Objects(object_layer) => {
+                    for object in object_layer.objects() {
+                        let idx = object.id();
+                        let aabb = match object.shape {
+                            tiled::ObjectShape::Rect { width, height } => {
+                                Aabb2d {
+                                    min: Vec2::new(object.x, object.y),
+                                    max: Vec2::new(object.x + width,
+                                                   object.y + height)
+                                }
+                            }
+                            tiled::ObjectShape::Point(x,y) => {
+                                Aabb2d {
+                                    min: Vec2::new(object.x,
+                                                   object.y - tile_size.y),
+                                    max: Vec2::new(object.x + tile_size.x,
+                                                   object.y)
+                                }
+                            }
+                            ref x => {
+                                todo!("{:?}", x)
+                            }
+                        };
+                        if let Some(id) = storage.objects.get(&idx) {
+                            commands.entity(*id).insert(Covers {
+                                layer: layer.id(),
+                                idx,
+                                aabb
+                            });
+                        } else {
+                            warn!("No entity for idx {idx}");
+                        }
+                    }
+                }
+                _ => ()
+            }
+        }
+    }
+}
+
 
 #[derive(SystemParam)]
 pub struct Level<'w, 's> {
     tiled_maps: ResMut<'w, Assets<bevy_ecs_tiled::prelude::TiledMap>>,
-    tiled_id_storage: Query<'w, 's, (&'static TiledIdStorage, &'static TiledMapHandle)>,
+    tiled_id_storage: Query<'w, 's, (&'static TiledMapStorage, &'static TiledMapHandle)>,
     sprites: Query<'w, 's, &'static mut Sprite>,
 }
 impl<'w, 's> Level<'w, 's> {
@@ -177,11 +244,18 @@ fn shape_contains(object: &tiled::ObjectData, tile_size: UVec2, point: Vec2) -> 
                       object.x + width,
                       object.y + height).contains(point)
         }
-        _ => {
-            Rect::new(object.x,
-                      object.y - tile_size.y as f32,
-                      object.x + tile_size.x as f32,
-                      object.y).contains(point)
+        tiled::ObjectShape::Point(x,y) => {
+            !Rect::new(object.x,
+                       object.y - tile_size.y as f32,
+                       object.x + tile_size.x as f32,
+                       object.y).contains(point)
+        }
+        ref x => {
+            todo!("{:?}", x)
+            // Rect::new(object.x,
+            //           object.y - tile_size.y as f32,
+            //           object.x + tile_size.x as f32,
+            //           object.y).contains(point)
         }
     }
 }
@@ -190,15 +264,19 @@ fn shape_intersects(object: &tiled::ObjectData, tile_size: UVec2, rect: Rect) ->
     match object.shape {
         tiled::ObjectShape::Rect { width, height } => {
             !Rect::new(object.x,
-                      object.y,
-                      object.x + width,
-                      object.y + height).intersect(rect).is_empty()
+                       object.y,
+                       object.x + width,
+                       object.y + height).intersect(rect).is_empty()
         }
-        _ => {
+        tiled::ObjectShape::Point(x,y) => {
             !Rect::new(object.x,
-                      object.y - tile_size.y as f32,
-                      object.x + tile_size.x as f32,
-                      object.y).intersect(rect).is_empty()
+                       object.y - tile_size.y as f32,
+                       object.x + tile_size.x as f32,
+                       object.y).intersect(rect).is_empty()
+        }
+        // _ => {
+        ref x => {
+            todo!("{:?}", x)
         }
     }
 }
