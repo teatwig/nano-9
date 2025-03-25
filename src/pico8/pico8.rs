@@ -1,4 +1,5 @@
 use bevy::{
+    math::bounding::{RayCast2d, Aabb2d},
     asset::{embedded_asset, AssetPath},
     ecs::system::{SystemParam, SystemState},
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
@@ -226,9 +227,6 @@ pub struct Buttons {
 
 impl Buttons {
     pub fn btnp(&self, b: Option<u8>) -> Result<bool, Error> {
-        // if self.curr.any() || self.last.any() {
-        //     dbg!(self);
-        // }
         match b {
             Some(b) => {
                 let curr = self
@@ -294,6 +292,14 @@ impl From<Error> for LuaError {
     }
 }
 
+
+#[derive(Debug, Component, Reflect)]
+pub struct Cover {
+    // layer: u32,
+    // idx: u32,
+    pub aabb: Aabb2d,
+}
+
 #[derive(SystemParam)]
 pub struct Pico8<'w, 's> {
     images: ResMut<'w, Assets<Image>>,
@@ -307,6 +313,7 @@ pub struct Pico8<'w, 's> {
     player_inputs: Res<'w, PlayerInputs>,
     sfx_channels: Res<'w, SfxChannels>,
     time: Res<'w, Time>,
+    covers: Query<'w, 's, (Entity, &'static Cover, &'static GlobalTransform)>,
     #[cfg(feature = "level")]
     tiled: crate::level::tiled::Level<'w, 's>,
     // tiled_maps: ResMut<'w, Assets<bevy_ecs_tiled::prelude::TiledMap>>,
@@ -850,12 +857,6 @@ impl Pico8<'_, '_> {
                 }
             }
             SfxCommand::Play(n) => {
-                // let cart = self
-                //     .state
-                //     .cart
-                //     .as_ref()
-                //     .and_then(|cart| self.carts.get(cart))
-                //     .expect("cart");
                 let sfx = self.state.audio_banks.inner[bank as usize]
                     .get(n as usize)
                     .ok_or(Error::NoAsset(format!("sfx {n}").into()))?
@@ -1377,6 +1378,28 @@ impl Pico8<'_, '_> {
             .id();
         Ok(id)
     }
+
+    // Cast a "ray" either at pos or from pos in direction dir.
+    pub fn ray(&self, pos: Vec2, dir: Option<Dir2>) -> Vec<Entity> {
+        match dir {
+            None =>
+                self.covers.iter().filter_map(|(id, cover, transform)| {
+                    // let min = *transform * cover.aabb.min.extend(0.0);
+                    let min = cover.aabb.min;
+                    (min.x < pos.x && min.y < pos.y && {
+                        // let max = *transform * cover.aabb.max.extend(0.0);
+                        let max = cover.aabb.max;
+                        max.x > pos.x && max.y > pos.y
+                    }).then_some(id)
+                }).collect(),
+            Some(dir) => {
+                let ray_cast = RayCast2d::new(pos, dir, f32::MAX);
+                self.covers.iter().filter_map(|(id, cover, transform)| {
+                    ray_cast.aabb_intersection_at(&cover.aabb).map(|_distance| id)
+                }).collect()
+            }
+        }
+    }
 }
 
 enum SfxDest {
@@ -1572,6 +1595,7 @@ pub(crate) fn plugin(app: &mut App) {
     app.init_asset::<Pico8State>()
         .init_resource::<Pico8State>()
         .init_resource::<PlayerInputs>()
+        .register_type::<Cover>()
         .register_type::<P8Flags>()
         .add_systems(
             PreStartup,

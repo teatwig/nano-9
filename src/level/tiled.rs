@@ -1,4 +1,4 @@
-use crate::pico8::{self, PropBy};
+use crate::pico8::{self, PropBy, Cover};
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
     ecs::system::{SystemParam, SystemState},
@@ -12,15 +12,8 @@ use bevy_ecs_tiled::{
 use std::{io::ErrorKind, path::Path};
 use tiled::{LayerType, PropertyValue, Tileset};
 
-#[derive(Debug, Component, Reflect)]
-struct Covers {
-    layer: u32,
-    idx: u32,
-    aabb: Aabb2d,
-}
-
 pub(crate) fn plugin(app: &mut App) {
-    app.register_type::<Covers>()
+    app
         .add_systems(PreUpdate, add_covers);
 }
 
@@ -56,9 +49,9 @@ fn add_covers(
                             }
                         };
                         if let Some(id) = storage.objects.get(&idx) {
-                            commands.entity(*id).insert(Covers {
-                                layer: layer.id(),
-                                idx,
+                            commands.entity(*id).insert(Cover {
+                                // layer: layer.id(),
+                                // idx,
                                 aabb,
                             });
                         } else {

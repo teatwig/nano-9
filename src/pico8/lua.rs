@@ -440,7 +440,8 @@ pub(crate) fn plugin(app: &mut App) {
         );
 
     #[cfg(feature = "level")]
-    NamespaceBuilder::<GlobalNamespace>::new_unregistered(world).register(
+    NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
+        .register(
         "mgetp",
         |ctx: FunctionCallContext,
          prop_by: ScriptValue,
@@ -453,7 +454,31 @@ pub(crate) fn plugin(app: &mut App) {
                     .map(|p| from_properties(&p)))
             })
         },
+    )
+        .register(
+        "ray",
+        |ctx: FunctionCallContext,
+         x: f32,
+         y: f32,
+        dx: Option<f32>,
+        dy: Option<f32>| {
+            let pos = Vec2::new(x, y);
+            let dxdy = dx.zip(dy).map(|(dx,dy)| Vec2::new(dx, dy));
+            with_pico8(&ctx, move |pico8| {
+                let dir = if let Some(dxdy) = dxdy {
+                    Some(Dir2::new(dxdy).map_err(|_| Error::InvalidArgument("dx, dy direction".into()))?)
+                } else {
+                    None
+                };
+                let ids: Vec<u64> = pico8
+                   .ray(pos, dir)
+                   .into_iter()
+                   .map(|id| id.to_bits()).collect();
+                Ok(ids)
+            })
+        },
     );
+        ;
 }
 
 #[cfg(feature = "level")]
