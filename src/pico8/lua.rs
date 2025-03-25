@@ -461,7 +461,8 @@ pub(crate) fn plugin(app: &mut App) {
          x: f32,
          y: f32,
         dx: Option<f32>,
-        dy: Option<f32>| {
+        dy: Option<f32>,
+            mask: Option<u32>| {
             let pos = Vec2::new(x, y);
             let dxdy = dx.zip(dy).map(|(dx,dy)| Vec2::new(dx, dy));
             with_pico8(&ctx, move |pico8| {
@@ -471,13 +472,23 @@ pub(crate) fn plugin(app: &mut App) {
                     None
                 };
                 let ids: Vec<u64> = pico8
-                   .ray(pos, dir)
+                   .ray(pos, dir, mask)
                    .into_iter()
                    .map(|id| id.to_bits()).collect();
                 Ok(ids)
             })
         },
-    );
+    )
+        .register(
+        "props",
+        |ctx: FunctionCallContext,
+         id: i64 | {
+             let id = Entity::from_bits(id as u64);
+             with_pico8(&ctx, move |pico8| {
+                 pico8.props(id).map(|p| from_properties(&p))
+             })
+         },
+    )
         ;
 }
 

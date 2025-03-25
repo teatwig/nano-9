@@ -14,7 +14,13 @@ use tiled::{LayerType, PropertyValue, Tileset};
 
 pub(crate) fn plugin(app: &mut App) {
     app
+        .register_type::<TiledLookup>()
         .add_systems(PreUpdate, add_covers);
+}
+
+#[derive(Debug, Component, Reflect)]
+pub enum TiledLookup {
+    Object { layer: u32, idx: u32, handle: Handle<TiledMap> },
 }
 
 fn add_covers(
@@ -30,30 +36,44 @@ fn add_covers(
             tiled_map.map.tile_width as f32,
             tiled_map.map.tile_height as f32,
         );
-        for layer in tiled_map.map.layers() {
+        for (layer_index, layer) in tiled_map.map.layers().enumerate() {
             match layer.layer_type() {
                 LayerType::Objects(object_layer) => {
-                    for object in object_layer.objects() {
-                        let idx = object.id();
+                    for (idx, object) in object_layer.objects().enumerate() {
+                        // let idx = object.id();
+                        let idx = idx as u32;
                         let aabb = match object.shape {
-                            tiled::ObjectShape::Rect { width, height } => Aabb2d {
-                                min: Vec2::new(object.x, object.y),
-                                max: Vec2::new(object.x + width, object.y + height),
-                            },
-                            tiled::ObjectShape::Point(x, y) => Aabb2d {
-                                min: Vec2::new(object.x, object.y - tile_size.y),
-                                max: Vec2::new(object.x + tile_size.x, object.y),
-                            },
+                            tiled::ObjectShape::Rect { width, height } =>
+                                if object.get_tile().is_some() {
+                                    Aabb2d {
+                                        min: Vec2::new(object.x, object.y - tile_size.y),
+                                        max: Vec2::new(object.x + tile_size.x, object.y),
+                                    }
+                                } else {
+                                    Aabb2d {
+                                        min: Vec2::new(object.x, object.y),
+                                        max: Vec2::new(object.x + width, object.y + height),
+                                    }
+                                },
+                            // tiled::ObjectShape::Point(x, y) => {
+                            //     info!("point object {}", object.name);
+                            // },
                             ref x => {
                                 todo!("{:?}", x)
                             }
                         };
                         if let Some(id) = storage.objects.get(&idx) {
-                            commands.entity(*id).insert(Cover {
-                                // layer: layer.id(),
-                                // idx,
-                                aabb,
-                            });
+                            commands.entity(*id).insert((
+                                Cover {
+                                    aabb,
+                                    flags: 0,
+                                },
+                                TiledLookup::Object {
+                                    layer: layer_index as u32,
+                                    idx: idx,
+                                    handle: handle.0.clone_weak(),
+                                }
+                            ));
                         } else {
                             warn!("No entity for idx {idx}");
                         }
@@ -70,6 +90,7 @@ pub struct Level<'w, 's> {
     tiled_maps: ResMut<'w, Assets<bevy_ecs_tiled::prelude::TiledMap>>,
     tiled_id_storage: Query<'w, 's, (&'static TiledMapStorage, &'static TiledMapHandle)>,
     sprites: Query<'w, 's, &'static mut Sprite>,
+    tiled_lookups: Query<'w, 's, &'static TiledLookup>,
 }
 impl<'w, 's> Level<'w, 's> {
     pub fn mget(
@@ -250,6 +271,23 @@ impl<'w, 's> Level<'w, 's> {
                     })
             })
     }
+
+    // Return the properties for an entity that has a `TiledLookup` component.
+    pub fn props(&self, id: Entity) -> Result<tiled::Properties, pico8::Error> {
+        let tiled_lookup = self.tiled_lookups.get(id).map_err(|_| pico8::Error::NoSuch("TiledLookup".into()))?;
+        match tiled_lookup {
+            TiledLookup::Object { layer, idx, handle } => {
+                let tiled_map = self.tiled_maps.get(handle).ok_or(pico8::Error::NoSuch("TiledMap".into()))?;
+                let layer = tiled_map.map.get_layer(*layer as usize).ok_or(pico8::Error::NoSuch("layer".into()))?;
+                let object_layer = layer.as_object_layer().ok_or(pico8::Error::NoSuch("layer as object layer".into()))?;
+                let object = object_layer.get_object(*idx as usize).ok_or(pico8::Error::NoSuch("object".into()))?;
+                let mut properties = object.properties.clone();
+                insert_object_fields(&mut properties, &object);
+                Ok(properties)
+            }
+            _ => unreachable!()
+        }
+    }
 }
 
 fn shape_contains(object: &tiled::ObjectData, tile_size: UVec2, point: Vec2) -> bool {
@@ -313,6 +351,14 @@ fn insert_object_fields(properties: &mut tiled::Properties, object: &tiled::Obje
         "class".to_owned(),
         tiled::PropertyValue::StringValue(object.user_type.clone()),
     );
+
+    properties.insert(
+        "name".to_owned(),
+        tiled::PropertyValue::StringValue(object.name.clone()),
+    );
+    properties.insert(
+        "tile".to_owned(),
+        tiled::PropertyValue::BoolValue(object.get_tile().is_some()));
 }
 
 pub(crate) fn layout_from_tileset(tileset: &Tileset) -> TextureAtlasLayout {

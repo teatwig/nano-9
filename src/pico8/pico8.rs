@@ -298,6 +298,7 @@ pub struct Cover {
     // layer: u32,
     // idx: u32,
     pub aabb: Aabb2d,
+    pub flags: u32,
 }
 
 #[derive(SystemParam)]
@@ -1380,10 +1381,16 @@ impl Pico8<'_, '_> {
     }
 
     // Cast a "ray" either at pos or from pos in direction dir.
-    pub fn ray(&self, pos: Vec2, dir: Option<Dir2>) -> Vec<Entity> {
+    pub fn ray(&self, pos: Vec2, dir: Option<Dir2>, mask: Option<u32>) -> Vec<Entity> {
         match dir {
             None =>
                 self.covers.iter().filter_map(|(id, cover, transform)| {
+                    if let Some(mask) = mask {
+                        if cover.flags & mask == 0 {
+                            return None;
+                        }
+                    }
+                    // TODO: This works without the transform. Should we lose that parameter?
                     // let min = *transform * cover.aabb.min.extend(0.0);
                     let min = cover.aabb.min;
                     (min.x < pos.x && min.y < pos.y && {
@@ -1395,10 +1402,21 @@ impl Pico8<'_, '_> {
             Some(dir) => {
                 let ray_cast = RayCast2d::new(pos, dir, f32::MAX);
                 self.covers.iter().filter_map(|(id, cover, transform)| {
+                    if let Some(mask) = mask {
+                        if cover.flags & mask == 0 {
+                            return None;
+                        }
+                    }
                     ray_cast.aabb_intersection_at(&cover.aabb).map(|_distance| id)
                 }).collect()
             }
         }
+    }
+
+    #[cfg(feature = "level")]
+    /// Get properties
+    pub fn props(&self, id: Entity) -> Result<tiled::Properties, Error> {
+        self.tiled.props(id)
     }
 }
 
