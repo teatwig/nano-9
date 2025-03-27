@@ -3495,6 +3495,7 @@ dependencies = [
  "bresenham",
  "bytemuck",
  "dasp",
+ "futures-lite",
  "keyseq",
  "ldtk_rust",
  "rand",

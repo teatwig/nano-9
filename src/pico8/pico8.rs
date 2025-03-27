@@ -293,10 +293,9 @@ impl From<Error> for LuaError {
 }
 
 
+/// A `ray`-able object.
 #[derive(Debug, Component, Reflect)]
 pub struct Cover {
-    // layer: u32,
-    // idx: u32,
     pub aabb: Aabb2d,
     pub flags: u32,
 }

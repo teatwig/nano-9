@@ -31,6 +31,7 @@ bitflags = "2.8.0"
 tiled = "0.14.0"
 # tiled = { git = "https://github.com/mapeditor/rs-tiled.git", rev = "c434e1be8904917bacc1286c5334b721f1f6deef", features = ["world"] }
 bitvec = "1.0.1"
+futures-lite = { version = "2.6.0", optional = true }
 # regex = "1.11.1"
 # XXX: Don't leave this here.
 # bevy_mod_debugdump = "0.12.1"
@@ -39,7 +40,7 @@ bitvec = "1.0.1"
 default = [ "level" ]
 # level = [ "dep:bevy_ecs_ldtk", "dep:ldtk_rust", "dep:serde_json"]
 # level = [ "dep:bevy_ecs_tiled", "dep:serde_json", "bevy_ecs_tiled/user_properties" ]
-level = [ "dep:bevy_ecs_tiled", "dep:serde_json" ]
+level = [ "dep:bevy_ecs_tiled", "dep:serde_json", "dep:futures-lite" ]
 user_properties = [ "bevy_ecs_tiled/user_properties" ]
 # level = [ "dep:bevy_ecs_tiled", "dep:serde_json" ]
 inspector = [ "dep:bevy_minibuffer_inspector" ]

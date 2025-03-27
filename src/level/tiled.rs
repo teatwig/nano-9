@@ -63,10 +63,16 @@ fn add_covers(
                             }
                         };
                         if let Some(id) = storage.objects.get(&idx) {
+                            // TODO: Make the 'flags' name configurable.
+                            let flags = object.properties.get("flags")
+                                .and_then(|v| match v {
+                                    PropertyValue::IntValue(v) => Some(*v as u32),
+                                    _ => None
+                                }).unwrap_or(0);
                             commands.entity(*id).insert((
                                 Cover {
                                     aabb,
-                                    flags: 0,
+                                    flags,
                                 },
                                 TiledLookup::Object {
                                     layer: layer_index as u32,

@@ -1,6 +1,6 @@
 #[cfg(feature = "level")]
 use crate::level::{self, tiled::*};
-use crate::{call, pico8};
+use crate::{call, pico8, level::asset::TiledSet};
 use bevy::{
     asset::{embedded_asset, io::AssetSourceId, io::Reader, AssetLoader, AssetPath, LoadContext},
     image::{ImageLoaderSettings, ImageSampler},
@@ -75,6 +75,7 @@ pub struct SpriteSheet {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum Map {
+    // path: PathBuf,
     P8 { p8: PathBuf },
     Ldtk { ldtk: PathBuf },
 }
@@ -143,7 +144,7 @@ impl AssetLoader for ConfigLoader {
                     let tileset = load_context
                         .loader()
                         .immediate()
-                        .load::<bevy_ecs_tiled::prelude::TiledSet>(&*sheet.path)
+                        .load::<TiledSet>(&*sheet.path)
                         .await?;
                     layouts.push(Some(load_context.add_labeled_asset(
                         format!("atlas{i}"),
@@ -183,7 +184,7 @@ impl AssetLoader for ConfigLoader {
                     let tiledset = load_context
                         .loader()
                         .immediate()
-                        .load::<bevy_ecs_tiled::prelude::TiledSet>(&*sheet.path)
+                        .load::<TiledSet>(&*sheet.path)
                         .await?;
                     let tileset = &tiledset.get().0;
                     let handle = load_context

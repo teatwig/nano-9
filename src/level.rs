@@ -5,6 +5,8 @@ use bevy_ecs_tilemap::prelude::*;
 // pub mod ldtk;
 // use ldtk::*;
 pub(crate) mod tiled;
+pub(crate) mod asset;
+pub(crate) mod reader;
 
 #[derive(Debug, Clone)]
 pub struct Map {
@@ -37,6 +39,7 @@ impl Map {
 
 pub(crate) fn plugin(app: &mut App) {
     app//.add_plugins(LdtkPlugin)
+        .init_asset_loader::<asset::TiledSetLoader>()
         .add_plugins(TilemapPlugin)
         .add_plugins(TiledMapPlugin(TiledMapPluginConfig { tiled_types_export_file: None }))
         .add_plugins(tiled::plugin)
