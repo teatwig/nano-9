@@ -41,7 +41,8 @@ impl Tiled {
                 commands
                     .spawn((
                         TiledWorldHandle(handle.clone()),
-                        // TiledWorldChunking::new(1000., 1000.),
+                        TiledWorldChunking::new(1000., 1000.),
+                        // TiledWorldChunking(None),
                         // ldtk_map: self.handle.clone(),
                         Transform::from_xyz(screen_start.x, screen_start.y, clearable.suggest_z()),
                         TilemapAnchor::TopLeft,

@@ -216,7 +216,7 @@ pub struct SpriteSheet {
 }
 
 #[derive(Event, Debug)]
-struct UpdateCameraPos(UVec2);
+struct UpdateCameraPos(Vec2);
 
 #[derive(Default, Debug, Clone)]
 pub struct Buttons {
@@ -762,16 +762,16 @@ impl Pico8<'_, '_> {
     pub fn print(
         &mut self,
         text: impl AsRef<str>,
-        pos: Option<UVec2>,
+        pos: Option<Vec2>,
         color: Option<N9Color>,
-    ) -> Result<u32, Error> {
-        const CHAR_WIDTH: u32 = 4;
-        const NEWLINE_HEIGHT: u32 = 6;
+    ) -> Result<f32, Error> {
+        const CHAR_WIDTH: f32 = 4.0;
+        const NEWLINE_HEIGHT: f32 = 6.0;
         let mut text: &str = text.as_ref();
         // warn!("PRINTING {}", &text);
         // info!("print {:?} start, {:?}", &text, &self.state.draw_state.print_cursor);
         let pos = pos.unwrap_or_else(|| {
-            UVec2::new(
+            Vec2::new(
                 self.state.draw_state.print_cursor.x,
                 self.state.draw_state.print_cursor.y,
             )
@@ -784,7 +784,7 @@ impl Pico8<'_, '_> {
         } else {
             true
         };
-        let len = text.len() as u32;
+        let len = text.len() as f32;
         let z = clearable.suggest_z();
         self.commands
             .spawn((
@@ -794,7 +794,7 @@ impl Pico8<'_, '_> {
                 clearable,
             ))
             .with_children(|builder| {
-                let mut y = 0;
+                let mut y = 0.0;
                 for line in text.lines() {
                     // Our font has a different height than we want. It's one pixel
                     // higher. So we can't let bevy render it one go. Bummer.
@@ -1009,7 +1009,7 @@ impl Pico8<'_, '_> {
         self.time.elapsed_secs()
     }
 
-    pub fn camera(&mut self, pos: UVec2) -> UVec2 {
+    pub fn camera(&mut self, pos: Vec2) -> Vec2 {
         let result = std::mem::replace(&mut self.state.draw_state.camera_position, pos);
         self.commands.trigger(UpdateCameraPos(pos));
         result

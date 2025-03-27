@@ -34,8 +34,8 @@ pub struct Nano9Screen(pub Handle<Image>);
 #[derive(Clone, Debug)]
 pub struct DrawState {
     pub pen: Color,
-    pub camera_position: UVec2,
-    pub print_cursor: UVec2,
+    pub camera_position: Vec2,
+    pub print_cursor: Vec2,
 }
 
 #[derive(Debug, Clone, Resource, Default)]
@@ -48,8 +48,8 @@ impl Default for DrawState {
     fn default() -> Self {
         DrawState {
             pen: Srgba::rgb(0.761, 0.765, 0.780).into(), // color 6, palette
-            camera_position: UVec2::ZERO,
-            print_cursor: UVec2::ZERO,
+            camera_position: Vec2::ZERO,
+            print_cursor: Vec2::ZERO,
         }
     }
 }

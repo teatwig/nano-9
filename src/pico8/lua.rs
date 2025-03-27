@@ -239,12 +239,12 @@ pub(crate) fn plugin(app: &mut App) {
             "print",
             |ctx: FunctionCallContext,
              text: Option<String>,
-             x: Option<u32>,
-             y: Option<u32>,
+             x: Option<f32>,
+             y: Option<f32>,
              c: Option<N9Color>| {
                 with_pico8(&ctx, move |pico8| {
                     let pos = x
-                        .map(|x| UVec2::new(x, y.unwrap_or(pico8.state.draw_state.print_cursor.y)));
+                        .map(|x| Vec2::new(x, y.unwrap_or(pico8.state.draw_state.print_cursor.y)));
                     pico8.print(text.as_deref().unwrap_or(""), pos, c)
                 })
             },
@@ -343,9 +343,9 @@ pub(crate) fn plugin(app: &mut App) {
         })
         .register(
             "camera",
-            |ctx: FunctionCallContext, x: Option<u32>, y: Option<u32>| {
+            |ctx: FunctionCallContext, x: Option<f32>, y: Option<f32>| {
                 with_pico8(&ctx, move |pico8| {
-                    Ok(pico8.camera(UVec2::new(x.unwrap_or(0), y.unwrap_or(0))))
+                    Ok(pico8.camera(Vec2::new(x.unwrap_or(0.0), y.unwrap_or(0.0))))
                 })
                 .map(|last_pos| (last_pos.x, last_pos.y))
             },
