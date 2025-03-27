@@ -1,4 +1,4 @@
-use crate::pico8::{self, PropBy, Cover};
+use crate::{level, pico8::{self, PropBy, Cover}};
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
     ecs::system::{SystemParam, SystemState},
@@ -94,6 +94,7 @@ fn add_covers(
 #[derive(SystemParam)]
 pub struct Level<'w, 's> {
     tiled_maps: ResMut<'w, Assets<bevy_ecs_tiled::prelude::TiledMap>>,
+    tiled_worlds: ResMut<'w, Assets<bevy_ecs_tiled::prelude::TiledWorld>>,
     tiled_id_storage: Query<'w, 's, (&'static TiledMapStorage, &'static TiledMapHandle)>,
     sprites: Query<'w, 's, &'static mut Sprite>,
     tiled_lookups: Query<'w, 's, &'static TiledLookup>,
@@ -101,12 +102,14 @@ pub struct Level<'w, 's> {
 impl<'w, 's> Level<'w, 's> {
     pub fn mget(
         &self,
-        map_handle: &Handle<TiledMap>,
+        map: &level::Tiled,
         pos: Vec2,
         map_index: Option<usize>,
         layer_index: Option<usize>,
     ) -> Option<usize> {
-        self.tiled_maps.get(map_handle).and_then(|tiled_map| {
+        match map {
+            level::Tiled::Map { handle } => {
+        self.tiled_maps.get(handle).and_then(|tiled_map| {
             tiled_map
                 .map
                 .get_layer(layer_index.unwrap_or(0))
@@ -136,16 +139,24 @@ impl<'w, 's> Level<'w, 's> {
                     }
                 })
         })
+            }
+            level::Tiled::World { handle } => {
+                todo!()
+            }
+        }
     }
 
     pub fn mgetp(
         &self,
-        map_handle: &Handle<TiledMap>,
+        map: &level::Tiled,
         prop_by: pico8::PropBy,
         map_index: Option<usize>,
         layer_index: Option<usize>,
     ) -> Option<tiled::Properties> {
-        self.tiled_maps.get(map_handle).and_then(|tiled_map| {
+
+        match map {
+            level::Tiled::Map { handle } => {
+        self.tiled_maps.get(handle).and_then(|tiled_map| {
             let tile_size = UVec2::new(tiled_map.map.tile_width, tiled_map.map.tile_width);
             tiled_map
                 .map
@@ -204,18 +215,26 @@ impl<'w, 's> Level<'w, 's> {
                     _ => None,
                 })
         })
+            }
+            level::Tiled::World { handle } => {
+                todo!()
+            }
+        }
     }
 
     pub fn mset(
         &mut self,
-        map_handle: &Handle<TiledMap>,
+        map: &level::Tiled,
         pos: Vec2,
         sprite_index: usize,
         map_index: Option<usize>,
         layer_index: Option<usize>,
     ) -> Result<(), pico8::Error> {
+
+        match map {
+            level::Tiled::Map { handle } => {
         self.tiled_maps
-            .get(map_handle)
+            .get(handle)
             .ok_or(pico8::Error::NoSuch("map".into()))
             .and_then(|tiled_map| {
                 let tile_size = UVec2::new(tiled_map.map.tile_width, tiled_map.map.tile_width);
@@ -236,7 +255,7 @@ impl<'w, 's> Level<'w, 's> {
                                     if shape_contains(&object, tile_size, posf) {
                                         let mut sprite_id = None;
                                         for (tiled_id_storage, handle) in &self.tiled_id_storage {
-                                            if handle.0 == *map_handle {
+                                            if handle.0 == handle.0 {
                                                 // This is probably the one.
                                                 if let Some(id) =
                                                     tiled_id_storage.objects.get(&object.id())
@@ -276,6 +295,11 @@ impl<'w, 's> Level<'w, 's> {
                         }
                     })
             })
+            }
+            level::Tiled::World { handle } => {
+                todo!()
+            }
+        }
     }
 
     // Return the properties for an entity that has a `TiledLookup` component.

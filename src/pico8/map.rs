@@ -9,7 +9,7 @@ use bevy_ecs_tilemap::prelude::*;
 pub enum Map {
     P8(P8Map),
     #[cfg(feature = "level")]
-    Level(level::Map),
+    Level(level::Tiled),
 }
 
 #[derive(Clone, Debug, Deref, DerefMut)]
@@ -136,8 +136,8 @@ pub(crate) fn get_tilemap_top_left_transform(
 }
 
 #[cfg(feature = "level")]
-impl From<level::Map> for Map {
-    fn from(map: level::Map) -> Self {
+impl From<level::Tiled> for Map {
+    fn from(map: level::Tiled) -> Self {
         Map::Level(map)
     }
 }

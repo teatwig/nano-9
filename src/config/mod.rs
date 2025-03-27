@@ -253,7 +253,7 @@ impl AssetLoader for ConfigLoader {
                                 if cfg!(not(feature = "level")) {
                                     Err(ConfigLoaderError::Message(format!("The map {:?} is a Tiled map; consider using the '--features=level' flag.", &map.path)))
                                 } else {
-                                    Ok(level::Map {
+                                    Ok(level::Tiled::Map {
                                         handle: load_context.load(&*map.path),
                                     }.into())
                                 }
@@ -401,7 +401,7 @@ impl Command for Config {
                                 if cfg!(not(feature = "level")) {
                                     Err(ConfigLoaderError::Message(format!("The map {:?} is a Tiled map; consider using the '--features=level' flag.", &map.path)))
                                 } else {
-                                    Ok(level::Map {
+                                    Ok(level::Tiled::Map {
                                         handle: asset_server.load(&AssetPath::from_path(&map.path).with_source(&source)),
                                     }.into())
                                 }

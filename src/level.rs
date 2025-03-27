@@ -9,12 +9,12 @@ pub(crate) mod asset;
 pub(crate) mod reader;
 
 #[derive(Debug, Clone)]
-pub struct Map {
-    pub handle: Handle<TiledMap>,
-    // pub handle: LdtkMapHandle,
+pub enum Tiled {
+    Map { handle: Handle<TiledMap> },
+    World { handle: Handle<TiledWorld> },
 }
 
-impl Map {
+impl Tiled {
     pub fn map(&self, screen_start: Vec2, _level: usize, commands: &mut Commands) -> Entity {
         // commands.insert_resource(LevelSelection::index(level));
         let clearable = Clearable::default();
@@ -22,18 +22,36 @@ impl Map {
         // let mut transform =
         //     get_tilemap_top_left_transform(&map_size, &grid_size, &map_type, clearable.suggest_z());
         // transform.translation += screen_start.extend(0.0);
-        commands
-            .spawn((
-                TiledMapHandle(self.handle.clone()),
-                // ldtk_map: self.handle.clone(),
-                Transform::from_xyz(screen_start.x, screen_start.y, clearable.suggest_z()),
-                TilemapAnchor::TopLeft,
-                TiledMapLayerZOffset(1.0),
-                Name::new("level"),
-                clearable,
-                InheritedVisibility::default(),
-            ))
-            .id()
+        match self {
+            Tiled::Map { handle } => {
+                commands
+                    .spawn((
+                        TiledMapHandle(handle.clone()),
+                        // ldtk_map: self.handle.clone(),
+                        Transform::from_xyz(screen_start.x, screen_start.y, clearable.suggest_z()),
+                        TilemapAnchor::TopLeft,
+                        TiledMapLayerZOffset(1.0),
+                        Name::new("level"),
+                        clearable,
+                        InheritedVisibility::default(),
+                    ))
+                    .id()
+            }
+            Tiled::World { handle } => {
+                commands
+                    .spawn((
+                        TiledWorldHandle(handle.clone()),
+                        // ldtk_map: self.handle.clone(),
+                        Transform::from_xyz(screen_start.x, screen_start.y, clearable.suggest_z()),
+                        TilemapAnchor::TopLeft,
+                        TiledMapLayerZOffset(1.0),
+                        Name::new("level"),
+                        clearable,
+                        InheritedVisibility::default(),
+                    ))
+                    .id()
+            }
+        }
     }
 }
 

@@ -937,7 +937,7 @@ impl Pico8<'_, '_> {
             #[cfg(feature = "level")]
             Map::Level(ref map) => self
                 .tiled
-                .mgetp(&map.handle, prop_by, map_index, layer_index),
+                .mgetp(map, prop_by, map_index, layer_index),
         }
     }
 
@@ -954,7 +954,7 @@ impl Pico8<'_, '_> {
             }
 
             #[cfg(feature = "level")]
-            Map::Level(ref map) => self.tiled.mget(&map.handle, pos, map_index, layer_index),
+            Map::Level(ref map) => self.tiled.mget(map, pos, map_index, layer_index),
         }
     }
 
@@ -974,7 +974,7 @@ impl Pico8<'_, '_> {
             #[cfg(feature = "level")]
             Map::Level(ref mut map) => {
                 self.tiled
-                    .mset(&map.handle, pos, sprite_index, map_index, layer_index)
+                    .mset(map, pos, sprite_index, map_index, layer_index)
             }
         }
     }
