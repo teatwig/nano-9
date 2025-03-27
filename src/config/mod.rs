@@ -258,6 +258,15 @@ impl AssetLoader for ConfigLoader {
                                     }.into())
                                 }
                             }
+                            "world" => {
+                                if cfg!(not(feature = "level")) {
+                                    Err(ConfigLoaderError::Message(format!("The map {:?} is a Tiled world; consider using the '--features=level' flag.", &map.path)))
+                                } else {
+                                    Ok(level::Tiled::World {
+                                        handle: load_context.load(&*map.path),
+                                    }.into())
+                                }
+                            }
                             x => Err(ConfigLoaderError::Message(format!("Unknown map format {:?}", &map.path)))
                         }
                     } else {
@@ -402,6 +411,15 @@ impl Command for Config {
                                     Err(ConfigLoaderError::Message(format!("The map {:?} is a Tiled map; consider using the '--features=level' flag.", &map.path)))
                                 } else {
                                     Ok(level::Tiled::Map {
+                                        handle: asset_server.load(&AssetPath::from_path(&map.path).with_source(&source)),
+                                    }.into())
+                                }
+                            }
+                            "world" => {
+                                if cfg!(not(feature = "level")) {
+                                    Err(ConfigLoaderError::Message(format!("The map {:?} is a Tiled world; consider using the '--features=level' flag.", &map.path)))
+                                } else {
+                                    Ok(level::Tiled::World {
                                         handle: asset_server.load(&AssetPath::from_path(&map.path).with_source(&source)),
                                     }.into())
                                 }

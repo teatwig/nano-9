@@ -217,7 +217,8 @@ impl<'w, 's> Level<'w, 's> {
         })
             }
             level::Tiled::World { handle } => {
-                todo!()
+                // todo!()
+                None
             }
         }
     }
