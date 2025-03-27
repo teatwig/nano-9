@@ -73,11 +73,11 @@ pub struct SpriteSheet {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(untagged)]
-pub enum Map {
-    // path: PathBuf,
-    P8 { p8: PathBuf },
-    Ldtk { ldtk: PathBuf },
+// #[serde(untagged)]
+pub struct Map {
+    path: PathBuf,
+    // P8 { p8: PathBuf },
+    // Ldtk { ldtk: PathBuf },
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -103,7 +103,7 @@ pub enum ConfigLoaderError {
     #[error("Could not load Tiled file: {0}")]
     Io(#[from] std::io::Error),
     #[error("{0}")]
-    MissingFeature(String),
+    Message(String),
     #[error("Could not load dependency: {0}")]
     Load(#[from] bevy::asset::LoadDirectError),
 }
@@ -152,7 +152,7 @@ impl AssetLoader for ConfigLoader {
                     )));
                 }
                 #[cfg(not(feature = "level"))]
-                Err(ConfigLoaderError::MissingFeature(format!(
+                Err(ConfigLoaderError::Message(format!(
                     "Can not load {:?} file without 'level' feature.",
                     &sheet.path
                 )))?;
@@ -245,18 +245,25 @@ impl AssetLoader for ConfigLoader {
                                     .with_settings(pixel_art_settings)
                                     .load(pico8::PICO8_BORDER),
                 maps: config.maps.into_iter().map(|map| {
-                    match map {
-                        Map::P8 { p8: _path } => todo!(),
-                        Map::Ldtk { ldtk: path } => {
-                            #[cfg(not(feature = "level"))]
-                            Err(ConfigLoaderError::MissingFeature(format!("This config has an LDTK map; consider using the '--features=level' flag.", &sheet.path)))?;
-                            #[cfg(feature = "level")]
-                            level::Map {
-                                handle: load_context.load(&*path),
-                            }.into()
+                    let extension = map.path.extension().and_then(|s| s. to_str());
+                    if let Some(ext) = extension {
+                        match ext {
+                            "p8" => todo!(),
+                            "tmx" => {
+                                if cfg!(not(feature = "level")) {
+                                    Err(ConfigLoaderError::Message(format!("The map {:?} is a Tiled map; consider using the '--features=level' flag.", &map.path)))
+                                } else {
+                                    Ok(level::Map {
+                                        handle: load_context.load(&*map.path),
+                                    }.into())
+                                }
+                            }
+                            x => Err(ConfigLoaderError::Message(format!("Unknown map format {:?}", &map.path)))
                         }
+                    } else {
+                        Err(ConfigLoaderError::Message(format!("The map path {:?} did not have an extension.", &map.path)))
                     }
-                }).collect::<Vec<_>>().into(),
+                }).collect::<Result<Vec<_>, _>>()?.into(),
                 audio_banks: config.audio_banks.into_iter().map(|bank| pico8::AudioBank(match bank {
                     AudioBank::P8 { p8, count } => {
                             (0..count).map(|i|
@@ -386,22 +393,25 @@ impl Command for Config {
                 },
                 border: asset_server.load_with_settings(pico8::PICO8_BORDER, pixel_art_settings),
                 maps: self.maps.into_iter().map(|map| {
-                    match map {
-                        Map::P8 { p8: path } => todo!(),
-                        Map::Ldtk { ldtk: path } => {
-                            #[cfg(not(feature = "level"))]
-                            panic!("This config has an LDTK map; consider using the '--features=level' flag.");
-                            #[cfg(feature = "level")]
-                            level::Map {
-                                handle: asset_server.load(&AssetPath::from_path(&path).with_source(&source)),
-                            }.into()
-                            // level::Map {
-                            //     handle: level::ldtk::LdtkMapHandle(asset_server.load(&AssetPath::from_path(&path).with_source(&source))),
-                            // }.into()
-
+                    let extension = map.path.extension().and_then(|s| s. to_str());
+                    if let Some(ext) = extension {
+                        match ext {
+                            "p8" => todo!(),
+                            "tmx" => {
+                                if cfg!(not(feature = "level")) {
+                                    Err(ConfigLoaderError::Message(format!("The map {:?} is a Tiled map; consider using the '--features=level' flag.", &map.path)))
+                                } else {
+                                    Ok(level::Map {
+                                        handle: asset_server.load(&AssetPath::from_path(&map.path).with_source(&source)),
+                                    }.into())
+                                }
+                            }
+                            x => todo!("No idea how to load map {:?}", x),
                         }
+                    } else {
+                        Err(ConfigLoaderError::Message(format!("The map path {:?} did not have an extension.", &map.path)))
                     }
-                }).collect::<Vec<_>>().into(),
+                }).collect::<Result<Vec<_>, _>>().expect("load map").into(),
                 audio_banks: self.audio_banks.into_iter().map(|bank| pico8::AudioBank(match bank {
                     AudioBank::P8 { p8, count } => {
                             (0..count).map(|i|
