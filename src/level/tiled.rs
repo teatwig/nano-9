@@ -42,17 +42,21 @@ fn add_covers(
                     for (idx, object) in object_layer.objects().enumerate() {
                         // let idx = object.id();
                         let idx = idx as u32;
+                        // let x = object.x;
+                        // let y = object.y;
+                        let x = 0.0;
+                        let y = 0.0;
                         let aabb = match object.shape {
                             tiled::ObjectShape::Rect { width, height } =>
                                 if object.get_tile().is_some() {
                                     Aabb2d {
-                                        min: Vec2::new(object.x, object.y - tile_size.y),
-                                        max: Vec2::new(object.x + tile_size.x, object.y),
+                                        min: Vec2::new(x, y),
+                                        max: Vec2::new(x + tile_size.x, y + tile_size.y),
                                     }
                                 } else {
                                     Aabb2d {
-                                        min: Vec2::new(object.x, object.y),
-                                        max: Vec2::new(object.x + width, object.y + height),
+                                        min: Vec2::new(x, y),
+                                        max: Vec2::new(x + width, y + height),
                                     }
                                 },
                             // tiled::ObjectShape::Point(x, y) => {

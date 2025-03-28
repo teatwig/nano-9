@@ -1380,7 +1380,13 @@ impl Pico8<'_, '_> {
     }
 
     // Cast a "ray" either at pos or from pos in direction dir.
-    pub fn ray(&self, pos: Vec2, dir: Option<Dir2>, mask: Option<u32>) -> Vec<Entity> {
+    pub fn ray(&self, mut pos: Vec2, mut dir: Option<Dir2>, mask: Option<u32>) -> Vec<Entity> {
+        pos.y *= -1.0;
+        if let Some(ref mut dir) = dir {
+            let mut v = dir.as_vec2();
+            v.y *= -1.0;
+            *dir = Dir2::new_unchecked(v);
+        }
         match dir {
             None =>
                 self.covers.iter().filter_map(|(id, cover, transform)| {
@@ -1389,12 +1395,13 @@ impl Pico8<'_, '_> {
                             return None;
                         }
                     }
-                    // TODO: This works without the transform. Should we lose that parameter?
-                    // let min = *transform * cover.aabb.min.extend(0.0);
-                    let min = cover.aabb.min;
-                    (min.x < pos.x && min.y < pos.y && {
-                        // let max = *transform * cover.aabb.max.extend(0.0);
-                        let max = cover.aabb.max;
+                    // TODO: This works without the transform. Should we lose
+                    // that parameter?
+                    let min = *transform * cover.aabb.min.extend(0.0);
+                    // let min = cover.aabb.min;
+                    (min.x <= pos.x && min.y <= pos.y && {
+                        let max = *transform * cover.aabb.max.extend(0.0);
+                        // let max = cover.aabb.max;
                         max.x > pos.x && max.y > pos.y
                     }).then_some(id)
                 }).collect(),
@@ -1417,6 +1424,11 @@ impl Pico8<'_, '_> {
     pub fn props(&self, id: Entity) -> Result<tiled::Properties, Error> {
         self.tiled.props(id)
     }
+}
+
+enum RayArg {
+    Pos(Vec2),
+    Aabb(Aabb2),
 }
 
 enum SfxDest {
