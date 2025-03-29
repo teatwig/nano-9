@@ -1409,7 +1409,8 @@ impl Pico8<'_, '_> {
     pub fn raycast(&self, mut pos: Vec2, mut dir: Dir2, mask: Option<u32>, shape: Option<Aabb2d>) -> Vec<(Entity, f32)> {
         let mut v = dir.as_vec2();
         v.y *= -1.0;
-        dir = Dir2::new_unchecked(v);
+        // dir = Dir2::new_unchecked(v);
+        dir = Dir2::new(v).unwrap();
         pos.y *= -1.0;
         if let Some(shape) = shape {
             let aabb_cast = AabbCast2d::new(shape, pos, dir, f32::MAX);
@@ -1432,8 +1433,11 @@ impl Pico8<'_, '_> {
                 let min = (*transform * cover.aabb.min.extend(0.0)).xy();
                 let max = (*transform * cover.aabb.max.extend(0.0)).xy();
                 let other = Aabb2d { min, max };
-                dbg!(&other);
-                ray_cast.aabb_intersection_at(&other).map(|distance| dbg!((id, distance)))
+                ray_cast.aabb_intersection_at(&other).map(|distance| {
+                    dbg!(&other);
+                    dbg!(&ray_cast);
+                    dbg!((id, distance))
+                })
             }).collect()
         }
     }

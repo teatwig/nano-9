@@ -59,8 +59,8 @@ fn add_covers(
                                     }
                                 } else {
                                     Aabb2d {
-                                        min: Vec2::new(x, y),
-                                        max: Vec2::new(x + width, y + height),
+                                        min: Vec2::new(x, y - height),
+                                        max: Vec2::new(x + width, y),
                                     }
                                 },
                             // tiled::ObjectShape::Point(x, y) => {
