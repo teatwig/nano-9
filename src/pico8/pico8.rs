@@ -1,5 +1,5 @@
 use bevy::{
-    math::bounding::{RayCast2d, Aabb2d},
+    math::bounding::{RayCast2d, Aabb2d, IntersectsVolume, AabbCast2d},
     asset::{embedded_asset, AssetPath},
     ecs::system::{SystemParam, SystemState},
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
@@ -1379,56 +1379,71 @@ impl Pico8<'_, '_> {
         Ok(id)
     }
 
-    // Cast a "ray" either at pos or from pos in direction dir.
-    pub fn ray(&self, mut pos: Vec2, mut dir: Option<Dir2>, mask: Option<u32>) -> Vec<Entity> {
+    pub fn raydown(&self, mut pos: Vec2, mask: Option<u32>, shape: Option<Aabb2d>) -> Vec<Entity> {
         pos.y *= -1.0;
-        if let Some(ref mut dir) = dir {
-            let mut v = dir.as_vec2();
-            v.y *= -1.0;
-            *dir = Dir2::new_unchecked(v);
-        }
-        match dir {
-            None =>
-                self.covers.iter().filter_map(|(id, cover, transform)| {
-                    if let Some(mask) = mask {
-                        if cover.flags & mask == 0 {
-                            return None;
-                        }
-                    }
-                    // TODO: This works without the transform. Should we lose
-                    // that parameter?
-                    let min = *transform * cover.aabb.min.extend(0.0);
-                    // let min = cover.aabb.min;
-                    (min.x <= pos.x && min.y <= pos.y && {
-                        let max = *transform * cover.aabb.max.extend(0.0);
-                        // let max = cover.aabb.max;
-                        max.x > pos.x && max.y > pos.y
-                    }).then_some(id)
-                }).collect(),
-            Some(dir) => {
-                let ray_cast = RayCast2d::new(pos, dir, f32::MAX);
-                self.covers.iter().filter_map(|(id, cover, transform)| {
-                    if let Some(mask) = mask {
-                        if cover.flags & mask == 0 {
-                            return None;
-                        }
-                    }
-                    ray_cast.aabb_intersection_at(&cover.aabb).map(|_distance| id)
-                }).collect()
+        self.covers.iter().filter_map(|(id, cover, transform)| {
+            if let Some(mask) = mask {
+                if cover.flags & mask == 0 {
+                    return None;
+                }
             }
+            // TODO: This works without the transform. Should we lose
+            // that parameter?
+            let min = (*transform * cover.aabb.min.extend(0.0)).xy();
+            // let min = cover.aabb.min;
+            if let Some(shape) = shape {
+                let max = (*transform * cover.aabb.max.extend(0.0)).xy();
+                let other = Aabb2d { min, max };
+                shape.intersects(&other).then_some(id)
+            } else {
+                (min.x <= pos.x && min.y <= pos.y && {
+                    let max = (*transform * cover.aabb.max.extend(0.0)).xy();
+                    // let max = cover.aabb.max;
+                    max.x > pos.x && max.y > pos.y
+                }).then_some(id)
+            }
+        }).collect()
+    }
+
+    // Cast a "ray" either at pos or from pos in direction dir.
+    pub fn raycast(&self, mut pos: Vec2, mut dir: Dir2, mask: Option<u32>, shape: Option<Aabb2d>) -> Vec<(Entity, f32)> {
+        let mut v = dir.as_vec2();
+        v.y *= -1.0;
+        dir = Dir2::new_unchecked(v);
+        pos.y *= -1.0;
+        if let Some(shape) = shape {
+            let aabb_cast = AabbCast2d::new(shape, pos, dir, f32::MAX);
+            self.covers.iter().filter_map(|(id, cover, transform)| {
+                if let Some(mask) = mask {
+                    if cover.flags & mask == 0 {
+                        return None;
+                    }
+                }
+                aabb_cast.aabb_collision_at(cover.aabb).map(|distance| (id, distance))
+            }).collect()
+        } else {
+            let ray_cast = RayCast2d::new(pos, dir, f32::MAX);
+            self.covers.iter().filter_map(|(id, cover, transform)| {
+                if let Some(mask) = mask {
+                    if cover.flags & mask == 0 {
+                        return None;
+                    }
+                }
+                let min = (*transform * cover.aabb.min.extend(0.0)).xy();
+                let max = (*transform * cover.aabb.max.extend(0.0)).xy();
+                let other = Aabb2d { min, max };
+                dbg!(&other);
+                ray_cast.aabb_intersection_at(&other).map(|distance| dbg!((id, distance)))
+            }).collect()
         }
     }
+
 
     #[cfg(feature = "level")]
     /// Get properties
     pub fn props(&self, id: Entity) -> Result<tiled::Properties, Error> {
         self.tiled.props(id)
     }
-}
-
-enum RayArg {
-    Pos(Vec2),
-    Aabb(Aabb2),
 }
 
 enum SfxDest {

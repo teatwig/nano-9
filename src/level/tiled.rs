@@ -7,7 +7,7 @@ use bevy::{
 };
 use bevy_ecs_tiled::{
     map::components::TiledMapStorage,
-    prelude::{TiledMap, TiledMapHandle, TiledMapMarker, TiledMapObject},
+    prelude::{TiledMap, TiledMapHandle, TiledMapMarker, TiledMapObject, TiledMapCreated},
 };
 use std::{io::ErrorKind, path::Path};
 use tiled::{LayerType, PropertyValue, Tileset};
@@ -15,7 +15,7 @@ use tiled::{LayerType, PropertyValue, Tileset};
 pub(crate) fn plugin(app: &mut App) {
     app
         .register_type::<TiledLookup>()
-        .add_systems(PreUpdate, add_covers);
+        .add_systems(Update, add_covers);
 }
 
 #[derive(Debug, Component, Reflect)]
@@ -24,12 +24,16 @@ pub enum TiledLookup {
 }
 
 fn add_covers(
-    query: Query<(&TiledMapHandle, &TiledMapStorage), Added<TiledMapMarker>>,
+    mut tiled_map_created: EventReader<TiledMapCreated>,
+    query: Query<&TiledMapStorage>,
     tiled_maps: Res<Assets<TiledMap>>,
     mut commands: Commands,
 ) {
-    for (handle, storage) in &query {
-        let Some(tiled_map) = tiled_maps.get(&handle.0) else {
+    for event in tiled_map_created.read() {
+        let Some(tiled_map) = tiled_maps.get(event.asset_id) else {
+            continue;
+        };
+        let Ok(storage) = query.get(event.entity) else {
             continue;
         };
         let tile_size = Vec2::new(
@@ -40,8 +44,8 @@ fn add_covers(
             match layer.layer_type() {
                 LayerType::Objects(object_layer) => {
                     for (idx, object) in object_layer.objects().enumerate() {
-                        // let idx = object.id();
-                        let idx = idx as u32;
+                        let idx = object.id();
+                        // let idx = idx as u32;
                         // let x = object.x;
                         // let y = object.y;
                         let x = 0.0;
@@ -80,12 +84,12 @@ fn add_covers(
                                 },
                                 TiledLookup::Object {
                                     layer: layer_index as u32,
-                                    idx: idx,
-                                    handle: handle.0.clone_weak(),
+                                    idx,
+                                    handle: Handle::Weak(event.asset_id.clone()),
                                 }
                             ));
                         } else {
-                            warn!("No entity for idx {idx}");
+                            warn!("No entity for object {} id {}", object.name, object.id());
                         }
                     }
                 }

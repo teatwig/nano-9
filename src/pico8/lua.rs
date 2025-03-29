@@ -455,27 +455,50 @@ pub(crate) fn plugin(app: &mut App) {
             })
         },
     )
+
         .register(
-        "ray",
+        "raydown",
         |ctx: FunctionCallContext,
          x: f32,
          y: f32,
-        dx: Option<f32>,
-        dy: Option<f32>,
-            mask: Option<u32>| {
+            mask: Option<u32>,
+            shape: Option<ScriptValue>,
+            | {
             let pos = Vec2::new(x, y);
-            let dxdy = dx.zip(dy).map(|(dx,dy)| Vec2::new(dx, dy));
             with_pico8(&ctx, move |pico8| {
-                let dir = if let Some(dxdy) = dxdy {
-                    Some(Dir2::new(dxdy).map_err(|_| Error::InvalidArgument("dx, dy direction".into()))?)
-                } else {
-                    None
-                };
-                let ids: Vec<u64> = pico8
-                   .ray(pos, dir, mask)
+                // let ids: Vec<u64> = pico8
+                //    .ray(pos, dir, mask)
+                //    .into_iter()
+                //    .map(|id| id.to_bits()).collect();
+                let ids: Vec<i64> =  pico8
+                   .raydown(pos, mask, None)
                    .into_iter()
-                   .map(|id| id.to_bits()).collect();
+                    .map(|id| id.to_bits() as i64).collect();
                 Ok(ids)
+            })
+        })
+        .register(
+        "raycast",
+        |ctx: FunctionCallContext,
+         x: f32,
+         y: f32,
+        dx: f32,
+        dy: f32,
+            mask: Option<u32>,
+            shape: Option<ScriptValue>,
+            | {
+            let pos = Vec2::new(x, y);
+            let dxdy = Vec2::new(dx, dy);
+            with_pico8(&ctx, move |pico8| {
+                // let dir = Dir2::new(dxdy).map_err(|_| Error::InvalidArgument("dx, dy direction".into()))?;
+                let Ok(dir) = Dir2::new(dxdy) else { return Ok(ScriptValue::Unit); };
+                let ids_dists: Vec<ScriptValue> = pico8
+                   .raycast(pos, dir, mask, None)
+                   .into_iter()
+                   .flat_map(|(id, dist)|
+                        [ScriptValue::Integer(id.to_bits() as i64), ScriptValue::Float(dist as f64)]
+                   ).collect();
+                Ok(ScriptValue::List(ids_dists))
             })
         },
     )
