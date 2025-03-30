@@ -36,6 +36,7 @@ pub use plugin::*;
 pub use var::*;
 pub mod config;
 pub mod cursor;
+pub mod conversions;
 
 #[derive(thiserror::Error, Debug)]
 pub enum N9Error {

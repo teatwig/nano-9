@@ -68,6 +68,10 @@ pub struct N9Font {
     pub height: Option<f32>,
 }
 
+#[derive(Debug, Component, Reflect)]
+pub struct Place(pub String);
+
+
 #[derive(Clone, Component, Debug, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct P8Flags {
@@ -314,6 +318,7 @@ pub struct Pico8<'w, 's> {
     sfx_channels: Res<'w, SfxChannels>,
     time: Res<'w, Time>,
     covers: Query<'w, 's, (Entity, &'static Cover, &'static GlobalTransform)>,
+    places: Query<'w, 's, (&'static Place, &'static GlobalTransform)>,
     #[cfg(feature = "level")]
     tiled: crate::level::tiled::Level<'w, 's>,
     // tiled_maps: ResMut<'w, Assets<bevy_ecs_tiled::prelude::TiledMap>>,
@@ -1009,15 +1014,16 @@ impl Pico8<'_, '_> {
         self.time.elapsed_secs()
     }
 
-    pub fn camera(&mut self, pos: Vec2) -> Vec2 {
-        let result = std::mem::replace(&mut self.state.draw_state.camera_position, pos);
-        self.commands.trigger(UpdateCameraPos(pos));
-        result
+    pub fn camera(&mut self, pos: Option<Vec2>) -> Vec2 {
+        let last = if let Some(pos) = pos {
+            let last = std::mem::replace(&mut self.state.draw_state.camera_position, pos);
+            self.commands.trigger(UpdateCameraPos(pos));
+            last
+        } else {
+            self.state.draw_state.camera_position
+        };
+        last
     }
-
-    // fn line(&mut self, pos0: UVec2, pos1: UVec2, color: Option<N9Color>) {
-
-    // }
 
     pub fn line(&mut self, a: IVec2, b: IVec2, color: Option<N9Color>) -> Result<Entity, Error> {
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
@@ -1420,7 +1426,10 @@ impl Pico8<'_, '_> {
                         return None;
                     }
                 }
-                aabb_cast.aabb_collision_at(cover.aabb).map(|distance| (id, distance))
+                let min = (*transform * cover.aabb.min.extend(0.0)).xy();
+                let max = (*transform * cover.aabb.max.extend(0.0)).xy();
+                let other = Aabb2d { min, max };
+                aabb_cast.aabb_collision_at(other).map(|distance| (id, distance))
             }).collect()
         } else {
             let ray_cast = RayCast2d::new(pos, dir, f32::MAX);
@@ -1442,6 +1451,16 @@ impl Pico8<'_, '_> {
         }
     }
 
+    pub fn place(&self, name: &str) -> Option<Vec2> {
+        for (place, transform) in &self.places {
+            if place.0 == name {
+                let mut r = transform.translation().xy();
+                r.y *= -1.0;
+                return Some(r);
+            }
+        }
+        None
+    }
 
     #[cfg(feature = "level")]
     /// Get properties
@@ -1643,6 +1662,7 @@ pub(crate) fn plugin(app: &mut App) {
     app.init_asset::<Pico8State>()
         .init_resource::<Pico8State>()
         .init_resource::<PlayerInputs>()
+        .register_type::<Place>()
         .register_type::<Cover>()
         .register_type::<P8Flags>()
         .add_systems(

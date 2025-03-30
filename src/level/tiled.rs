@@ -1,4 +1,4 @@
-use crate::{level, pico8::{self, PropBy, Cover}};
+use crate::{level, pico8::{self, PropBy, Cover, Place}};
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
     ecs::system::{SystemParam, SystemState},
@@ -43,9 +43,9 @@ fn add_covers(
         for (layer_index, layer) in tiled_map.map.layers().enumerate() {
             match layer.layer_type() {
                 LayerType::Objects(object_layer) => {
-                    for (idx, object) in object_layer.objects().enumerate() {
+                    for (index, object) in object_layer.objects().enumerate() {
                         let idx = object.id();
-                        // let idx = idx as u32;
+                        // let idx = index as u32;
                         // let x = object.x;
                         // let y = object.y;
                         let x = 0.0;
@@ -71,6 +71,16 @@ fn add_covers(
                             }
                         };
                         if let Some(id) = storage.objects.get(&idx) {
+                            if let Some(place) = object.properties.get("place") {
+                                match place {
+                                    PropertyValue::StringValue(name) => {
+                                        commands.entity(*id).insert(Place(name.to_owned()));
+                                    }
+                                    x => {
+                                        warn!("Expected string value for place name not {x:?}");
+                                    }
+                                }
+                            }
                             // TODO: Make the 'flags' name configurable.
                             let flags = object.properties.get("flags")
                                 .and_then(|v| match v {
@@ -84,7 +94,7 @@ fn add_covers(
                                 },
                                 TiledLookup::Object {
                                     layer: layer_index as u32,
-                                    idx,
+                                    idx: index as u32,
                                     handle: Handle::Weak(event.asset_id.clone()),
                                 }
                             ));
@@ -376,16 +386,16 @@ fn shape_intersects(object: &tiled::ObjectData, tile_size: UVec2, rect: Rect) ->
 fn insert_object_fields(properties: &mut tiled::Properties, object: &tiled::Object) {
     properties.insert("x".to_owned(), tiled::PropertyValue::FloatValue(object.x));
     properties.insert("y".to_owned(), tiled::PropertyValue::FloatValue(object.y));
-    match object.shape {
-        tiled::ObjectShape::Rect { width, height } => {
-            properties.insert("width".to_owned(), tiled::PropertyValue::FloatValue(width));
-            properties.insert(
-                "height".to_owned(),
-                tiled::PropertyValue::FloatValue(height),
-            );
-        }
-        _ => {}
-    }
+    // match object.shape {
+    //     tiled::ObjectShape::Rect { width, height } => {
+    //         properties.insert("width".to_owned(), tiled::PropertyValue::FloatValue(width));
+    //         properties.insert(
+    //             "height".to_owned(),
+    //             tiled::PropertyValue::FloatValue(height),
+    //         );
+    //     }
+    //     _ => {}
+    // }
     properties.insert(
         "class".to_owned(),
         tiled::PropertyValue::StringValue(object.user_type.clone()),

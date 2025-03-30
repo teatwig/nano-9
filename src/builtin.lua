@@ -211,6 +211,15 @@ function stop(msg,x,y,color)
     debug_print("STOP NOT IMPLEMENTED")
 end
 
+function camera(x,y)
+    local v = _camera(x,y)
+    return v[1], v[2]
+end
+
+function xor(a, b)
+    return (a or b) and not (a and b)
+end
+
 cocreate = coroutine.create
 coresume = coroutine.resume
 costatus = coroutine.status

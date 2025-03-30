@@ -1,4 +1,5 @@
 use bevy::{
+    math::bounding::Aabb2d,
     asset::{embedded_asset, AssetPath},
     ecs::system::{SystemParam, SystemState},
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
@@ -32,6 +33,7 @@ use bevy_mod_scripting::{
 use rand::Rng;
 
 use crate::{
+    conversions::RectValue,
     cursor::Cursor,
     pico8::{
         audio::{Sfx, SfxChannels},
@@ -342,10 +344,15 @@ pub(crate) fn plugin(app: &mut App) {
             with_pico8(&ctx, move |pico8| Ok(pico8.rnd(value)))
         })
         .register(
-            "camera",
+            "_camera",
             |ctx: FunctionCallContext, x: Option<f32>, y: Option<f32>| {
                 with_pico8(&ctx, move |pico8| {
-                    Ok(pico8.camera(Vec2::new(x.unwrap_or(0.0), y.unwrap_or(0.0))))
+                    let arg = if let Some(x) = x {
+                        Some(Vec2::new(x, y.unwrap_or(0.0)))
+                    } else {
+                        None
+                    };
+                    Ok(pico8.camera(arg))
                 })
                 .map(|last_pos| (last_pos.x, last_pos.y))
             },
@@ -465,13 +472,19 @@ pub(crate) fn plugin(app: &mut App) {
             shape: Option<ScriptValue>,
             | {
             let pos = Vec2::new(x, y);
+            let shape = if let Some(v) = shape {
+                let Rect { min, max } = RectValue::from_script(v, ctx.world()?)?;
+                Some(Aabb2d { min, max })
+            } else {
+                None
+            };
             with_pico8(&ctx, move |pico8| {
                 // let ids: Vec<u64> = pico8
                 //    .ray(pos, dir, mask)
                 //    .into_iter()
                 //    .map(|id| id.to_bits()).collect();
                 let ids: Vec<i64> =  pico8
-                   .raydown(pos, mask, None)
+                   .raydown(pos, mask, shape)
                    .into_iter()
                     .map(|id| id.to_bits() as i64).collect();
                 Ok(ids)
@@ -489,11 +502,18 @@ pub(crate) fn plugin(app: &mut App) {
             | {
             let pos = Vec2::new(x, y);
             let dxdy = Vec2::new(dx, dy);
+                let world = ctx.world()?;
+            let shape = if let Some(v) = shape {
+                let Rect { min, max } = RectValue::from_script(v, ctx.world()?)?;
+                Some(Aabb2d { min, max })
+            } else {
+                None
+            };
             with_pico8(&ctx, move |pico8| {
                 // let dir = Dir2::new(dxdy).map_err(|_| Error::InvalidArgument("dx, dy direction".into()))?;
                 let Ok(dir) = Dir2::new(dxdy) else { return Ok(ScriptValue::Unit); };
                 let ids_dists: Vec<ScriptValue> = pico8
-                   .raycast(pos, dir, mask, None)
+                   .raycast(pos, dir, mask, shape)
                    .into_iter()
                    .flat_map(|(id, dist)|
                         [ScriptValue::Integer(id.to_bits() as i64), ScriptValue::Float(dist as f64)]
@@ -512,7 +532,19 @@ pub(crate) fn plugin(app: &mut App) {
              })
          },
     )
+        .register(
+        "place",
+        |ctx: FunctionCallContext,
+         name: String | {
+             with_pico8(&ctx, move |pico8| {
+                 Ok(pico8.place(&name).map(|v| {
+                     vec![v.x, v.y]
+                 }))
+             })
+         },
+    )
         ;
+
 }
 
 #[cfg(feature = "level")]
