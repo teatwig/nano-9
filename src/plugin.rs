@@ -261,16 +261,6 @@ pub fn send_init(
         call::Init,
         vec![ScriptValue::Unit],
     ));
-    // }
-    //     // events.send(
-    //     //     LuaEvent {
-    //     //         hook_name: "_init".to_owned(),
-    //     //         args: N9Args::new(),
-    //     //         recipients: Recipients::ScriptID(e.sid),
-    //     //     },
-    //     //     0,
-    //     // )
-    // }
 }
 
 /// Sends draw event
@@ -390,26 +380,15 @@ impl Plugin for Nano9Plugin {
         .add_systems(
             Update,
             (
-                (
-                    fill_input,
-                    (
-                        send_init.run_if(on_asset_change::<ScriptAsset>()),
-                        event_handler::<call::Init, LuaScriptingPlugin>,
-                    )
-                        .chain(),
-                    (
-                        send_update.run_if(in_state(ErrorState::None)),
-                        event_handler::<call::Update, LuaScriptingPlugin>,
-                    )
-                        .chain(),
-                    event_handler::<call::Eval, LuaScriptingPlugin>,
-                    // event_handler::<call::Update60, LuaScriptingPlugin>,
-                )
-                    .chain(),
+                fill_input,
+                send_init.run_if(on_asset_change::<ScriptAsset>()),
+                event_handler::<call::Init, LuaScriptingPlugin>,
+                send_update.run_if(in_state(ErrorState::None)),
+                event_handler::<call::Update, LuaScriptingPlugin>,
+                event_handler::<call::Eval, LuaScriptingPlugin>,
                 send_draw.run_if(in_state(ErrorState::None)),
                 event_handler::<call::Draw, LuaScriptingPlugin>,
-            )
-                .chain(),
+            ).chain(),
         );
 
         // bevy_ecs_ldtk will add this plugin, so let's not add that if it's present.

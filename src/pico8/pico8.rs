@@ -519,6 +519,16 @@ impl From<Radii> for UVec2 {
     }
 }
 
+/// Negates y IF the feature "negate-y" is enabled.
+#[inline]
+fn negate_y(y: f32) -> f32 {
+    if cfg!(feature = "negate-y") {
+        -y
+    } else {
+        y
+    }
+}
+
 impl Pico8<'_, '_> {
     #[allow(dead_code)]
     pub fn load_cart(&mut self, cart: Handle<Cart>) {
@@ -555,7 +565,7 @@ impl Pico8<'_, '_> {
             .spawn((
                 Name::new("spr"),
                 sprite,
-                Transform::from_xyz(x as f32, -y as f32, clearable.suggest_z()),
+                Transform::from_xyz(x, negate_y(y), clearable.suggest_z()),
                 clearable,
             ))
             .id())
@@ -565,7 +575,7 @@ impl Pico8<'_, '_> {
     pub fn spr(
         &mut self,
         spr: impl Into<Spr>,
-        pos: IVec2,
+        pos: Vec2,
         size: Option<Vec2>,
         flip: Option<BVec2>,
     ) -> Result<Entity, Error> {
@@ -604,7 +614,7 @@ impl Pico8<'_, '_> {
             .spawn((
                 Name::new("spr"),
                 sprite,
-                Transform::from_xyz(x as f32, -y as f32, clearable.suggest_z()),
+                Transform::from_xyz(x, negate_y(y), clearable.suggest_z()),
                 clearable,
             ))
             .id())
@@ -654,12 +664,12 @@ impl Pico8<'_, '_> {
 
     pub fn rectfill(
         &mut self,
-        upper_left: UVec2,
-        lower_right: UVec2,
+        upper_left: Vec2,
+        lower_right: Vec2,
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
-        let size = (lower_right - upper_left) + UVec2::ONE;
+        let size = (lower_right - upper_left) + Vec2::ONE;
         let clearable = Clearable::default();
         let id = self
             .commands
@@ -668,12 +678,12 @@ impl Pico8<'_, '_> {
                 Sprite {
                     color: c,
                     anchor: Anchor::TopLeft,
-                    custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
+                    custom_size: Some(size),
                     ..default()
                 },
                 Transform::from_xyz(
-                    upper_left.x as f32,
-                    -(upper_left.y as f32),
+                    upper_left.x,
+                    negate_y(upper_left.y),
                     clearable.suggest_z(),
                 ),
                 clearable,
@@ -684,12 +694,12 @@ impl Pico8<'_, '_> {
 
     pub fn rect(
         &mut self,
-        upper_left: UVec2,
-        lower_right: UVec2,
+        upper_left: Vec2,
+        lower_right: Vec2,
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
-        let size = (lower_right - upper_left) + UVec2::ONE;
+        let size = (lower_right - upper_left) + Vec2::ONE;
         let clearable = Clearable::default();
         let id = self
             .commands
@@ -699,7 +709,7 @@ impl Pico8<'_, '_> {
                     image: self.state.border.clone(),
                     color: c,
                     anchor: Anchor::TopLeft,
-                    custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
+                    custom_size: Some(size),
                     image_mode: SpriteImageMode::Sliced(TextureSlicer {
                         border: BorderRect::square(1.0),
                         center_scale_mode: SliceScaleMode::Stretch,
@@ -709,8 +719,8 @@ impl Pico8<'_, '_> {
                     ..default()
                 },
                 Transform::from_xyz(
-                    upper_left.x as f32,
-                    -(upper_left.y as f32),
+                    upper_left.x,
+                    negate_y(upper_left.y),
                     clearable.suggest_z(),
                 ),
                 clearable,
@@ -728,7 +738,9 @@ impl Pico8<'_, '_> {
         map_index: Option<usize>,
     ) -> Result<Entity, Error> {
         let map_index = map_index.unwrap_or(0);
-        screen_start.y = -screen_start.y;
+        if cfg!(feature = "negate-y") {
+            screen_start.y = -screen_start.y;
+        }
         match self
             .state
             .maps
@@ -794,7 +806,7 @@ impl Pico8<'_, '_> {
         self.commands
             .spawn((
                 Name::new("print"),
-                Transform::from_xyz(pos.x as f32, -(pos.y as f32), z),
+                Transform::from_xyz(pos.x, negate_y(pos.y), z),
                 Visibility::default(),
                 clearable,
             ))
@@ -805,7 +817,7 @@ impl Pico8<'_, '_> {
                     // higher. So we can't let bevy render it one go. Bummer.
                     builder.spawn((
                         Text2d::new(line),
-                        Transform::from_xyz(0.0, -(y as f32), z),
+                        Transform::from_xyz(0.0, negate_y(y), z),
                         TextColor(c),
                         TextFont {
                             font: self.state.font.handle.clone(),
@@ -1071,7 +1083,7 @@ impl Pico8<'_, '_> {
                     // }),
                     ..default()
                 },
-                Transform::from_xyz(min.x as f32, -(min.y as f32), clearable.suggest_z()),
+                Transform::from_xyz(min.x as f32, negate_y(min.y as f32), clearable.suggest_z()),
                 clearable,
             ))
             .id();
@@ -1160,7 +1172,7 @@ impl Pico8<'_, '_> {
                     // }),
                     ..default()
                 },
-                Transform::from_xyz(pos.x as f32, -(pos.y as f32), clearable.suggest_z()),
+                Transform::from_xyz(pos.x as f32, negate_y(pos.y as f32), clearable.suggest_z()),
                 clearable,
             ))
             .id();
@@ -1233,7 +1245,7 @@ impl Pico8<'_, '_> {
                     // }),
                     ..default()
                 },
-                Transform::from_xyz(pos.x as f32, -(pos.y as f32), clearable.suggest_z()),
+                Transform::from_xyz(pos.x as f32, negate_y(pos.y as f32), clearable.suggest_z()),
                 clearable,
             ))
             .id();
@@ -1302,7 +1314,7 @@ impl Pico8<'_, '_> {
                 },
                 Transform::from_xyz(
                     upper_left.x as f32,
-                    -(upper_left.y as f32),
+                    negate_y(upper_left.y as f32),
                     clearable.suggest_z(),
                 ),
                 clearable,
@@ -1376,7 +1388,7 @@ impl Pico8<'_, '_> {
                 },
                 Transform::from_xyz(
                     upper_left.x as f32,
-                    -(upper_left.y as f32),
+                    negate_y(upper_left.y as f32),
                     clearable.suggest_z(),
                 ),
                 clearable,
@@ -1386,7 +1398,7 @@ impl Pico8<'_, '_> {
     }
 
     pub fn raydown(&self, mut pos: Vec2, mask: Option<u32>, shape: Option<Aabb2d>) -> Vec<Entity> {
-        pos.y *= -1.0;
+        pos.y = negate_y(pos.y);
         self.covers.iter().filter_map(|(id, cover, transform)| {
             if let Some(mask) = mask {
                 if cover.flags & mask == 0 {
@@ -1397,10 +1409,13 @@ impl Pico8<'_, '_> {
             // that parameter?
             let min = (*transform * cover.aabb.min.extend(0.0)).xy();
             // let min = cover.aabb.min;
-            if let Some(shape) = shape {
+            if let Some(mut shape) = shape {
+                shape.min += pos;
+                shape.max += pos;
                 let max = (*transform * cover.aabb.max.extend(0.0)).xy();
                 let other = Aabb2d { min, max };
-                shape.intersects(&other).then_some(id)
+                dbg!(id);
+                dbg!(shape.intersects(&other).then_some(id))
             } else {
                 (min.x <= pos.x && min.y <= pos.y && {
                     let max = (*transform * cover.aabb.max.extend(0.0)).xy();
@@ -1414,10 +1429,12 @@ impl Pico8<'_, '_> {
     // Cast a "ray" either at pos or from pos in direction dir.
     pub fn raycast(&self, mut pos: Vec2, mut dir: Dir2, mask: Option<u32>, shape: Option<Aabb2d>) -> Vec<(Entity, f32)> {
         let mut v = dir.as_vec2();
-        v.y *= -1.0;
+        if cfg!(feature = "negate-y") {
+            v.y = -v.y;
+            pos.y = -pos.y;
+        }
         // dir = Dir2::new_unchecked(v);
         dir = Dir2::new(v).unwrap();
-        pos.y *= -1.0;
         if let Some(shape) = shape {
             let aabb_cast = AabbCast2d::new(shape, pos, dir, f32::MAX);
             self.covers.iter().filter_map(|(id, cover, transform)| {
@@ -1455,7 +1472,9 @@ impl Pico8<'_, '_> {
         for (place, transform) in &self.places {
             if place.0 == name {
                 let mut r = transform.translation().xy();
-                r.y *= -1.0;
+                if cfg!(feature = "negate-y") {
+                    r.y = -r.y;
+                }
                 return Some(r);
             }
         }
@@ -1687,8 +1706,8 @@ pub(crate) fn plugin(app: &mut App) {
              camera: Single<&mut Transform, With<Nano9Camera>>| {
                 let pos = trigger.event();
                 let mut camera = camera.into_inner();
-                camera.translation.x = pos.0.x as f32;
-                camera.translation.y = -(pos.0.y as f32);
+                camera.translation.x = pos.0.x;
+                camera.translation.y = negate_y(pos.0.y);
             },
         );
 }

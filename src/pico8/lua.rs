@@ -114,15 +114,15 @@ pub(crate) fn plugin(app: &mut App) {
         .register(
             "rectfill",
             |ctx: FunctionCallContext,
-             x0: u32,
-             y0: u32,
-             x1: u32,
-             y1: u32,
+             x0: f32,
+             y0: f32,
+             x1: f32,
+             y1: f32,
              color: Option<N9Color>| {
                 with_pico8(&ctx, |pico8| {
                     // We want to ignore out of bounds errors specifically but possibly not others.
                     // Ok(pico8.pset(x, y, color)?)
-                    let _ = pico8.rectfill(UVec2::new(x0, y0), UVec2::new(x1, y1), color);
+                    let _ = pico8.rectfill(Vec2::new(x0, y0), Vec2::new(x1, y1), color);
                     Ok(())
                 })
             },
@@ -130,15 +130,15 @@ pub(crate) fn plugin(app: &mut App) {
         .register(
             "rect",
             |ctx: FunctionCallContext,
-             x0: u32,
-             y0: u32,
-             x1: u32,
-             y1: u32,
+             x0: f32,
+             y0: f32,
+             x1: f32,
+             y1: f32,
              color: Option<N9Color>| {
                 with_pico8(&ctx, |pico8| {
                     // We want to ignore out of bounds errors specifically but possibly not others.
                     // Ok(pico8.pset(x, y, color)?)
-                    let _ = pico8.rect(UVec2::new(x0, y0), UVec2::new(x1, y1), color);
+                    let _ = pico8.rect(Vec2::new(x0, y0), Vec2::new(x1, y1), color);
                     Ok(())
                 })
             },
@@ -185,9 +185,9 @@ pub(crate) fn plugin(app: &mut App) {
              h: Option<f32>,
              flip_x: Option<bool>,
              flip_y: Option<bool>| {
-                let pos = IVec2::new(
-                    x.map(|a| a.round() as i32).unwrap_or(0),
-                    y.map(|a| a.round() as i32).unwrap_or(0),
+                let pos = Vec2::new(
+                    x.unwrap_or(0.0),
+                    y.unwrap_or(0.0),
                 );
                 let flip = (flip_x.is_some() || flip_y.is_some())
                     .then(|| BVec2::new(flip_x.unwrap_or(false), flip_y.unwrap_or(false)));
