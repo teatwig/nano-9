@@ -4,9 +4,9 @@ use bevy_ecs_tiled::{prelude::*, TiledMapPluginConfig};
 use bevy_ecs_tilemap::prelude::*;
 // pub mod ldtk;
 // use ldtk::*;
-pub(crate) mod tiled;
 pub(crate) mod asset;
 pub(crate) mod reader;
+pub(crate) mod tiled;
 
 #[derive(Debug, Clone)]
 pub enum Tiled {

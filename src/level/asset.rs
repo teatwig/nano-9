@@ -9,12 +9,12 @@ use tiled::ChunkData;
 #[cfg(feature = "user_properties")]
 use bevy_ecs_tiled::properties::load::DeserializedMapProperties;
 
+use crate::level::reader::BytesResourceReader;
 use bevy::{
     asset::{io::Reader, AssetLoader, AssetPath, LoadContext, LoadedAsset},
     prelude::*,
     utils::HashMap,
 };
-use crate::level::reader::BytesResourceReader;
 
 use bevy_ecs_tilemap::prelude::*;
 
@@ -51,11 +51,13 @@ impl AssetLoader for TiledSetLoader {
             let mut loader = tiled::Loader::with_cache_and_reader(
                 tiled::DefaultResourceCache::new(),
                 BytesResourceReader::new(&bytes, load_context),
-
             );
             // Load the tile set.
             loader.load_tsx_tileset(&tileset_path).map_err(|e| {
-                std::io::Error::new(ErrorKind::Other, format!("Could not load TSX tile set: {e}"))
+                std::io::Error::new(
+                    ErrorKind::Other,
+                    format!("Could not load TSX tile set: {e}"),
+                )
             })?
         };
         Ok(TiledSet(tileset))

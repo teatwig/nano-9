@@ -388,7 +388,8 @@ impl Plugin for Nano9Plugin {
                 event_handler::<call::Eval, LuaScriptingPlugin>,
                 send_draw.run_if(in_state(ErrorState::None)),
                 event_handler::<call::Draw, LuaScriptingPlugin>,
-            ).chain(),
+            )
+                .chain(),
         );
 
         // bevy_ecs_ldtk will add this plugin, so let's not add that if it's present.

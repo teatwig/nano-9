@@ -1,4 +1,7 @@
-use crate::{level, pico8::{self, PropBy, Cover, Place}};
+use crate::{
+    level,
+    pico8::{self, Cover, Place, PropBy},
+};
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
     ecs::system::{SystemParam, SystemState},
@@ -7,20 +10,23 @@ use bevy::{
 };
 use bevy_ecs_tiled::{
     map::components::TiledMapStorage,
-    prelude::{TiledMap, TiledMapHandle, TiledMapMarker, TiledMapObject, TiledMapCreated},
+    prelude::{TiledMap, TiledMapCreated, TiledMapHandle, TiledMapMarker, TiledMapObject},
 };
 use std::{io::ErrorKind, path::Path};
 use tiled::{LayerType, PropertyValue, Tileset};
 
 pub(crate) fn plugin(app: &mut App) {
-    app
-        .register_type::<TiledLookup>()
+    app.register_type::<TiledLookup>()
         .add_systems(Update, add_covers);
 }
 
 #[derive(Debug, Component, Reflect)]
 pub enum TiledLookup {
-    Object { layer: u32, idx: u32, handle: Handle<TiledMap> },
+    Object {
+        layer: u32,
+        idx: u32,
+        handle: Handle<TiledMap>,
+    },
 }
 
 fn add_covers(
@@ -51,7 +57,7 @@ fn add_covers(
                         let x = 0.0;
                         let y = 0.0;
                         let aabb = match object.shape {
-                            tiled::ObjectShape::Rect { width, height } =>
+                            tiled::ObjectShape::Rect { width, height } => {
                                 if object.get_tile().is_some() {
                                     Aabb2d {
                                         min: Vec2::new(x, y),
@@ -62,7 +68,8 @@ fn add_covers(
                                         min: Vec2::new(x, y - height),
                                         max: Vec2::new(x + width, y),
                                     }
-                                },
+                                }
+                            }
                             // tiled::ObjectShape::Point(x, y) => {
                             //     info!("point object {}", object.name);
                             // },
@@ -82,21 +89,21 @@ fn add_covers(
                                 }
                             }
                             // TODO: Make the 'flags' name configurable.
-                            let flags = object.properties.get("flags")
+                            let flags = object
+                                .properties
+                                .get("flags")
                                 .and_then(|v| match v {
                                     PropertyValue::IntValue(v) => Some(*v as u32),
-                                    _ => None
-                                }).unwrap_or(0);
+                                    _ => None,
+                                })
+                                .unwrap_or(0);
                             commands.entity(*id).insert((
-                                Cover {
-                                    aabb,
-                                    flags,
-                                },
+                                Cover { aabb, flags },
                                 TiledLookup::Object {
                                     layer: layer_index as u32,
                                     idx: index as u32,
                                     handle: Handle::Weak(event.asset_id.clone()),
-                                }
+                                },
                             ));
                         } else {
                             warn!("No entity for object {} id {}", object.name, object.id());
@@ -126,38 +133,38 @@ impl<'w, 's> Level<'w, 's> {
         layer_index: Option<usize>,
     ) -> Option<usize> {
         match map {
-            level::Tiled::Map { handle } => {
-        self.tiled_maps.get(handle).and_then(|tiled_map| {
-            tiled_map
-                .map
-                .get_layer(layer_index.unwrap_or(0))
-                .and_then(|layer| {
-                    let tile_size = UVec2::new(tiled_map.map.tile_width, tiled_map.map.tile_width);
-                    match layer.layer_type() {
-                        tiled::LayerType::Tiles(tile_layer) => tile_layer
-                            .get_tile(pos.x as i32, pos.y as i32)
-                            .map(|layer_tile| layer_tile.id() as usize),
-                        tiled::LayerType::Objects(object_layer) => {
-                            let mut result = None;
-                            let posf = pos * tile_size.as_vec2();
-                            for object in object_layer.objects() {
-                                if shape_contains(&object, tile_size, posf) {
-                                    result = object.properties.get("p8flags").and_then(|value| {
-                                        match value {
-                                            PropertyValue::IntValue(i) => Some(*i as usize),
-                                            _ => None,
-                                        }
-                                    });
-                                    break;
+            level::Tiled::Map { handle } => self.tiled_maps.get(handle).and_then(|tiled_map| {
+                tiled_map
+                    .map
+                    .get_layer(layer_index.unwrap_or(0))
+                    .and_then(|layer| {
+                        let tile_size =
+                            UVec2::new(tiled_map.map.tile_width, tiled_map.map.tile_width);
+                        match layer.layer_type() {
+                            tiled::LayerType::Tiles(tile_layer) => tile_layer
+                                .get_tile(pos.x as i32, pos.y as i32)
+                                .map(|layer_tile| layer_tile.id() as usize),
+                            tiled::LayerType::Objects(object_layer) => {
+                                let mut result = None;
+                                let posf = pos * tile_size.as_vec2();
+                                for object in object_layer.objects() {
+                                    if shape_contains(&object, tile_size, posf) {
+                                        result =
+                                            object.properties.get("p8flags").and_then(|value| {
+                                                match value {
+                                                    PropertyValue::IntValue(i) => Some(*i as usize),
+                                                    _ => None,
+                                                }
+                                            });
+                                        break;
+                                    }
                                 }
+                                result
                             }
-                            result
+                            _ => None,
                         }
-                        _ => None,
-                    }
-                })
-        })
-            }
+                    })
+            }),
             level::Tiled::World { handle } => {
                 todo!()
             }
@@ -171,69 +178,66 @@ impl<'w, 's> Level<'w, 's> {
         map_index: Option<usize>,
         layer_index: Option<usize>,
     ) -> Option<tiled::Properties> {
-
         match map {
-            level::Tiled::Map { handle } => {
-        self.tiled_maps.get(handle).and_then(|tiled_map| {
-            let tile_size = UVec2::new(tiled_map.map.tile_width, tiled_map.map.tile_width);
-            tiled_map
-                .map
-                .get_layer(layer_index.unwrap_or(0))
-                .and_then(|layer| match layer.layer_type() {
-                    tiled::LayerType::Tiles(tile_layer) => match prop_by {
-                        PropBy::Pos(pos) => tile_layer
-                            .get_tile(pos.x as i32, pos.y as i32)
-                            .and_then(|layer_tile| {
-                                layer_tile.get_tile().map(|tile| tile.properties.clone())
-                            }),
-                        PropBy::Name(name) => {
-                            warn!("Cannot look up by name {name:?} on a tile layer.");
-                            None
-                        }
-                        PropBy::Rect(_) => {
-                            warn!("Cannot look up by rect");
-                            None
-                        }
-                    },
-                    tiled::LayerType::Objects(object_layer) => match prop_by {
-                        PropBy::Pos(pos) => {
-                            let posf = pos * tile_size.as_vec2();
-                            for object in object_layer.objects() {
-                                if shape_contains(&object, tile_size, posf) {
-                                    let mut properties = object.properties.clone();
+            level::Tiled::Map { handle } => self.tiled_maps.get(handle).and_then(|tiled_map| {
+                let tile_size = UVec2::new(tiled_map.map.tile_width, tiled_map.map.tile_width);
+                tiled_map
+                    .map
+                    .get_layer(layer_index.unwrap_or(0))
+                    .and_then(|layer| match layer.layer_type() {
+                        tiled::LayerType::Tiles(tile_layer) => match prop_by {
+                            PropBy::Pos(pos) => tile_layer
+                                .get_tile(pos.x as i32, pos.y as i32)
+                                .and_then(|layer_tile| {
+                                    layer_tile.get_tile().map(|tile| tile.properties.clone())
+                                }),
+                            PropBy::Name(name) => {
+                                warn!("Cannot look up by name {name:?} on a tile layer.");
+                                None
+                            }
+                            PropBy::Rect(_) => {
+                                warn!("Cannot look up by rect");
+                                None
+                            }
+                        },
+                        tiled::LayerType::Objects(object_layer) => match prop_by {
+                            PropBy::Pos(pos) => {
+                                let posf = pos * tile_size.as_vec2();
+                                for object in object_layer.objects() {
+                                    if shape_contains(&object, tile_size, posf) {
+                                        let mut properties = object.properties.clone();
 
-                                    insert_object_fields(&mut properties, &object);
-                                    return Some(properties);
+                                        insert_object_fields(&mut properties, &object);
+                                        return Some(properties);
+                                    }
                                 }
+                                None
                             }
-                            None
-                        }
-                        PropBy::Rect(rect) => {
-                            for object in object_layer.objects() {
-                                if shape_intersects(&object, tile_size, rect) {
-                                    let mut properties = object.properties.clone();
+                            PropBy::Rect(rect) => {
+                                for object in object_layer.objects() {
+                                    if shape_intersects(&object, tile_size, rect) {
+                                        let mut properties = object.properties.clone();
 
-                                    insert_object_fields(&mut properties, &object);
-                                    return Some(properties);
+                                        insert_object_fields(&mut properties, &object);
+                                        return Some(properties);
+                                    }
                                 }
+                                None
                             }
-                            None
-                        }
-                        PropBy::Name(name) => {
-                            for object in object_layer.objects() {
-                                if object.name == name {
-                                    let mut properties = object.properties.clone();
-                                    insert_object_fields(&mut properties, &object);
-                                    return Some(properties);
+                            PropBy::Name(name) => {
+                                for object in object_layer.objects() {
+                                    if object.name == name {
+                                        let mut properties = object.properties.clone();
+                                        insert_object_fields(&mut properties, &object);
+                                        return Some(properties);
+                                    }
                                 }
+                                None
                             }
-                            None
-                        }
-                    },
-                    _ => None,
-                })
-        })
-            }
+                        },
+                        _ => None,
+                    })
+            }),
             level::Tiled::World { handle } => {
                 // todo!()
                 None
@@ -249,71 +253,78 @@ impl<'w, 's> Level<'w, 's> {
         map_index: Option<usize>,
         layer_index: Option<usize>,
     ) -> Result<(), pico8::Error> {
-
         match map {
             level::Tiled::Map { handle } => {
-        self.tiled_maps
-            .get(handle)
-            .ok_or(pico8::Error::NoSuch("map".into()))
-            .and_then(|tiled_map| {
-                let tile_size = UVec2::new(tiled_map.map.tile_width, tiled_map.map.tile_width);
-                tiled_map
-                    .map
-                    .get_layer(layer_index.unwrap_or(0))
-                    .ok_or(pico8::Error::NoSuch("layer".into()))
-                    .and_then(|layer| {
-                        match layer.layer_type() {
-                            tiled::LayerType::Tiles(tile_layer) => {
-                                // tile_layer.get_tile(pos.x as i32, pos.y as i32)
-                                //           .and_then(|layer_tile| layer_tile.get_tile().map(|tile| tile.properties.clone()))
-                                Ok(())
-                            }
-                            tiled::LayerType::Objects(object_layer) => {
-                                let posf = pos * tile_size.as_vec2();
-                                for object in object_layer.objects() {
-                                    if shape_contains(&object, tile_size, posf) {
-                                        let mut sprite_id = None;
-                                        for (tiled_id_storage, handle) in &self.tiled_id_storage {
-                                            if handle.0 == handle.0 {
-                                                // This is probably the one.
-                                                if let Some(id) =
-                                                    tiled_id_storage.objects.get(&object.id())
+                self.tiled_maps
+                    .get(handle)
+                    .ok_or(pico8::Error::NoSuch("map".into()))
+                    .and_then(|tiled_map| {
+                        let tile_size =
+                            UVec2::new(tiled_map.map.tile_width, tiled_map.map.tile_width);
+                        tiled_map
+                            .map
+                            .get_layer(layer_index.unwrap_or(0))
+                            .ok_or(pico8::Error::NoSuch("layer".into()))
+                            .and_then(|layer| {
+                                match layer.layer_type() {
+                                    tiled::LayerType::Tiles(tile_layer) => {
+                                        // tile_layer.get_tile(pos.x as i32, pos.y as i32)
+                                        //           .and_then(|layer_tile| layer_tile.get_tile().map(|tile| tile.properties.clone()))
+                                        Ok(())
+                                    }
+                                    tiled::LayerType::Objects(object_layer) => {
+                                        let posf = pos * tile_size.as_vec2();
+                                        for object in object_layer.objects() {
+                                            if shape_contains(&object, tile_size, posf) {
+                                                let mut sprite_id = None;
+                                                for (tiled_id_storage, handle) in
+                                                    &self.tiled_id_storage
                                                 {
-                                                    sprite_id = Some(id);
+                                                    if handle.0 == handle.0 {
+                                                        // This is probably the one.
+                                                        if let Some(id) = tiled_id_storage
+                                                            .objects
+                                                            .get(&object.id())
+                                                        {
+                                                            sprite_id = Some(id);
+                                                        }
+                                                    }
                                                 }
+                                                return if let Some(id) = sprite_id {
+                                                    self.sprites
+                                                        .get_mut(*id)
+                                                        .map_err(|_| {
+                                                            pico8::Error::NoSuch(
+                                                                "object sprite".into(),
+                                                            )
+                                                        })
+                                                        .and_then(|mut sprite| {
+                                                            if let Some(ref mut atlas) =
+                                                                &mut sprite.texture_atlas
+                                                            {
+                                                                atlas.index = sprite_index;
+                                                                Ok(())
+                                                            } else {
+                                                                Err(pico8::Error::NoSuch(
+                                                                    "sprite atlas".into(),
+                                                                ))
+                                                            }
+                                                        })
+                                                } else {
+                                                    Err(pico8::Error::NoSuch(
+                                                        "sprite entity".into(),
+                                                    ))
+                                                };
                                             }
                                         }
-                                        return if let Some(id) = sprite_id {
-                                            self.sprites
-                                                .get_mut(*id)
-                                                .map_err(|_| {
-                                                    pico8::Error::NoSuch("object sprite".into())
-                                                })
-                                                .and_then(|mut sprite| {
-                                                    if let Some(ref mut atlas) =
-                                                        &mut sprite.texture_atlas
-                                                    {
-                                                        atlas.index = sprite_index;
-                                                        Ok(())
-                                                    } else {
-                                                        Err(pico8::Error::NoSuch(
-                                                            "sprite atlas".into(),
-                                                        ))
-                                                    }
-                                                })
-                                        } else {
-                                            Err(pico8::Error::NoSuch("sprite entity".into()))
-                                        };
+                                        Err(pico8::Error::NoSuch("tile".into()))
                                     }
+                                    _ => Err(pico8::Error::Unsupported(
+                                        "setting tile and object layers in map".into(),
+                                    )),
                                 }
-                                Err(pico8::Error::NoSuch("tile".into()))
-                            }
-                            _ => Err(pico8::Error::Unsupported(
-                                "setting tile and object layers in map".into(),
-                            )),
-                        }
+                            })
                     })
-            })
             }
             level::Tiled::World { handle } => {
                 todo!()
@@ -323,18 +334,31 @@ impl<'w, 's> Level<'w, 's> {
 
     // Return the properties for an entity that has a `TiledLookup` component.
     pub fn props(&self, id: Entity) -> Result<tiled::Properties, pico8::Error> {
-        let tiled_lookup = self.tiled_lookups.get(id).map_err(|_| pico8::Error::NoSuch("TiledLookup".into()))?;
+        let tiled_lookup = self
+            .tiled_lookups
+            .get(id)
+            .map_err(|_| pico8::Error::NoSuch("TiledLookup".into()))?;
         match tiled_lookup {
             TiledLookup::Object { layer, idx, handle } => {
-                let tiled_map = self.tiled_maps.get(handle).ok_or(pico8::Error::NoSuch("TiledMap".into()))?;
-                let layer = tiled_map.map.get_layer(*layer as usize).ok_or(pico8::Error::NoSuch("layer".into()))?;
-                let object_layer = layer.as_object_layer().ok_or(pico8::Error::NoSuch("layer as object layer".into()))?;
-                let object = object_layer.get_object(*idx as usize).ok_or(pico8::Error::NoSuch("object".into()))?;
+                let tiled_map = self
+                    .tiled_maps
+                    .get(handle)
+                    .ok_or(pico8::Error::NoSuch("TiledMap".into()))?;
+                let layer = tiled_map
+                    .map
+                    .get_layer(*layer as usize)
+                    .ok_or(pico8::Error::NoSuch("layer".into()))?;
+                let object_layer = layer
+                    .as_object_layer()
+                    .ok_or(pico8::Error::NoSuch("layer as object layer".into()))?;
+                let object = object_layer
+                    .get_object(*idx as usize)
+                    .ok_or(pico8::Error::NoSuch("object".into()))?;
                 let mut properties = object.properties.clone();
                 insert_object_fields(&mut properties, &object);
                 Ok(properties)
             }
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 }
@@ -407,7 +431,8 @@ fn insert_object_fields(properties: &mut tiled::Properties, object: &tiled::Obje
     );
     properties.insert(
         "tile".to_owned(),
-        tiled::PropertyValue::BoolValue(object.get_tile().is_some()));
+        tiled::PropertyValue::BoolValue(object.get_tile().is_some()),
+    );
 }
 
 pub(crate) fn layout_from_tileset(tileset: &Tileset) -> TextureAtlasLayout {

@@ -18,7 +18,7 @@ use bevy_mod_scripting::{
 };
 
 use bevy::prelude::*;
-use std::{any::TypeId, sync::Arc, borrow::Borrow, hash::Hash, fmt::Display, collections::HashMap};
+use std::{any::TypeId, borrow::Borrow, collections::HashMap, fmt::Display, hash::Hash, sync::Arc};
 
 fn script_value_to_f32(value: &ScriptValue) -> Option<f32> {
     match value {
@@ -38,7 +38,7 @@ impl FromScript for f32Value {
         match value {
             ScriptValue::Float(f) => Ok(f as f32),
             ScriptValue::Integer(i) => Ok(i as f32),
-            x => Err(InteropError::value_mismatch(TypeId::of::<f32>(), x))
+            x => Err(InteropError::value_mismatch(TypeId::of::<f32>(), x)),
         }
     }
 }
@@ -72,16 +72,22 @@ impl FromScript for Vec2Value {
     }
 }
 
-fn getr<'a, K,V,Q>(map: &'a HashMap<K, V>, k: &Q) -> Result<&'a V, InteropError>
-where K: Borrow<Q> + Hash + Eq,
-Q: Hash + Eq + ?Sized + Display, {
-    map.get(k).ok_or_else(|| InteropError::string_type_mismatch(k.to_string(), None))
+fn getr<'a, K, V, Q>(map: &'a HashMap<K, V>, k: &Q) -> Result<&'a V, InteropError>
+where
+    K: Borrow<Q> + Hash + Eq,
+    Q: Hash + Eq + ?Sized + Display,
+{
+    map.get(k)
+        .ok_or_else(|| InteropError::string_type_mismatch(k.to_string(), None))
 }
 
-fn remover<'a, K,V,Q>(map: &'a mut HashMap<K, V>, k: &Q) -> Result<V, InteropError>
-where K: Borrow<Q> + Hash + Eq,
-Q: Hash + Eq + ?Sized + Display, {
-    map.remove(k).ok_or_else(|| InteropError::string_type_mismatch(k.to_string(), None))
+fn remover<'a, K, V, Q>(map: &'a mut HashMap<K, V>, k: &Q) -> Result<V, InteropError>
+where
+    K: Borrow<Q> + Hash + Eq,
+    Q: Hash + Eq + ?Sized + Display,
+{
+    map.remove(k)
+        .ok_or_else(|| InteropError::string_type_mismatch(k.to_string(), None))
 }
 
 pub struct RectValue;

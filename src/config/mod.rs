@@ -1,6 +1,6 @@
 #[cfg(feature = "level")]
 use crate::level::{self, tiled::*};
-use crate::{call, pico8, level::asset::TiledSet};
+use crate::{call, level::asset::TiledSet, pico8};
 use bevy::{
     asset::{embedded_asset, io::AssetSourceId, io::Reader, AssetLoader, AssetPath, LoadContext},
     image::{ImageLoaderSettings, ImageSampler},

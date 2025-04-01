@@ -1,8 +1,8 @@
 use bevy::{
-    math::bounding::Aabb2d,
     asset::{embedded_asset, AssetPath},
     ecs::system::{SystemParam, SystemState},
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
+    math::bounding::Aabb2d,
     prelude::*,
     render::{
         render_asset::RenderAssetUsages,
@@ -185,10 +185,7 @@ pub(crate) fn plugin(app: &mut App) {
              h: Option<f32>,
              flip_x: Option<bool>,
              flip_y: Option<bool>| {
-                let pos = Vec2::new(
-                    x.unwrap_or(0.0),
-                    y.unwrap_or(0.0),
-                );
+                let pos = Vec2::new(x.unwrap_or(0.0), y.unwrap_or(0.0));
                 let flip = (flip_x.is_some() || flip_y.is_some())
                     .then(|| BVec2::new(flip_x.unwrap_or(false), flip_y.unwrap_or(false)));
                 let size = w
@@ -245,8 +242,8 @@ pub(crate) fn plugin(app: &mut App) {
              y: Option<f32>,
              c: Option<N9Color>| {
                 with_pico8(&ctx, move |pico8| {
-                    let pos = x
-                        .map(|x| Vec2::new(x, y.unwrap_or(pico8.state.draw_state.print_cursor.y)));
+                    let pos =
+                        x.map(|x| Vec2::new(x, y.unwrap_or(pico8.state.draw_state.print_cursor.y)));
                     pico8.print(text.as_deref().unwrap_or(""), pos, c)
                 })
             },
@@ -449,115 +446,105 @@ pub(crate) fn plugin(app: &mut App) {
     #[cfg(feature = "level")]
     NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
         .register(
-        "mgetp",
-        |ctx: FunctionCallContext,
-         prop_by: ScriptValue,
-         map_index: Option<usize>,
-         layer_index: Option<usize>| {
-            let prop_by = PropBy::from_script(prop_by, ctx.world()?)?;
-            with_pico8(&ctx, move |pico8| {
-                Ok(pico8
-                    .mgetp(prop_by, map_index, layer_index)
-                    .map(|p| from_properties(&p)))
-            })
-        },
-    )
-
+            "mgetp",
+            |ctx: FunctionCallContext,
+             prop_by: ScriptValue,
+             map_index: Option<usize>,
+             layer_index: Option<usize>| {
+                let prop_by = PropBy::from_script(prop_by, ctx.world()?)?;
+                with_pico8(&ctx, move |pico8| {
+                    Ok(pico8
+                        .mgetp(prop_by, map_index, layer_index)
+                        .map(|p| from_properties(&p)))
+                })
+            },
+        )
         .register(
-        "raydown",
-        |ctx: FunctionCallContext,
-         x: f32,
-         y: f32,
-            mask: Option<u32>,
-            shape: Option<ScriptValue>,
-            | {
-            let pos = Vec2::new(x, y);
-            let shape = if let Some(v) = shape {
-                let Rect { min, max } = RectValue::from_script(v, ctx.world()?)?;
-                Some(Aabb2d { min, max })
-            } else {
-                None
-            };
+            "raydown",
+            |ctx: FunctionCallContext,
+             x: f32,
+             y: f32,
+             mask: Option<u32>,
+             shape: Option<ScriptValue>| {
+                let pos = Vec2::new(x, y);
+                let shape = if let Some(v) = shape {
+                    let Rect { min, max } = RectValue::from_script(v, ctx.world()?)?;
+                    Some(Aabb2d { min, max })
+                } else {
+                    None
+                };
+                with_pico8(&ctx, move |pico8| {
+                    // let ids: Vec<u64> = pico8
+                    //    .ray(pos, dir, mask)
+                    //    .into_iter()
+                    //    .map(|id| id.to_bits()).collect();
+                    let ids: Vec<i64> = pico8
+                        .raydown(pos, mask, shape)
+                        .into_iter()
+                        .map(|id| id.to_bits() as i64)
+                        .collect();
+                    Ok(ids)
+                })
+            },
+        )
+        .register(
+            "raycast",
+            |ctx: FunctionCallContext,
+             x: f32,
+             y: f32,
+             dx: f32,
+             dy: f32,
+             mask: Option<u32>,
+             shape: Option<ScriptValue>| {
+                let pos = Vec2::new(x, y);
+                let dxdy = Vec2::new(dx, dy);
+                let world = ctx.world()?;
+                let shape = if let Some(v) = shape {
+                    let Rect { min, max } = RectValue::from_script(v, ctx.world()?)?;
+                    Some(Aabb2d { min, max })
+                } else {
+                    None
+                };
+                with_pico8(&ctx, move |pico8| {
+                    // let dir = Dir2::new(dxdy).map_err(|_| Error::InvalidArgument("dx, dy direction".into()))?;
+                    let Ok(dir) = Dir2::new(dxdy) else {
+                        return Ok(ScriptValue::Unit);
+                    };
+                    let ids_dists: Vec<ScriptValue> = pico8
+                        .raycast(pos, dir, mask, shape)
+                        .into_iter()
+                        .flat_map(|(id, dist)| {
+                            [
+                                ScriptValue::Integer(id.to_bits() as i64),
+                                ScriptValue::Float(dist as f64),
+                            ]
+                        })
+                        .collect();
+                    Ok(ScriptValue::List(ids_dists))
+                })
+            },
+        )
+        .register("props", |ctx: FunctionCallContext, id: i64| {
+            let id = Entity::from_bits(id as u64);
             with_pico8(&ctx, move |pico8| {
-                // let ids: Vec<u64> = pico8
-                //    .ray(pos, dir, mask)
-                //    .into_iter()
-                //    .map(|id| id.to_bits()).collect();
-                let ids: Vec<i64> =  pico8
-                   .raydown(pos, mask, shape)
-                   .into_iter()
-                    .map(|id| id.to_bits() as i64).collect();
-                Ok(ids)
+                pico8.props(id).map(|p| from_properties(&p))
             })
         })
         .register(
-        "raycast",
-        |ctx: FunctionCallContext,
-         x: f32,
-         y: f32,
-        dx: f32,
-        dy: f32,
-            mask: Option<u32>,
-            shape: Option<ScriptValue>,
-            | {
-            let pos = Vec2::new(x, y);
-            let dxdy = Vec2::new(dx, dy);
-                let world = ctx.world()?;
-            let shape = if let Some(v) = shape {
-                let Rect { min, max } = RectValue::from_script(v, ctx.world()?)?;
-                Some(Aabb2d { min, max })
-            } else {
-                None
-            };
-            with_pico8(&ctx, move |pico8| {
-                // let dir = Dir2::new(dxdy).map_err(|_| Error::InvalidArgument("dx, dy direction".into()))?;
-                let Ok(dir) = Dir2::new(dxdy) else { return Ok(ScriptValue::Unit); };
-                let ids_dists: Vec<ScriptValue> = pico8
-                   .raycast(pos, dir, mask, shape)
-                   .into_iter()
-                   .flat_map(|(id, dist)|
-                        [ScriptValue::Integer(id.to_bits() as i64), ScriptValue::Float(dist as f64)]
-                   ).collect();
-                Ok(ScriptValue::List(ids_dists))
-            })
-        },
-    )
-        .register(
-        "props",
-        |ctx: FunctionCallContext,
-         id: i64 | {
-             let id = Entity::from_bits(id as u64);
-             with_pico8(&ctx, move |pico8| {
-                 pico8.props(id).map(|p| from_properties(&p))
-             })
-         },
-    )
-        .register(
             "sset",
-            |ctx: FunctionCallContext,
-             id: i64,
-             sprite_index: usize,
-             | {
-                 let id = Entity::from_bits(id as u64);
+            |ctx: FunctionCallContext, id: i64, sprite_index: usize| {
+                let id = Entity::from_bits(id as u64);
                 with_pico8(&ctx, move |pico8| {
                     pico8.sset(id, sprite_index);
                     Ok(())
                 })
             },
         )
-        .register(
-        "place",
-        |ctx: FunctionCallContext,
-         name: String | {
-             with_pico8(&ctx, move |pico8| {
-                 Ok(pico8.place(&name).map(|v| {
-                     vec![v.x, v.y]
-                 }))
-             })
-         },
-    )
-        ;
-
+        .register("place", |ctx: FunctionCallContext, name: String| {
+            with_pico8(&ctx, move |pico8| {
+                Ok(pico8.place(&name).map(|v| vec![v.x, v.y]))
+            })
+        });
 }
 
 #[cfg(feature = "level")]
