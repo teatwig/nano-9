@@ -1,8 +1,8 @@
 use bevy::{
     asset::{embedded_asset, AssetPath},
-    ecs::system::{SystemParam, SystemState},
+    ecs::system::SystemParam,
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
-    input::gamepad::{GamepadConnectionEvent, GamepadEvent},
+    input::gamepad::GamepadConnectionEvent,
     math::bounding::{Aabb2d, AabbCast2d, IntersectsVolume, RayCast2d},
     prelude::*,
     render::{
@@ -17,15 +17,8 @@ use bevy_mod_scripting::{
     core::{
         asset::{AssetPathToLanguageMapper, Language, ScriptAsset, ScriptAssetSettings},
         bindings::{
-            access_map::ReflectAccessId,
-            function::{
-                from::FromScript,
-                into_ref::IntoScriptRef,
-                namespace::{GlobalNamespace, NamespaceBuilder},
-                script_function::FunctionCallContext,
-            },
-            script_value::ScriptValue,
-            ReflectReference, WorldAccessGuard,
+            function::from::FromScript,
+            script_value::ScriptValue, WorldAccessGuard,
         },
         docgen::typed_through::{ThroughTypeInfo, TypedThrough},
         error::InteropError,
@@ -41,7 +34,7 @@ use crate::{
         audio::{Sfx, SfxChannels},
         Cart, ClearEvent, Clearable, LoadCart, Map,
     },
-    DrawState, DropPolicy, N9Canvas, N9Color, N9Entity, Nano9Camera,
+    DrawState, N9Canvas, N9Color, Nano9Camera,
 };
 
 use std::{
@@ -164,7 +157,7 @@ impl FromScript for Spr {
                 Spr::Cur { sprite: n as usize }
             } else {
                 Spr::Set {
-                    sheet: n.abs() as usize,
+                    sheet: n.unsigned_abs() as usize,
                 }
             }),
             ScriptValue::List(list) => {
@@ -355,7 +348,7 @@ pub(crate) fn fill_input(
             }
         }
     }
-    for (i, mut buttons) in player_inputs.iter_mut().enumerate() {
+    for (i, buttons) in player_inputs.iter_mut().enumerate() {
         buttons.last = buttons.curr;
         buttons.curr.fill(false);
 
@@ -483,9 +476,9 @@ impl FromScript for PropBy {
         _world: WorldAccessGuard<'_>,
     ) -> Result<Self::This<'_>, InteropError> {
         match value {
-            ScriptValue::String(n) => Ok(PropBy::Name(n.into())),
+            ScriptValue::String(n) => Ok(PropBy::Name(n)),
             ScriptValue::List(l) => {
-                let x = l.get(0).and_then(script_value_to_f32).unwrap_or(0.0);
+                let x = l.first().and_then(script_value_to_f32).unwrap_or(0.0);
                 let y = l.get(1).and_then(script_value_to_f32).unwrap_or(0.0);
                 Ok(PropBy::Pos(Vec2::new(x, y)))
             }
@@ -937,7 +930,7 @@ impl Pico8<'_, '_> {
         map_index: Option<usize>,
         layer_index: Option<usize>,
     ) -> Option<tiled::Properties> {
-        let map: &Map = &self.state.maps.get(map_index).expect("No such map");
+        let map: &Map = self.state.maps.get(map_index).expect("No such map");
         match *map {
             Map::P8(ref map) => None,
 
@@ -952,7 +945,7 @@ impl Pico8<'_, '_> {
         map_index: Option<usize>,
         layer_index: Option<usize>,
     ) -> Option<usize> {
-        let map: &Map = &self.state.maps.get(map_index).expect("No such map");
+        let map: &Map = self.state.maps.get(map_index).expect("No such map");
         match *map {
             Map::P8(ref map) => {
                 Some(map[(pos.x as u32 + pos.y as u32 * MAP_COLUMNS) as usize] as usize)
@@ -970,7 +963,7 @@ impl Pico8<'_, '_> {
         map_index: Option<usize>,
         layer_index: Option<usize>,
     ) -> Result<(), Error> {
-        let map: &mut Map = &mut self.state.maps.get_mut(map_index).expect("No such map");
+        let map: &mut Map = self.state.maps.get_mut(map_index).expect("No such map");
         match *map {
             Map::P8(ref mut map) => map
                 .get_mut((pos.x as u32 + pos.y as u32 * MAP_COLUMNS) as usize)
@@ -1015,14 +1008,14 @@ impl Pico8<'_, '_> {
     }
 
     pub fn camera(&mut self, pos: Option<Vec2>) -> Vec2 {
-        let last = if let Some(pos) = pos {
+        
+        if let Some(pos) = pos {
             let last = std::mem::replace(&mut self.state.draw_state.camera_position, pos);
             self.commands.trigger(UpdateCameraPos(pos));
             last
         } else {
             self.state.draw_state.camera_position
-        };
-        last
+        }
     }
 
     pub fn line(&mut self, a: IVec2, b: IVec2, color: Option<N9Color>) -> Result<Entity, Error> {
@@ -1031,7 +1024,7 @@ impl Pico8<'_, '_> {
         let delta = b - a;
         // let size = UVec2::new((a.x - b.x).abs() + 1,
         //                       (a.y - b.y).abs() + 1);
-        let size = UVec2::new(delta.x.abs() as u32, delta.y.abs() as u32) + UVec2::ONE;
+        let size = UVec2::new(delta.x.unsigned_abs(), delta.y.unsigned_abs()) + UVec2::ONE;
         // dbg!(a, b, size);
         let mut image = Image::new_fill(
             Extent3d {

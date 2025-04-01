@@ -1,24 +1,13 @@
-use bevy_mod_scripting::{
-    core::{
-        asset::{AssetPathToLanguageMapper, Language, ScriptAsset, ScriptAssetSettings},
+use bevy_mod_scripting::core::{
         bindings::{
-            access_map::ReflectAccessId,
-            function::{
-                from::FromScript,
-                into_ref::IntoScriptRef,
-                namespace::{GlobalNamespace, NamespaceBuilder},
-                script_function::FunctionCallContext,
-            },
-            script_value::ScriptValue,
-            ReflectReference, WorldAccessGuard,
+            function::from::FromScript,
+            script_value::ScriptValue, WorldAccessGuard,
         },
         error::InteropError,
-    },
-    lua::mlua::prelude::LuaError,
-};
+    };
 
 use bevy::prelude::*;
-use std::{any::TypeId, borrow::Borrow, collections::HashMap, fmt::Display, hash::Hash, sync::Arc};
+use std::{any::TypeId, borrow::Borrow, collections::HashMap, fmt::Display, hash::Hash};
 
 fn script_value_to_f32(value: &ScriptValue) -> Option<f32> {
     match value {
@@ -81,7 +70,7 @@ where
         .ok_or_else(|| InteropError::string_type_mismatch(k.to_string(), None))
 }
 
-fn remover<'a, K, V, Q>(map: &'a mut HashMap<K, V>, k: &Q) -> Result<V, InteropError>
+fn remover<K, V, Q>(map: &mut HashMap<K, V>, k: &Q) -> Result<V, InteropError>
 where
     K: Borrow<Q> + Hash + Eq,
     Q: Hash + Eq + ?Sized + Display,

@@ -292,7 +292,7 @@ impl Nano9Plugin {
                     .config
                     .name
                     .as_deref()
-                    .unwrap_or_else(|| "Nano-9")
+                    .unwrap_or("Nano-9")
                     .into(),
                 // Turn off vsync to maximize CPU/GPU usage
                 present_mode: PresentMode::AutoVsync,
@@ -344,7 +344,7 @@ impl Plugin for Nano9Plugin {
                     context.globals().set(
                         "_eval_string",
                         context.create_function(|ctx, arg: String| {
-                            Ok(ctx.load(format!("tostring({arg})")).eval::<String>()?)
+                            ctx.load(format!("tostring({arg})")).eval::<String>()
                         })?,
                     )?;
 

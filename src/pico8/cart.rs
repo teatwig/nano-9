@@ -1,7 +1,5 @@
 use crate::{
-    call, on_asset_change,
-    pico8::{audio::*, *},
-    send_init, DrawState,
+    pico8::{audio::*, *}, DrawState,
 };
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
@@ -12,10 +10,7 @@ use bevy::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
 };
-use bevy_mod_scripting::{
-    core::{asset::ScriptAsset, handler::event_handler},
-    lua::LuaScriptingPlugin,
-};
+use bevy_mod_scripting::core::asset::ScriptAsset;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -299,7 +294,7 @@ impl CartParts {
                         let c = line_bytes[j + 1] as char;
                         let low: u8 =
                             c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
-                        bytes[i] = high << 4 | low;
+                        bytes[i] = (high << 4) | low;
                         i += 1;
                         j += 2;
                     }
@@ -328,7 +323,7 @@ impl CartParts {
                         let c = line_bytes[j + 1] as char;
                         let low: u8 =
                             c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
-                        bytes[i] = high << 4 | low;
+                        bytes[i] = (high << 4) | low;
                         i += 1;
                         j += 2;
                     }
@@ -345,7 +340,7 @@ impl CartParts {
             if let Some(columns) = columns {
                 // let rows = lines.count() + 1;
                 for line in content.lines() {
-                    if line.len() == 0 {
+                    if line.is_empty() {
                         continue;
                     }
                     assert_eq!(columns, line.len());
@@ -355,7 +350,7 @@ impl CartParts {
                     let high: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
                     let c = line_bytes[j + 1] as char;
                     let low: u8 = c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
-                    let lead_byte = high << 4 | low;
+                    let lead_byte = (high << 4) | low;
                     j += 3;
 
                     let mut i = 0;
@@ -367,7 +362,7 @@ impl CartParts {
                         let c = line_bytes[j + 1] as char;
                         let low: u8 =
                             c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
-                        patterns[i] = high << 4 | low;
+                        patterns[i] = (high << 4) | low;
                         i += 1;
                         j += 2;
                     }
@@ -410,7 +405,7 @@ pub(crate) fn to_nybble(a: u8) -> Option<u8> {
 pub(crate) fn to_byte(a: u8, b: u8) -> Option<u8> {
     let a = to_nybble(a)?;
     let b = to_nybble(b)?;
-    Some(a << 4 | b)
+    Some((a << 4) | b)
 }
 
 #[derive(Clone, Serialize, Deserialize)]

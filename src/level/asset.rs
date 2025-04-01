@@ -1,22 +1,19 @@
 #[cfg(feature = "user_properties")]
 use std::ops::Deref;
-use std::{fmt, io::ErrorKind};
+use std::io::ErrorKind;
 
 #[cfg(feature = "user_properties")]
 use bevy::reflect::TypeRegistryArc;
-use tiled::ChunkData;
 
 #[cfg(feature = "user_properties")]
 use bevy_ecs_tiled::properties::load::DeserializedMapProperties;
 
 use crate::level::reader::BytesResourceReader;
 use bevy::{
-    asset::{io::Reader, AssetLoader, AssetPath, LoadContext, LoadedAsset},
+    asset::{io::Reader, AssetLoader, LoadContext},
     prelude::*,
-    utils::HashMap,
 };
 
-use bevy_ecs_tilemap::prelude::*;
 
 /// [TiledMap] loading error.
 #[derive(Debug, thiserror::Error)]

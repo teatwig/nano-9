@@ -156,15 +156,13 @@ impl AssetLoader for ConfigLoader {
                     "Can not load {:?} file without 'level' feature.",
                     &sheet.path
                 )))?;
+            } else if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
+                layouts.push(Some(load_context.add_labeled_asset(
+                    format!("atlas{i}"),
+                    TextureAtlasLayout::from_grid(size, counts.x, counts.y, None, None),
+                )))
             } else {
-                if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
-                    layouts.push(Some(load_context.add_labeled_asset(
-                        format!("atlas{i}"),
-                        TextureAtlasLayout::from_grid(size, counts.x, counts.y, None, None),
-                    )))
-                } else {
-                    layouts.push(None);
-                }
+                layouts.push(None);
             }
         }
         dbg!(&layouts);
@@ -193,7 +191,7 @@ impl AssetLoader for ConfigLoader {
                     if let Some(sprite_size) = sheet.sprite_size {
                         assert_eq!(sprite_size, tile_size);
                     }
-                    let flags = flags_from_tileset(&tileset);
+                    let flags = flags_from_tileset(tileset);
                     sprite_sheets.push(pico8::SpriteSheet {
                         handle: load_context
                             .loader()
@@ -238,7 +236,7 @@ impl AssetLoader for ConfigLoader {
                 palette: pico8::Palette {
                     handle: load_context.loader()
                                         .with_settings(pixel_art_settings)
-                                        .load(config.palette.as_ref().map(|p| p.path.as_str()).as_deref().unwrap_or(pico8::PICO8_PALETTE)),
+                                        .load(config.palette.as_ref().map(|p| p.path.as_str()).unwrap_or(pico8::PICO8_PALETTE)),
                     row: config.palette.and_then(|p| p.row).unwrap_or(0),
                 },
                 border: load_context.loader()
@@ -275,9 +273,10 @@ impl AssetLoader for ConfigLoader {
                 }).collect::<Result<Vec<_>, _>>()?.into(),
                 audio_banks: config.audio_banks.into_iter().map(|bank| pico8::AudioBank(match bank {
                     AudioBank::P8 { p8, count } => {
-                            (0..count).map(|i|
-                                           pico8::Audio::Sfx(load_context.load(&AssetPath::from_path(&p8).with_label(&format!("sfx{i}"))))
-                            ).collect::<Vec<_>>()
+                            // (0..count).map(|i|
+                            //                pico8::Audio::Sfx(load_context.load(&AssetPath::from_path(&p8).with_label(&format!("sfx{i}"))))
+                            // ).collect::<Vec<_>>()
+                            vec![]
                     }
                     AudioBank::Paths { paths } => {
                         paths.into_iter().map(|p| pico8::Audio::AudioSource(load_context.load(p))).collect::<Vec<_>>()
@@ -333,21 +332,18 @@ pub fn update_asset(
 ) {
     for e in reader.read() {
         info!("update asset event {e:?}");
-        match e {
-            AssetEvent::LoadedWithDependencies { id } => {
-                if let Some(state) = assets.get(*id) {
-                    info!("Insert Pico8State {:?}.", state);
-                    commands.insert_resource(state.clone());
-                    commands.spawn(ScriptComponent(vec!["main.lua".into()]));
-                    commands.send_event(
-                        // writer.send(
-                        ScriptCallbackEvent::new_for_all(call::Init, vec![ScriptValue::Unit]), //);
-                    );
-                } else {
-                    error!("Pico8State not available.");
-                }
+        if let AssetEvent::LoadedWithDependencies { id } = e {
+            if let Some(state) = assets.get(*id) {
+                info!("Insert Pico8State {:?}.", state);
+                commands.insert_resource(state.clone());
+                commands.spawn(ScriptComponent(vec!["main.lua".into()]));
+                commands.send_event(
+                    // writer.send(
+                    ScriptCallbackEvent::new_for_all(call::Init, vec![ScriptValue::Unit]), //);
+                );
+            } else {
+                error!("Pico8State not available.");
             }
-            _ => (),
         }
     }
 }
@@ -371,14 +367,12 @@ impl Command for Config {
                             "Can not load {:?} file without 'level' feature.",
                             &sheet.path
                         );
+                    } else if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
+                        Some(layout_assets.add(TextureAtlasLayout::from_grid(
+                            size, counts.x, counts.y, None, None,
+                        )))
                     } else {
-                        if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
-                            Some(layout_assets.add(TextureAtlasLayout::from_grid(
-                                size, counts.x, counts.y, None, None,
-                            )))
-                        } else {
-                            None
-                        }
+                        None
                     }
                 })
                 .collect()
@@ -397,7 +391,7 @@ impl Command for Config {
         let state = pico8::Pico8State {
                 code: asset_server.load(&code_path),
                 palette: pico8::Palette {
-                    handle: asset_server.load_with_settings(self.palette.as_ref().map(|p| p.path.as_str()).as_deref().unwrap_or(pico8::PICO8_PALETTE), pixel_art_settings),
+                    handle: asset_server.load_with_settings(self.palette.as_ref().map(|p| p.path.as_str()).unwrap_or(pico8::PICO8_PALETTE), pixel_art_settings),
                     row: self.palette.and_then(|p| p.row).unwrap_or(0),
                 },
                 border: asset_server.load_with_settings(pico8::PICO8_BORDER, pixel_art_settings),
@@ -411,7 +405,7 @@ impl Command for Config {
                                     Err(ConfigLoaderError::Message(format!("The map {:?} is a Tiled map; consider using the '--features=level' flag.", &map.path)))
                                 } else {
                                     Ok(level::Tiled::Map {
-                                        handle: asset_server.load(&AssetPath::from_path(&map.path).with_source(&source)),
+                                        handle: asset_server.load(AssetPath::from_path(&map.path).with_source(&source)),
                                     }.into())
                                 }
                             }
@@ -420,7 +414,7 @@ impl Command for Config {
                                     Err(ConfigLoaderError::Message(format!("The map {:?} is a Tiled world; consider using the '--features=level' flag.", &map.path)))
                                 } else {
                                     Ok(level::Tiled::World {
-                                        handle: asset_server.load(&AssetPath::from_path(&map.path).with_source(&source)),
+                                        handle: asset_server.load(AssetPath::from_path(&map.path).with_source(&source)),
                                     }.into())
                                 }
                             }
@@ -432,9 +426,12 @@ impl Command for Config {
                 }).collect::<Result<Vec<_>, _>>().expect("load map").into(),
                 audio_banks: self.audio_banks.into_iter().map(|bank| pico8::AudioBank(match bank {
                     AudioBank::P8 { p8, count } => {
-                            (0..count).map(|i|
-                                           pico8::Audio::Sfx(asset_server.load(&AssetPath::from_path(&p8).with_label(&format!("sfx{i}"))))
-                            ).collect::<Vec<_>>()
+                        // let asset_path = AssetPath::from_path(&p8);
+                        //     (0..count).map(|i| {
+                        //         let label = format!("sfx{i}");
+                        //         pico8::Audio::Sfx(asset_server.load(&asset_path.clone().with_label(&label)))
+                        //     }).collect::<Vec<_>>()
+                        vec![]
                     }
                     AudioBank::Paths { paths } => {
                         paths.into_iter().map(|p| pico8::Audio::AudioSource(asset_server.load(p))).collect::<Vec<_>>()
@@ -442,7 +439,7 @@ impl Command for Config {
                 })).collect::<Vec<_>>().into(),
 
                         // vec![AudioBank(cart.sfx.clone().into_iter().map(Audio::Sfx).collect())].into(),
-                sprite_sheets: self.sprite_sheets.into_iter().zip(layouts.into_iter()).map(|(sheet, layout)| {
+                sprite_sheets: self.sprite_sheets.into_iter().zip(layouts).map(|(sheet, layout)| {
                     let flags: Vec<u8>;
                     if sheet.path.extension() == Some(OsStr::new("tsx")) {
                         #[cfg(feature = "level")]

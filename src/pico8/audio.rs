@@ -309,10 +309,7 @@ impl Pico8Note {
         );
         assert!(pitch <= 63, "expected pitch <= 63 but was {pitch}");
         Pico8Note(
-            (pitch & 0b0011_1111) as u16
-                | (u8::from(wave) as u16) << 6
-                | ((volume & 0b111) as u16) << 9
-                | (u8::from(effect) as u16 & 0b111) << 12,
+            (pitch & 0b0011_1111) as u16 | ((u8::from(wave) as u16) << 6) | (((volume & 0b111) as u16) << 9) | ((u8::from(effect) as u16 & 0b111) << 12),
         )
     }
 }
@@ -374,7 +371,7 @@ impl TryFrom<&str> for Sfx {
             let effect: u8 = nybbles.next().ok_or(SfxError::Missing("effect".into()))??;
             // notes.push(Pico8Note::new(pitch_high << 4 | pitch_low?, WaveForm::try_from(wave_form)?,
             notes.push(Pico8Note::new(
-                (pitch_high? << 4 | pitch_low) + PITCH_OFFSET,
+                ((pitch_high? << 4) | pitch_low) + PITCH_OFFSET,
                 WaveForm::try_from(wave_form)?,
                 volume,
                 Effect::try_from(effect)?,
@@ -421,7 +418,7 @@ impl Note for Pico8Note {
     }
 
     fn effect(&self) -> Effect {
-        Effect::try_from((self.0 >> 12 & 0b111) as u8).unwrap()
+        Effect::try_from(((self.0 >> 12) & 0b111) as u8).unwrap()
     }
 }
 

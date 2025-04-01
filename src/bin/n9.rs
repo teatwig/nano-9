@@ -8,16 +8,15 @@ use bevy::{
     prelude::*,
     text::FontSmoothing,
 };
-use bevy_ecs_tilemap::prelude::{TilePos, TilemapType};
 use bevy_minibuffer::prelude::*;
-use bevy_mod_scripting::core::{asset::ScriptAsset, script::ScriptComponent};
-use nano_9::{config::Config, minibuffer::*, pico8::*, *};
+use bevy_mod_scripting::core::script::ScriptComponent;
+use nano_9::{config::Config, pico8::*, *};
 use std::{
     borrow::Cow,
     env,
     ffi::OsStr,
     fs, io,
-    path::{Path, PathBuf},
+    path::PathBuf,
     process,
 };
 
@@ -77,7 +76,7 @@ fn main() -> io::Result<()> {
         // let cmd = config.clone();
         app.add_systems(
             PostStartup,
-            move |asset_server: Res<AssetServer>, mut commands: Commands, mut pico8: Pico8| {
+            move |asset_server: Res<AssetServer>, mut commands: Commands, pico8: Pico8| {
                 let pico8state: Handle<Pico8State> = asset_server.load("nano9.toml");
                 commands.insert_resource(InitState(pico8state));
                 // let asset_path = AssetPath::from_path(&code_path).with_source(&source);
@@ -91,7 +90,7 @@ fn main() -> io::Result<()> {
         nano9_plugin = Nano9Plugin { config };
     } else if script_path.extension() == Some(OsStr::new("p8")) {
         eprintln!("loading cart");
-        let path = PathBuf::from(script_path.clone());
+        let path = script_path.clone();
         app.add_systems(
             Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
@@ -110,7 +109,7 @@ fn main() -> io::Result<()> {
         };
     } else if script_path.extension() == Some(OsStr::new("lua")) {
         eprintln!("loading lua");
-        let path = PathBuf::from(script_path.clone());
+        let path = script_path.clone();
         let asset_path = AssetPath::from_path(&path).with_source(&source);
         if let Some(parent) = path
             .parent()

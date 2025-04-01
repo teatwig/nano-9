@@ -3,16 +3,14 @@ use crate::{
     pico8::{self, Cover, Place, PropBy},
 };
 use bevy::{
-    asset::{io::Reader, AssetLoader, LoadContext},
-    ecs::system::{SystemParam, SystemState},
+    ecs::system::SystemParam,
     math::bounding::Aabb2d,
     prelude::*,
 };
 use bevy_ecs_tiled::{
     map::components::TiledMapStorage,
-    prelude::{TiledMap, TiledMapCreated, TiledMapHandle, TiledMapMarker, TiledMapObject},
+    prelude::{TiledMap, TiledMapCreated, TiledMapHandle},
 };
-use std::{io::ErrorKind, path::Path};
 use tiled::{LayerType, PropertyValue, Tileset};
 
 pub(crate) fn plugin(app: &mut App) {
@@ -47,70 +45,67 @@ fn add_covers(
             tiled_map.map.tile_height as f32,
         );
         for (layer_index, layer) in tiled_map.map.layers().enumerate() {
-            match layer.layer_type() {
-                LayerType::Objects(object_layer) => {
-                    for (index, object) in object_layer.objects().enumerate() {
-                        let idx = object.id();
-                        // let idx = index as u32;
-                        // let x = object.x;
-                        // let y = object.y;
-                        let x = 0.0;
-                        let y = 0.0;
-                        let aabb = match object.shape {
-                            tiled::ObjectShape::Rect { width, height } => {
-                                if object.get_tile().is_some() {
-                                    Aabb2d {
-                                        min: Vec2::new(x, y),
-                                        max: Vec2::new(x + tile_size.x, y + tile_size.y),
-                                    }
-                                } else {
-                                    Aabb2d {
-                                        min: Vec2::new(x, y - height),
-                                        max: Vec2::new(x + width, y),
-                                    }
+            if let LayerType::Objects(object_layer) = layer.layer_type() {
+                for (index, object) in object_layer.objects().enumerate() {
+                    let idx = object.id();
+                    // let idx = index as u32;
+                    // let x = object.x;
+                    // let y = object.y;
+                    let x = 0.0;
+                    let y = 0.0;
+                    let aabb = match object.shape {
+                        tiled::ObjectShape::Rect { width, height } => {
+                            if object.get_tile().is_some() {
+                                Aabb2d {
+                                    min: Vec2::new(x, y),
+                                    max: Vec2::new(x + tile_size.x, y + tile_size.y),
+                                }
+                            } else {
+                                Aabb2d {
+                                    min: Vec2::new(x, y - height),
+                                    max: Vec2::new(x + width, y),
                                 }
                             }
-                            // tiled::ObjectShape::Point(x, y) => {
-                            //     info!("point object {}", object.name);
-                            // },
-                            ref x => {
-                                todo!("{:?}", x)
-                            }
-                        };
-                        if let Some(id) = storage.objects.get(&idx) {
-                            if let Some(place) = object.properties.get("place") {
-                                match place {
-                                    PropertyValue::StringValue(name) => {
-                                        commands.entity(*id).insert(Place(name.to_owned()));
-                                    }
-                                    x => {
-                                        warn!("Expected string value for place name not {x:?}");
-                                    }
-                                }
-                            }
-                            // TODO: Make the 'flags' name configurable.
-                            let flags = object
-                                .properties
-                                .get("flags")
-                                .and_then(|v| match v {
-                                    PropertyValue::IntValue(v) => Some(*v as u32),
-                                    _ => None,
-                                })
-                                .unwrap_or(0);
-                            commands.entity(*id).insert((
-                                Cover { aabb, flags },
-                                TiledLookup::Object {
-                                    layer: layer_index as u32,
-                                    idx: index as u32,
-                                    handle: Handle::Weak(event.asset_id.clone()),
-                                },
-                            ));
-                        } else {
-                            warn!("No entity for object {} id {}", object.name, object.id());
                         }
+                        // tiled::ObjectShape::Point(x, y) => {
+                        //     info!("point object {}", object.name);
+                        // },
+                        ref x => {
+                            todo!("{:?}", x)
+                        }
+                    };
+                    if let Some(id) = storage.objects.get(&idx) {
+                        if let Some(place) = object.properties.get("place") {
+                            match place {
+                                PropertyValue::StringValue(name) => {
+                                    commands.entity(*id).insert(Place(name.to_owned()));
+                                }
+                                x => {
+                                    warn!("Expected string value for place name not {x:?}");
+                                }
+                            }
+                        }
+                        // TODO: Make the 'flags' name configurable.
+                        let flags = object
+                            .properties
+                            .get("flags")
+                            .and_then(|v| match v {
+                                PropertyValue::IntValue(v) => Some(*v as u32),
+                                _ => None,
+                            })
+                            .unwrap_or(0);
+                        commands.entity(*id).insert((
+                            Cover { aabb, flags },
+                            TiledLookup::Object {
+                                layer: layer_index as u32,
+                                idx: index as u32,
+                                handle: Handle::Weak(event.asset_id),
+                            },
+                        ));
+                    } else {
+                        warn!("No entity for object {} id {}", object.name, object.id());
                     }
                 }
-                _ => (),
             }
         }
     }
@@ -124,7 +119,7 @@ pub struct Level<'w, 's> {
     sprites: Query<'w, 's, &'static mut Sprite>,
     tiled_lookups: Query<'w, 's, &'static TiledLookup>,
 }
-impl<'w, 's> Level<'w, 's> {
+impl Level<'_, '_> {
     pub fn mget(
         &self,
         map: &level::Tiled,
@@ -254,9 +249,9 @@ impl<'w, 's> Level<'w, 's> {
         layer_index: Option<usize>,
     ) -> Result<(), pico8::Error> {
         match map {
-            level::Tiled::Map { handle } => {
+            level::Tiled::Map { handle: map_handle } => {
                 self.tiled_maps
-                    .get(handle)
+                    .get(map_handle)
                     .ok_or(pico8::Error::NoSuch("map".into()))
                     .and_then(|tiled_map| {
                         let tile_size =
@@ -280,7 +275,7 @@ impl<'w, 's> Level<'w, 's> {
                                                 for (tiled_id_storage, handle) in
                                                     &self.tiled_id_storage
                                                 {
-                                                    if handle.0 == handle.0 {
+                                                    if *map_handle == handle.0 {
                                                         // This is probably the one.
                                                         if let Some(id) = tiled_id_storage
                                                             .objects

@@ -7,24 +7,17 @@ use bevy::{
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::event::ScriptCallbackEvent;
 
-use bevy_mod_scripting::{
-    core::{
-        asset::{AssetPathToLanguageMapper, Language, ScriptAsset, ScriptAssetSettings},
+use bevy_mod_scripting::core::{
         bindings::{
             access_map::ReflectAccessId,
             function::{
-                from::FromScript,
-                into_ref::IntoScriptRef,
-                namespace::{GlobalNamespace, NamespaceBuilder},
+                namespace::NamespaceBuilder,
                 script_function::FunctionCallContext,
             },
             script_value::ScriptValue,
-            ReflectReference, WorldAccessGuard,
         },
         error::InteropError,
-    },
-    lua::mlua::prelude::LuaError,
-};
+    };
 mod count;
 pub use count::*;
 
@@ -61,7 +54,10 @@ impl Plugin for Nano9Acts {
         NamespaceBuilder::<World>::new_unregistered(world).register(
             "message",
             |ctx: FunctionCallContext, s: String| {
-                with_minibuffer(&ctx, |minibuffer| Ok(minibuffer.message(s)))
+                with_minibuffer(&ctx, |minibuffer| {
+                    minibuffer.message(s);
+                    Ok(())
+                })
             },
         );
     }

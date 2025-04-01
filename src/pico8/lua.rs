@@ -1,20 +1,10 @@
 use bevy::{
-    asset::{embedded_asset, AssetPath},
     ecs::system::{SystemParam, SystemState},
-    image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
     math::bounding::Aabb2d,
     prelude::*,
-    render::{
-        render_asset::RenderAssetUsages,
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
-    },
-    sprite::Anchor,
 };
-use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 
-use bevy_mod_scripting::{
-    core::{
-        asset::{AssetPathToLanguageMapper, Language, ScriptAsset, ScriptAssetSettings},
+use bevy_mod_scripting::core::{
         bindings::{
             access_map::ReflectAccessId,
             function::{
@@ -24,35 +14,20 @@ use bevy_mod_scripting::{
                 script_function::FunctionCallContext,
             },
             script_value::ScriptValue,
-            ReflectReference, WorldAccessGuard,
+            ReflectReference,
         },
         error::InteropError,
-    },
-    lua::mlua::prelude::LuaError,
-};
-use rand::Rng;
+    };
 
 use crate::{
     conversions::RectValue,
-    cursor::Cursor,
     pico8::{
-        audio::{Sfx, SfxChannels},
-        Cart, ClearEvent, Clearable, Error, LoadCart, Map, Pico8, PropBy, SfxCommand, Spr,
-    },
-    DrawState, DropPolicy, N9Canvas, N9Color, N9Entity, Nano9Camera,
+        Error, Pico8, PropBy, SfxCommand, Spr,
+    }, DropPolicy, N9Color, N9Entity,
 };
 
 #[cfg(feature = "level")]
 use std::collections::HashMap;
-use std::{
-    any::TypeId,
-    borrow::Cow,
-    ffi::OsStr,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-};
 
 fn with_pico8<X>(
     ctx: &FunctionCallContext,
@@ -231,7 +206,7 @@ pub(crate) fn plugin(app: &mut App) {
                     let mut allocator = allocator.write();
                     ReflectReference::new_allocated(entity, &mut allocator)
                 };
-                Ok(ReflectReference::into_script_ref(reference, world)?)
+                ReflectReference::into_script_ref(reference, world)
             },
         )
         .register(
@@ -344,11 +319,7 @@ pub(crate) fn plugin(app: &mut App) {
             "_camera",
             |ctx: FunctionCallContext, x: Option<f32>, y: Option<f32>| {
                 with_pico8(&ctx, move |pico8| {
-                    let arg = if let Some(x) = x {
-                        Some(Vec2::new(x, y.unwrap_or(0.0)))
-                    } else {
-                        None
-                    };
+                    let arg = x.map(|x| Vec2::new(x, y.unwrap_or(0.0)));
                     Ok(pico8.camera(arg))
                 })
                 .map(|last_pos| (last_pos.x, last_pos.y))
