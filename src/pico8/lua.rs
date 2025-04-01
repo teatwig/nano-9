@@ -533,6 +533,19 @@ pub(crate) fn plugin(app: &mut App) {
          },
     )
         .register(
+            "sset",
+            |ctx: FunctionCallContext,
+             id: i64,
+             sprite_index: usize,
+             | {
+                 let id = Entity::from_bits(id as u64);
+                with_pico8(&ctx, move |pico8| {
+                    pico8.sset(id, sprite_index);
+                    Ok(())
+                })
+            },
+        )
+        .register(
         "place",
         |ctx: FunctionCallContext,
          name: String | {

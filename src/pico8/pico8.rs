@@ -1481,6 +1481,21 @@ impl Pico8<'_, '_> {
         None
     }
 
+    /// Set a sprite.
+    pub fn sset(&mut self, id: Entity, sprite_index: usize) {
+        self.commands.queue(move |world: &mut World| {
+            if let Some(mut sprite) = world.get_mut::<Sprite>(id) {
+                if let Some(ref mut atlas) = sprite.texture_atlas.as_mut() {
+                    atlas.index = sprite_index;
+                } else {
+                    warn!("No texture atlas for sprite {id}");
+                }
+            } else {
+                    warn!("No sprite {id}");
+            }
+        });
+    }
+
     #[cfg(feature = "level")]
     /// Get properties
     pub fn props(&self, id: Entity) -> Result<tiled::Properties, Error> {
