@@ -15,7 +15,7 @@ use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 
 use bevy_mod_scripting::{
     core::{
-        asset::{AssetPathToLanguageMapper, Language, ScriptAsset, ScriptAssetSettings},
+        asset::{AssetPathToScriptIdMapper, Language, ScriptAsset, ScriptAssetSettings},
         bindings::{
             function::from::FromScript,
             script_value::ScriptValue, WorldAccessGuard,
@@ -38,6 +38,7 @@ use crate::{
 };
 
 use std::{
+    f32::consts::PI,
     any::TypeId,
     borrow::Cow,
     ffi::OsStr,
@@ -569,6 +570,7 @@ impl Pico8<'_, '_> {
         pos: Vec2,
         size: Option<Vec2>,
         flip: Option<BVec2>,
+        turns: Option<f32>,
     ) -> Result<Entity, Error> {
         let x = pos.x;
         let y = pos.y;
@@ -581,7 +583,7 @@ impl Pico8<'_, '_> {
                 return Ok(Entity::PLACEHOLDER);
             }
         };
-        let sprite = {
+        let mut sprite = {
             let atlas = TextureAtlas {
                 layout: sprites.layout.clone(),
                 index,
@@ -600,12 +602,20 @@ impl Pico8<'_, '_> {
             }
         };
         let clearable = Clearable::default();
+        let mut transform = Transform::from_xyz(x, negate_y(y), clearable.suggest_z());
+        if let Some(turns) = turns {
+            let mut pixel_size = sprites.sprite_size.as_vec2() * size.unwrap_or(Vec2::ONE) / 2.0;
+            transform.translation.x += pixel_size.x;
+            transform.translation.y += negate_y(pixel_size.y);
+            sprite.anchor = Anchor::Center;
+            transform.rotation = Quat::from_rotation_z(turns * 2.0 * PI);
+        }
         Ok(self
             .commands
             .spawn((
                 Name::new("spr"),
                 sprite,
-                Transform::from_xyz(x, negate_y(y), clearable.suggest_z()),
+                transform,
                 clearable,
             ))
             .id())
@@ -1388,8 +1398,6 @@ impl Pico8<'_, '_> {
                         return None;
                     }
                 }
-                // TODO: This works without the transform. Should we lose
-                // that parameter?
                 let min = (*transform * cover.aabb.min.extend(0.0)).xy();
                 // let min = cover.aabb.min;
                 if let Some(mut shape) = shape {
@@ -1397,8 +1405,8 @@ impl Pico8<'_, '_> {
                     shape.max += pos;
                     let max = (*transform * cover.aabb.max.extend(0.0)).xy();
                     let other = Aabb2d { min, max };
-                    dbg!(id);
-                    dbg!(shape.intersects(&other).then_some(id))
+                    // dbg!(id);
+                    shape.intersects(&other).then_some(id)
                 } else {
                     (min.x <= pos.x && min.y <= pos.y && {
                         let max = (*transform * cover.aabb.max.extend(0.0)).xy();
@@ -1688,6 +1696,15 @@ impl Pico8State {
     // }
 }
 
+fn path_to_lang(path: &AssetPath) -> Language {
+    // For carts we use cart.p8#lua, which is labeled asset, so we
+    // need to tell it what language our cart is.
+    if path.path().extension() == Some(OsStr::new("lua")) {
+        Language::Lua
+    } else {
+        Language::Unknown
+    }
+}
 pub(crate) fn plugin(app: &mut App) {
     embedded_asset!(app, "pico-8-palette.png");
     embedded_asset!(app, "rect-border.png");
@@ -1698,23 +1715,13 @@ pub(crate) fn plugin(app: &mut App) {
         .register_type::<Place>()
         .register_type::<Cover>()
         .register_type::<P8Flags>()
-        .add_systems(
-            PreStartup,
-            |mut asset_settings: ResMut<ScriptAssetSettings>| {
-                fn path_to_lang(path: &AssetPath) -> Language {
-                    // For carts we use cart.p8#lua, which is labeled asset, so we
-                    // need to tell it what language our cart is.
-                    if path.path().extension() == Some(OsStr::new("lua")) {
-                        Language::Lua
-                    } else {
-                        Language::Unknown
-                    }
-                }
-                asset_settings
-                    .script_language_mappers
-                    .push(AssetPathToLanguageMapper { map: path_to_lang });
-            },
-        )
+        // .add_systems(
+        //     PreStartup,
+        //     |mut asset_settings: ResMut<ScriptAssetSettings>| {
+        //         asset_settings
+        //             .script_id_mapper = AssetPathToScriptIdMapper { map: path_to_lang };
+        //     },
+        // )
         .add_observer(
             |trigger: Trigger<UpdateCameraPos>,
              camera: Single<&mut Transform, With<Nano9Camera>>| {

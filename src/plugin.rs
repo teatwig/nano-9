@@ -13,6 +13,7 @@ use bevy::{
 };
 
 use bevy_mod_scripting::{
+    ScriptFunctionsPlugin,
     core::{
         asset::ScriptAsset,
         bindings::{function::namespace::NamespaceBuilder, script_value::ScriptValue},
@@ -375,7 +376,7 @@ impl Plugin for Nano9Plugin {
                 .frames_per_second
                 .unwrap_or(DEFAULT_FRAMES_PER_SECOND) as f64,
         ))
-        .add_plugins((lua_scripting_plugin, crate::plugin, add_info))
+        .add_plugins((lua_scripting_plugin, crate::plugin, add_info, ScriptFunctionsPlugin))
         .add_systems(Startup, (setup_canvas, spawn_camera).chain())
         .add_systems(
             Update,

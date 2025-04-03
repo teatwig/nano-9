@@ -9,7 +9,7 @@ bevy = { version = "0.15", features = [ "bevy_dev_tools" ] }
 # bevy = { version = "0.13", default-features = false, features = [ "bevy_winit", "bevy_asset", "bevy_render" ] }
 # bevy_asset_loader = "0.21"
 # bevy_ecs_ldtk = { version = "0.11", optional = true }
-bevy_mod_scripting = { version = "0.9.7", features = ["lua54", "core_functions"] }
+bevy_mod_scripting = { version = "0.11", features = ["lua54", "core_functions"] }
 bytemuck = "1.16.3"
 thiserror = "1.0.63"
 # bevy_pixel_buffer = "0.7.0"

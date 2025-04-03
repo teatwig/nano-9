@@ -3,9 +3,10 @@ use std::{any::TypeId, sync::Arc};
 
 use crate::ValueExt;
 use bevy_mod_scripting::{
+    GetTypeDependencies,
     core::docgen::typed_through::{ThroughTypeInfo, TypedThrough},
     core::{
-        bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
+        bindings::{self, function::{type_dependencies::GetTypeDependencies, from::FromScript}, script_value::ScriptValue, WorldAccessGuard},
         error::InteropError,
     },
     lua::mlua::{
@@ -13,7 +14,7 @@ use bevy_mod_scripting::{
     },
 };
 
-#[derive(Debug, Clone, Copy, Reflect)]
+#[derive(Debug, Clone, Copy, Reflect, GetTypeDependencies)]
 pub enum N9Color {
     Pen,
     Palette(usize),
