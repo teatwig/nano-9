@@ -1,8 +1,6 @@
 # Nano-9
 
-Nano-9 is a fantasy video game library heavily inspired by Pico-8.
-
-Nano-9 is Bevy in Pico-8 clothing.
+Nano-9 is Bevy in [Pico-8](https://www.lexaloffle.com/pico-8.php) clothing.
 
 ## Goals
 
@@ -18,6 +16,7 @@ The goals for Nano-9 are to
 - support audio files,
 - support different fonts,
 - provide a library first, and an application second,
+- support tilemap editors like [Tiled](http://www.mapeditor.org),
 - and support unlimited code size.
 
 ## Anti-Goals
@@ -61,7 +60,7 @@ so:
 
 ``` lua
 function _init()
-  a = spr(n).retain()
+  a = spr(n):retain()
 end
 
 function _update()
@@ -81,9 +80,10 @@ feedback on this.
 ### Why a library?
 
 Why not just offer an application like Pico-8? Because I don't mean to
-substitute Pico-8's reach; I mean to extend it. A case I imagine is this:
-someone creates a Pico-8 game, but they yearn to do something that is not
-possible with Pico-8 itself. Like what? There are so many things:
+substitute Pico-8's reach; I want to extend it and introduce users to Bevy. A
+case I imagine is this: someone creates a Pico-8 game, but they yearn to do
+something that is not possible with Pico-8 itself. Like what? There are so many
+things:
 
 - Maybe use a full screen shader that creates a CRT effect, 
 - maybe embed an arcade game in their actual game that is in fact a
@@ -120,7 +120,8 @@ fn update(mut pico8: Pico8, mut x: Local<u32>) -> Result<(), Pico8Error> {
 ### Can I use this to port my game to a console?
 
 Hopefully, yes. Whatever consoles Bevy supports, Nano-9 should support too.
-(However, I am not certain that bevy_mod_scripting supports WASM builds.)
+(However, I am not certain that bevy_mod_scripting supports WASM builds with
+Lua.)
 
 Some game developers have the technical wherewithal to rebuild their game in
 another engine like the celebrated story of the
@@ -141,6 +142,7 @@ If you like the ones provided by Pico-8, use it! Here are some tools I like:
 - I like [Aseprite](https://www.aseprite.org) for sprite editing.
 - I like [Doom Emacs](https://github.com/doomemacs/doomemacs?tab=readme-ov-file) for text editing.
 - I like [Bfxr](https://www.bfxr.net) for sound effects.
+- I like [Tiled](http://www.mapeditor.org) for map editing.
 
 ### Why does `print()` create a tree of entities?
 
@@ -174,9 +176,9 @@ If you can't afford Pico-8, you can still play with it and learn it using the
 Pico-8 has easter-egg like features where if one tickles the right part of
 memory, one _can_ access the keyboard keys or the mouse position, which are not
 explicitly available via the API. While I think that is fun for a fantasy
-console, I am not intent on replicating that behavior. Instead I would suggest
-that people extend the Lua API to provide access to whatever new facilities they
-need.
+console, I am not intent on replicating all that behavior. Instead I would
+suggest that people extend the Lua API to provide access to whatever new
+facilities they need.
 
 If someone were to make a handful of useful `peek()` or `poke()` cases work, I
 would consider such a pull request.
@@ -196,3 +198,8 @@ This crate is licensed under the MIT License or the Apache License 2.0.
 Many thanks to [Joseph "Zep" White](https://mastodon.social/@zep) the founder of
 [Lexaloffle Games](https://www.lexaloffle.com) and creator of
 [Pico-8](https://www.lexaloffle.com/pico-8.php).
+
+Many thanks to the tireless work of [Maksymilian
+Mozolewski](https://github.com/makspll) for
+[bevy_mod_scripting](https://github.com/makspll/bevy_mod_scripting) without
+which this project would not have been made.
