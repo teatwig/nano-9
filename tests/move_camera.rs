@@ -3,7 +3,7 @@
 // use crate::mlua::Variadic;
 // use bevy::prelude::*;
 // use bevy_mod_scripting;
-// use nano_9::{api::N9Args, *};
+// use nano9::{api::N9Args, *};
 
 // #[derive(Resource, Default)]
 // pub struct Failed(Option<String>);

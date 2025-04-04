@@ -590,14 +590,14 @@ impl Config {
         }
         if self.palette.is_none() {
             self.palette = Some(Palette {
-                path: "embedded://nano_9/config/gameboy-palettes.png".into(),
+                path: "embedded://nano9/config/gameboy-palettes.png".into(),
                 row: Some(17),
             });
         }
 
         if self.fonts.is_empty() {
             self.fonts.push(Font::Path {
-                path: "embedded://nano_9/config/gameboy.ttf".into(),
+                path: "embedded://nano9/config/gameboy.ttf".into(),
                 height: None,
             });
         }

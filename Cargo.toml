@@ -1,5 +1,5 @@
 [package]
-name = "nano-9"
+name = "nano9"
 version = "0.1.0"
 edition = "2021"
 
@@ -55,6 +55,7 @@ test = false
 bench = false
 
 [patch.crates-io]
+bevy_mod_scripting = { path = "../bevy_mod_scripting" }
 bevy_minibuffer = { path = "../bevy_minibuffer" }
 bevy_asky = { path = "../bevy_asky" }
 bevy_ecs_tiled = { path = "../bevy_ecs_tiled" }
@@ -64,6 +65,5 @@ ldtk_rust = { git = "https://github.com/nomnomab/ldtk_rust.git", branch = "1.5.3
 bevy_minibuffer_inspector = { path = "../bevy_minibuffer_inspector" }
 # bevy-inspector-egui = { git = "https://github.com/jakobhellermann/bevy-inspector-egui" }
 bevy-inspector-egui = { path = "../bevy-inspector-egui/crates/bevy-inspector-egui" }
-bevy_mod_scripting = { path = "../bevy_mod_scripting" }
 # bevy_pixel_buffer = { path = "../bevy_pixel_buffer" }
 # tiled = { git = "https://github.com/mapeditor/rs-tiled.git", rev = "c434e1be8904917bacc1286c5334b721f1f6deef", features = ["world"] }

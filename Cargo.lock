@@ -3527,7 +3527,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "nano-9"
+name = "nano9"
 version = "0.1.0"
 dependencies = [
  "atomicow",

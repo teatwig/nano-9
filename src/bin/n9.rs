@@ -10,7 +10,7 @@ use bevy::{
 };
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::script::ScriptComponent;
-use nano_9::{config::Config, pico8::*, *};
+use nano9::{config::Config, pico8::*, *};
 use std::{
     borrow::Cow,
     env,
@@ -192,7 +192,7 @@ fn main() -> io::Result<()> {
     app.add_systems(Startup, |reg: Res<AppTypeRegistry>| {
         bevy_ecs_tiled::map::export_types_filtered(&reg, "all-export-types.json", |name| true);
         bevy_ecs_tiled::map::export_types_filtered(&reg, "export-types.json", |name| {
-            name.contains("bevy_ecs_tilemap::tiles") || name.contains("nano_9")
+            name.contains("bevy_ecs_tilemap::tiles") || name.contains("nano9")
         });
     });
     app.run();

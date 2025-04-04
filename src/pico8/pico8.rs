@@ -48,9 +48,9 @@ use std::{
     },
 };
 
-pub const PICO8_PALETTE: &str = "embedded://nano_9/pico8/pico-8-palette.png";
-pub const PICO8_BORDER: &str = "embedded://nano_9/pico8/rect-border.png";
-pub const PICO8_FONT: &str = "embedded://nano_9/pico8/pico-8.ttf";
+pub const PICO8_PALETTE: &str = "embedded://nano9/pico8/pico-8-palette.png";
+pub const PICO8_BORDER: &str = "embedded://nano9/pico8/rect-border.png";
+pub const PICO8_FONT: &str = "embedded://nano9/pico8/pico-8.ttf";
 pub const MAP_COLUMNS: u32 = 128;
 pub const PICO8_SPRITE_SIZE: UVec2 = UVec2::new(8, 8);
 pub const PICO8_TILE_COUNT: UVec2 = UVec2::new(16, 16);
