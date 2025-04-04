@@ -25,7 +25,7 @@ struct InitState(Handle<Pico8State>);
 
 fn usage(mut output: impl io::Write) -> io::Result<()> {
     writeln!(output, "usage: n9 <FILE>")?;
-    writeln!(output, "Nano-9 accepts cart.p8 or game/Nano9.toml files")
+    writeln!(output, "Nano-9 accepts cart.p8 or game[/Nano9.toml] files")
 }
 
 fn main() -> io::Result<()> {
@@ -156,7 +156,6 @@ fn main() -> io::Result<()> {
             .set(nano9_plugin.window_plugin()),
     )
     .add_plugins(nano9_plugin)
-    .add_plugins(nano_9::pico8::plugin)
     .add_plugins(MinibufferPlugins)
     .add_plugins(FpsOverlayPlugin {
         config: FpsOverlayConfig {

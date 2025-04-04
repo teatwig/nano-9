@@ -751,13 +751,13 @@ default = true
         let config: Config = toml::from_str(
             r#"
 [[map]]
-ldtk = "blah.ldtk"
+path = "blah.ldtk"
 [[map]]
-p8 = "blah.p8"
+path = "blah.p8"
 "#,
         )
         .unwrap();
         assert_eq!(config.maps.len(), 2);
-        // assert_eq!(config.fonts[0].path, "blah.tff");
+        assert_eq!(config.maps[0].path, PathBuf::from("blah.ldtk"));
     }
 }
