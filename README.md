@@ -2,6 +2,10 @@
 
 Nano-9 is Bevy in [Pico-8](https://www.lexaloffle.com/pico-8.php) clothing.
 
+> [!WARNING]
+> `Nano-9` is currently in the early stages of development and is subject to
+> breaking changes. 
+
 ## Goals
 
 The goals for Nano-9 are to
@@ -38,7 +42,9 @@ The goals for Nano-9 are to
   much as possible. I'd prefer for `spr()` to be a thin layer to Bevy's
   `Sprite`, `print()` to create a `Text` component, `map()` to create a
   `bevy_ecs_tilemap::TilemapBundle`. In this way the comfortable world of Pico-8
-  can help introduce one to the Bevy world.
+  can help introduce one to the Bevy world, and it can also provide affordances
+  not possible in Pico-8. For instance one could query entities for collision
+  information.
 
 ## Current Design Considerations
 
