@@ -3,8 +3,8 @@
 Nano-9 is Bevy in [Pico-8](https://www.lexaloffle.com/pico-8.php) clothing.
 
 > [!WARNING]
-> `Nano-9` is currently in the early stages of development and is subject to
-> breaking changes. 
+> Nano-9 is currently in the early stages of development and is subject to
+> breaking changes and not ready for public consumption. 
 
 ## Goals
 
@@ -61,7 +61,7 @@ one renders its sprite every frame. Bevy in contrast uses a retained rendering
 system. One spawns a `Sprite` and that persists and is rendered every
 frame until it is despawned.
 
-One can imagine though that perhaps Nano-9's sprite function could be used like
+One can imagine though that perhaps Nano-9's `spr()` function could be used like
 so:
 
 ``` lua

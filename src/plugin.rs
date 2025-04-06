@@ -4,7 +4,7 @@ use bevy::{
     prelude::*,
     reflect::Reflect,
     render::{
-        camera::ScalingMode,
+        camera::{ScalingMode, Viewport},
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
@@ -127,6 +127,15 @@ fn spawn_camera(mut commands: Commands, canvas: Option<Res<N9Canvas>>) {
         .with_children(|parent| {
             let mut camera_commands = parent.spawn((
                 Camera2d,
+                // Camera {
+
+                //     viewport: Some(Viewport {
+                //         physical_position: [200, 100].into(),
+                //         physical_size: [600, 600].into(),
+                //         ..default()
+                //     }),
+                //     ..default(),
+                // },
                 Msaa::Off,
                 // Projection::from(projection),
                 projection,
@@ -173,7 +182,7 @@ pub fn sync_window_size(
     canvas: Res<N9Canvas>,
     // mut query: Query<&mut Sprite, With<Nano9Sprite>>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
-    mut orthographic: Single<&mut OrthographicProjection, With<Nano9Camera>>,
+    mut orthographic_camera: Single<(&mut OrthographicProjection, &mut Camera), With<Nano9Camera>>,
 ) {
     if let Some(e) = resize_event
         .read()
@@ -194,16 +203,27 @@ pub fn sync_window_size(
         // let canvas_aspect = canvas_size.x / canvas_size.y;
         // let window_aspect = window_size.x / window_size.y;
 
+        // `new_scale` is the number of physical pixels per logical pixels.
         let new_scale =
                 // Canvas is longer than it is tall. Fit the width first.
                 (window_size.y / canvas_size.y).min(window_size.x / canvas_size.x);
         // info!("window_size {window_size}");
 
+        let (mut orthographic, mut camera) = orthographic_camera.into_inner();
         // match *orthographic.into_inner() {
         //     Projection::Orthographic(ref mut orthographic) => {
 
-        // info!("oldscale {} new_scale {new_scale}", &orthographic.scale);
+        info!("oldscale {} new_scale {new_scale} window_scale {window_scale}", &orthographic.scale);
         orthographic.scale = 1.0 / new_scale;
+        let viewport_size = canvas_size * new_scale * window_scale;
+        let start = (window_size * window_scale - viewport_size) / 2.0;
+        info!("viewport size {} start {}", &viewport_size, &start);
+        camera.viewport = Some(Viewport {
+            physical_position: UVec2::new(start.x as u32, start.y as u32),
+            physical_size: UVec2::new(viewport_size.x as u32, viewport_size.y as u32),
+            ..default()
+        });
+
         // }
         //     _ => { panic!("Not expecting a perspective"); }
 
