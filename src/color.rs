@@ -6,7 +6,7 @@ use bevy_mod_scripting::{
     GetTypeDependencies,
     core::docgen::typed_through::{ThroughTypeInfo, TypedThrough},
     core::{
-        bindings::{self, function::{type_dependencies::GetTypeDependencies, from::FromScript}, script_value::ScriptValue, WorldAccessGuard},
+        bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
         error::InteropError,
     },
     lua::mlua::{

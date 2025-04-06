@@ -15,7 +15,7 @@ use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 
 use bevy_mod_scripting::{
     core::{
-        asset::{AssetPathToScriptIdMapper, Language, ScriptAsset, ScriptAssetSettings},
+        asset::{Language, ScriptAsset},
         bindings::{
             function::from::FromScript,
             script_value::ScriptValue, WorldAccessGuard,
@@ -121,6 +121,7 @@ pub enum Audio {
 #[derive(Debug, Clone)]
 pub struct Palette {
     pub handle: Handle<Image>,
+    /// Row count
     pub row: u32,
 }
 
@@ -604,7 +605,7 @@ impl Pico8<'_, '_> {
         let clearable = Clearable::default();
         let mut transform = Transform::from_xyz(x, negate_y(y), clearable.suggest_z());
         if let Some(turns) = turns {
-            let mut pixel_size = sprites.sprite_size.as_vec2() * size.unwrap_or(Vec2::ONE) / 2.0;
+            let pixel_size = sprites.sprite_size.as_vec2() * size.unwrap_or(Vec2::ONE) / 2.0;
             transform.translation.x += pixel_size.x;
             transform.translation.y += negate_y(pixel_size.y);
             sprite.anchor = Anchor::Center;
