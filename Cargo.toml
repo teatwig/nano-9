@@ -55,10 +55,10 @@ test = false
 bench = false
 
 [patch.crates-io]
+bevy_ecs_tiled = { path = "../bevy_ecs_tiled" }
 bevy_mod_scripting = { path = "../bevy_mod_scripting" }
 bevy_minibuffer = { path = "../bevy_minibuffer" }
 bevy_asky = { path = "../bevy_asky" }
-bevy_ecs_tiled = { path = "../bevy_ecs_tiled" }
 # bevy_ecs_ldtk = { path = "../bevy_ecs_ldtk" }
 bevy_ecs_tilemap = { path = "../bevy_ecs_tilemap" }
 ldtk_rust = { git = "https://github.com/nomnomab/ldtk_rust.git", branch = "1.5.3" }

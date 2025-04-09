@@ -6,7 +6,7 @@ use bevy_ecs_tilemap::prelude::*;
 // use ldtk::*;
 pub(crate) mod asset;
 pub(crate) mod reader;
-pub(crate) mod tiled;
+pub mod tiled;
 
 #[derive(Debug, Clone)]
 pub enum Tiled {

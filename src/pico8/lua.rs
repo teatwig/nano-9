@@ -29,18 +29,21 @@ use crate::{
 #[cfg(feature = "level")]
 use std::collections::HashMap;
 
-fn with_pico8<X>(
+pub(crate) fn with_system_param<S: SystemParam + 'static,X>(
     ctx: &FunctionCallContext,
-    f: impl FnOnce(&mut Pico8) -> Result<X, Error>,
-) -> Result<X, InteropError> {
+    f: impl FnOnce(&mut S::Item<'_, '_>) -> Result<X, Error>,
+) -> Result<X, InteropError>
+{
     let world_guard = ctx.world()?;
     let raid = ReflectAccessId::for_global();
     if world_guard.claim_global_access() {
         let world = world_guard.as_unsafe_world_cell()?;
         let world = unsafe { world.world_mut() };
-        let mut system_state: SystemState<Pico8> = SystemState::new(world);
-        let mut pico8 = system_state.get_mut(world);
-        let r = f(&mut pico8);
+        let mut system_state: SystemState<S> = SystemState::new(world);
+        let r = {
+            let mut pico8 = system_state.get_mut(world);
+            f(&mut pico8)
+        };
         system_state.apply(world);
         unsafe { world_guard.release_global_access() };
         r.map_err(|e| InteropError::external_error(Box::new(e)))
@@ -48,9 +51,16 @@ fn with_pico8<X>(
         Err(InteropError::cannot_claim_access(
             raid,
             world_guard.get_access_location(raid),
-            "with_pico8",
+            "with_system_param",
         ))
     }
+}
+
+fn with_pico8<X>(
+    ctx: &FunctionCallContext,
+    f: impl FnOnce(&mut Pico8) -> Result<X, Error>,
+) -> Result<X, InteropError> {
+    with_system_param::<Pico8, X>(ctx, f)
 }
 
 pub(crate) fn plugin(app: &mut App) {
@@ -431,71 +441,6 @@ pub(crate) fn plugin(app: &mut App) {
                 })
             },
         )
-        .register(
-            "raydown",
-            |ctx: FunctionCallContext,
-             x: f32,
-             y: f32,
-             mask: Option<u32>,
-             shape: Option<ScriptValue>| {
-                let pos = Vec2::new(x, y);
-                let shape = if let Some(v) = shape {
-                    let Rect { min, max } = RectValue::from_script(v, ctx.world()?)?;
-                    Some(Aabb2d { min, max })
-                } else {
-                    None
-                };
-                with_pico8(&ctx, move |pico8| {
-                    // let ids: Vec<u64> = pico8
-                    //    .ray(pos, dir, mask)
-                    //    .into_iter()
-                    //    .map(|id| id.to_bits()).collect();
-                    let ids: Vec<i64> = pico8
-                        .raydown(pos, mask, shape)
-                        .into_iter()
-                        .map(|id| id.to_bits() as i64)
-                        .collect();
-                    Ok(ids)
-                })
-            },
-        )
-        .register(
-            "raycast",
-            |ctx: FunctionCallContext,
-             x: f32,
-             y: f32,
-             dx: f32,
-             dy: f32,
-             mask: Option<u32>,
-             shape: Option<ScriptValue>| {
-                let pos = Vec2::new(x, y);
-                let dxdy = Vec2::new(dx, dy);
-                let world = ctx.world()?;
-                let shape = if let Some(v) = shape {
-                    let Rect { min, max } = RectValue::from_script(v, ctx.world()?)?;
-                    Some(Aabb2d { min, max })
-                } else {
-                    None
-                };
-                with_pico8(&ctx, move |pico8| {
-                    // let dir = Dir2::new(dxdy).map_err(|_| Error::InvalidArgument("dx, dy direction".into()))?;
-                    let Ok(dir) = Dir2::new(dxdy) else {
-                        return Ok(ScriptValue::Unit);
-                    };
-                    let ids_dists: Vec<ScriptValue> = pico8
-                        .raycast(pos, dir, mask, shape)
-                        .into_iter()
-                        .flat_map(|(id, dist)| {
-                            [
-                                ScriptValue::Integer(id.to_bits() as i64),
-                                ScriptValue::Float(dist as f64),
-                            ]
-                        })
-                        .collect();
-                    Ok(ScriptValue::List(ids_dists))
-                })
-            },
-        )
         .register("props", |ctx: FunctionCallContext, id: i64| {
             let id = Entity::from_bits(id as u64);
             with_pico8(&ctx, move |pico8| {
@@ -512,11 +457,6 @@ pub(crate) fn plugin(app: &mut App) {
                 })
             },
         )
-        .register("place", |ctx: FunctionCallContext, name: String| {
-            with_pico8(&ctx, move |pico8| {
-                Ok(pico8.place(&name).map(|v| vec![v.x, v.y]))
-            })
-        })
         .register("ent", |ctx: FunctionCallContext, id: i64| {
             let id = Entity::from_bits(id as u64);
             // let entity = N9Entity {
