@@ -479,7 +479,7 @@ impl AssetLoader for CartLoader {
 #[cfg(test)]
 mod test {
     use super::*;
-    const sample_cart: &str = r#"pico-8 cartridge // http://www.pico-8.com
+    const SAMPLE_CART: &str = r#"pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
 function _draw()
@@ -497,7 +497,7 @@ __gfx__
 00000000888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 "#;
 
-    const black_row_cart: &str = r#"pico-8 cartridge // http://www.pico-8.com
+    const BLACK_ROW_CART: &str = r#"pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
 function _draw()
@@ -513,7 +513,7 @@ __gfx__
 00700700888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 "#;
 
-    const map_cart: &str = r#"pico-8 cartridge // http://www.pico-8.com
+    const MAP_CART: &str = r#"pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
 function _draw()
@@ -529,7 +529,7 @@ __map__
 00700700888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 "#;
 
-    const test_map_cart: &str = r#"pico-8 cartridge // http://www.pico-8.com
+    const TEST_MAP_CART: &str = r#"pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
 function _draw()
@@ -552,7 +552,7 @@ __map__
 0001010303010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000010101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 "#;
-    const test_sfx_cart: &str = r#"pico-8 cartridge // http://www.pico-8.com
+    const TEST_SFX_CART: &str = r#"pico-8 cartridge // http://www.pico-8.com
 version 41
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -565,13 +565,13 @@ __sfx__
 00010000020503f050200002107000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 "#;
 
-    const pooh_sfx_cart: &str = r#"pico-8 cartridge // http://www.pico-8.com
+    const POOH_SFX_CART: &str = r#"pico-8 cartridge // http://www.pico-8.com
 version 41
 __sfx__
 000100001b02000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 "#;
 
-    const gff_cart: &str = r#"pico-8 cartridge // http://www.pico-8.com
+    const GFF_CART: &str = r#"pico-8 cartridge // http://www.pico-8.com
 version 41
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -596,7 +596,7 @@ __gff__
     #[test]
     fn test_cart_from() {
         let settings = CartLoaderSettings::default();
-        let cart = CartParts::from_str(sample_cart, &settings).unwrap();
+        let cart = CartParts::from_str(SAMPLE_CART, &settings).unwrap();
         assert_eq!(
             cart.lua,
             r#"function _draw()
@@ -621,7 +621,7 @@ end"#
     #[test]
     fn test_cart_black_row() {
         let settings = CartLoaderSettings::default();
-        let cart = CartParts::from_str(black_row_cart, &settings).unwrap();
+        let cart = CartParts::from_str(BLACK_ROW_CART, &settings).unwrap();
         assert_eq!(
             cart.lua,
             r#"function _draw()
@@ -655,14 +655,14 @@ end"#
     #[test]
     fn map() {
         let settings = CartLoaderSettings::default();
-        let cart = CartParts::from_str(map_cart, &settings).unwrap();
+        let cart = CartParts::from_str(MAP_CART, &settings).unwrap();
         assert_eq!(cart.map[5], 136);
     }
 
     #[test]
     fn test_cart_map() {
         let settings = CartLoaderSettings::default();
-        let cart = CartParts::from_str(test_map_cart, &settings).unwrap();
+        let cart = CartParts::from_str(TEST_MAP_CART, &settings).unwrap();
         assert_eq!(
             cart.lua,
             r#"function _draw()
@@ -688,7 +688,7 @@ end"#
     #[test]
     fn test_cart_sfx() {
         let settings = CartLoaderSettings::default();
-        let cart = CartParts::from_str(test_sfx_cart, &settings).unwrap();
+        let cart = CartParts::from_str(TEST_SFX_CART, &settings).unwrap();
         assert_eq!(cart.lua, "");
         assert_eq!(
             cart.sprites
@@ -720,7 +720,7 @@ end"#
     #[test]
     fn test_pooh_sfx() {
         let settings = CartLoaderSettings::default();
-        let cart = CartParts::from_str(test_sfx_cart, &settings).unwrap();
+        let cart = CartParts::from_str(TEST_SFX_CART, &settings).unwrap();
         assert_eq!(cart.lua, "");
         // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), None);
         // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), None);
@@ -737,7 +737,7 @@ end"#
     #[test]
     fn test_gff_cart() {
         let settings = CartLoaderSettings::default();
-        let cart = CartParts::from_str(gff_cart, &settings).unwrap();
+        let cart = CartParts::from_str(GFF_CART, &settings).unwrap();
         assert_eq!(cart.lua, "");
         // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), None);
         // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), None);

@@ -3,7 +3,7 @@ use bevy::{
     ecs::system::SystemParam,
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
     input::gamepad::GamepadConnectionEvent,
-    math::bounding::{Aabb2d, AabbCast2d, IntersectsVolume, RayCast2d},
+    math::bounding::IntersectsVolume,
     prelude::*,
     render::{
         render_asset::RenderAssetUsages,

@@ -4,14 +4,13 @@ use crate::{
 };
 use bevy::{
     ecs::system::SystemParam,
-    math::bounding::Aabb2d,
     prelude::*,
 };
 use bevy_ecs_tiled::{
     map::components::TiledMapStorage,
-    prelude::{TiledMap, TiledMapCreated, TiledMapHandle},
+    prelude::{TiledMap, TiledMapHandle},
 };
-use tiled::{LayerType, PropertyValue, Tileset};
+use tiled::{PropertyValue, Tileset};
 
 pub(crate) fn plugin(app: &mut App) {
     app.register_type::<TiledLookup>();

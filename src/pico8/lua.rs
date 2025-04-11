@@ -1,6 +1,5 @@
 use bevy::{
     ecs::system::{SystemParam, SystemState},
-    math::bounding::Aabb2d,
     prelude::*,
 };
 
@@ -20,7 +19,6 @@ use bevy_mod_scripting::core::{
     };
 
 use crate::{
-    conversions::RectValue,
     pico8::{
         Error, Pico8, PropBy, SfxCommand, Spr,
     }, DropPolicy, N9Color, N9Entity,

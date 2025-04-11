@@ -6,15 +6,12 @@ use bevy::{
 
 use bevy_mod_scripting::core::{
         bindings::{
-            access_map::ReflectAccessId,
             function::{
-                from::{FromScript, Val},
-                into_ref::IntoScriptRef,
+                from::FromScript,
                 namespace::{GlobalNamespace, NamespaceBuilder},
                 script_function::FunctionCallContext,
             },
             script_value::ScriptValue,
-            ReflectReference,
         },
         error::InteropError,
     };
@@ -131,7 +128,7 @@ fn with_rays<X>(
     with_system_param::<Rays, X>(ctx, f)
 }
 
-impl<'w, 's> Rays<'w, 's> {
+impl Rays<'_, '_> {
     pub fn raydown(&self, mut pos: Vec2, mask: Option<u32>, shape: Option<Aabb2d>) -> Vec<Entity> {
         pos.y = negate_y(pos.y);
         self.covers

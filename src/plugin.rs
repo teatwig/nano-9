@@ -182,7 +182,7 @@ pub fn sync_window_size(
     canvas: Res<N9Canvas>,
     // mut query: Query<&mut Sprite, With<Nano9Sprite>>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
-    mut orthographic_camera: Single<(&mut OrthographicProjection, &mut Camera), With<Nano9Camera>>,
+    orthographic_camera: Single<(&mut OrthographicProjection, &mut Camera), With<Nano9Camera>>,
 ) {
     if let Some(e) = resize_event
         .read()
