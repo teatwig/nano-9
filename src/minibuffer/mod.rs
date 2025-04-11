@@ -1,7 +1,6 @@
-use crate::{call, error::ErrorState};
+use crate::{call, error::ErrorState, pico8::lua::with_system_param};
 use bevy::{
     core::FrameCount,
-    ecs::system::{SystemParam, SystemState},
     prelude::*,
 };
 use bevy_minibuffer::prelude::*;
@@ -9,7 +8,6 @@ use bevy_mod_scripting::core::event::ScriptCallbackEvent;
 
 use bevy_mod_scripting::core::{
         bindings::{
-            access_map::ReflectAccessId,
             function::{
                 namespace::NamespaceBuilder,
                 script_function::FunctionCallContext,
@@ -63,28 +61,11 @@ impl Plugin for Nano9Acts {
     }
 }
 
-fn with_minibuffer<X>(
+fn with_minibuffer<T>(
     ctx: &FunctionCallContext,
-    f: impl FnOnce(&mut Minibuffer) -> Result<X, Error>,
-) -> Result<X, InteropError> {
-    let world_guard = ctx.world()?;
-    let raid = ReflectAccessId::for_global();
-    if world_guard.claim_global_access() {
-        let world = world_guard.as_unsafe_world_cell()?;
-        let world = unsafe { world.world_mut() };
-        let mut system_state: SystemState<Minibuffer> = SystemState::new(world);
-        let mut minibuffer = system_state.get_mut(world);
-        let r = f(&mut minibuffer);
-        system_state.apply(world);
-        unsafe { world_guard.release_global_access() };
-        r.map_err(|e| InteropError::external_error(Box::new(e)))
-    } else {
-        Err(InteropError::cannot_claim_access(
-            raid,
-            world_guard.get_access_location(raid),
-            "with_minibuffer",
-        ))
-    }
+    f: impl FnOnce(&mut Minibuffer) -> Result<T, Error>,
+) -> Result<T, InteropError> {
+    with_system_param::<Minibuffer, T, Error>(ctx, f)
 }
 
 pub fn toggle_pause(

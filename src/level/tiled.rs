@@ -28,7 +28,7 @@ pub enum TiledLookup {
 #[derive(SystemParam)]
 pub struct Level<'w, 's> {
     tiled_maps: ResMut<'w, Assets<bevy_ecs_tiled::prelude::TiledMap>>,
-    tiled_worlds: ResMut<'w, Assets<bevy_ecs_tiled::prelude::TiledWorld>>,
+    // tiled_worlds: ResMut<'w, Assets<bevy_ecs_tiled::prelude::TiledWorld>>,
     tiled_id_storage: Query<'w, 's, (&'static TiledMapStorage, &'static TiledMapHandle)>,
     sprites: Query<'w, 's, &'static mut Sprite>,
     tiled_lookups: Query<'w, 's, &'static TiledLookup>,
@@ -38,7 +38,7 @@ impl Level<'_, '_> {
         &self,
         map: &level::Tiled,
         pos: Vec2,
-        map_index: Option<usize>,
+        _map_index: Option<usize>,
         layer_index: Option<usize>,
     ) -> Option<usize> {
         match map {
@@ -74,7 +74,7 @@ impl Level<'_, '_> {
                         }
                     })
             }),
-            level::Tiled::World { handle } => {
+            level::Tiled::World { handle: _ } => {
                 todo!()
             }
         }
@@ -84,7 +84,7 @@ impl Level<'_, '_> {
         &self,
         map: &level::Tiled,
         prop_by: pico8::PropBy,
-        map_index: Option<usize>,
+        _map_index: Option<usize>,
         layer_index: Option<usize>,
     ) -> Option<tiled::Properties> {
         match map {
@@ -147,7 +147,7 @@ impl Level<'_, '_> {
                         _ => None,
                     })
             }),
-            level::Tiled::World { handle } => {
+            level::Tiled::World { handle: _ } => {
                 // todo!()
                 None
             }
@@ -159,7 +159,7 @@ impl Level<'_, '_> {
         map: &level::Tiled,
         pos: Vec2,
         sprite_index: usize,
-        map_index: Option<usize>,
+        _map_index: Option<usize>,
         layer_index: Option<usize>,
     ) -> Result<(), pico8::Error> {
         match map {
@@ -176,7 +176,7 @@ impl Level<'_, '_> {
                             .ok_or(pico8::Error::NoSuch("layer".into()))
                             .and_then(|layer| {
                                 match layer.layer_type() {
-                                    tiled::LayerType::Tiles(tile_layer) => {
+                                    tiled::LayerType::Tiles(_tile_layer) => {
                                         // tile_layer.get_tile(pos.x as i32, pos.y as i32)
                                         //           .and_then(|layer_tile| layer_tile.get_tile().map(|tile| tile.properties.clone()))
                                         Ok(())
@@ -235,7 +235,7 @@ impl Level<'_, '_> {
                             })
                     })
             }
-            level::Tiled::World { handle } => {
+            level::Tiled::World { handle: _ } => {
                 todo!()
             }
         }
@@ -267,7 +267,7 @@ impl Level<'_, '_> {
                 insert_object_fields(&mut properties, &object);
                 Ok(properties)
             }
-            _ => unreachable!(),
+            // _ => unreachable!(),
         }
     }
 }
@@ -277,7 +277,7 @@ fn shape_contains(object: &tiled::ObjectData, tile_size: UVec2, point: Vec2) -> 
         tiled::ObjectShape::Rect { width, height } => {
             Rect::new(object.x, object.y, object.x + width, object.y + height).contains(point)
         }
-        tiled::ObjectShape::Point(x, y) => !Rect::new(
+        tiled::ObjectShape::Point(_x, _y) => !Rect::new(
             object.x,
             object.y - tile_size.y as f32,
             object.x + tile_size.x as f32,
@@ -301,7 +301,7 @@ fn shape_intersects(object: &tiled::ObjectData, tile_size: UVec2, rect: Rect) ->
                 .intersect(rect)
                 .is_empty()
         }
-        tiled::ObjectShape::Point(x, y) => !Rect::new(
+        tiled::ObjectShape::Point(_x, _y) => !Rect::new(
             object.x,
             object.y - tile_size.y as f32,
             object.x + tile_size.x as f32,
@@ -355,9 +355,9 @@ pub(crate) fn layout_from_tileset(tileset: &Tileset) -> TextureAtlasLayout {
     )
 }
 
-pub(crate) fn layer_tile_properties(tile: &tiled::LayerTile) -> Option<tiled::Properties> {
-    tile.get_tile().map(|t| t.properties.clone())
-}
+// pub(crate) fn layer_tile_properties(tile: &tiled::LayerTile) -> Option<tiled::Properties> {
+//     tile.get_tile().map(|t| t.properties.clone())
+// }
 
 pub(crate) fn flags_from_tileset(tileset: &Tileset) -> Vec<u8> {
     let mut flags: Vec<u8> = vec![0; tileset.tilecount as usize];

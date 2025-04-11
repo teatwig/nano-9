@@ -71,7 +71,6 @@ impl Plugin for RaycastPlugin {
              shape: Option<ScriptValue>| {
                 let pos = Vec2::new(x, y);
                 let dxdy = Vec2::new(dx, dy);
-                let world = ctx.world()?;
                 let shape = if let Some(v) = shape {
                     let Rect { min, max } = RectValue::from_script(v, ctx.world()?)?;
                     Some(Aabb2d { min, max })
@@ -125,7 +124,7 @@ fn with_rays<X>(
     ctx: &FunctionCallContext,
     f: impl FnOnce(&mut Rays) -> Result<X, Error>,
 ) -> Result<X, InteropError> {
-    with_system_param::<Rays, X>(ctx, f)
+    with_system_param::<Rays, X, Error>(ctx, f)
 }
 
 impl Rays<'_, '_> {

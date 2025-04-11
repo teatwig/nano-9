@@ -1,9 +1,8 @@
 use bevy::{
-    asset::{embedded_asset, AssetPath},
+    asset::embedded_asset,
     ecs::system::SystemParam,
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
     input::gamepad::GamepadConnectionEvent,
-    math::bounding::IntersectsVolume,
     prelude::*,
     render::{
         render_asset::RenderAssetUsages,
@@ -15,7 +14,7 @@ use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 
 use bevy_mod_scripting::{
     core::{
-        asset::{Language, ScriptAsset},
+        asset::ScriptAsset,
         bindings::{
             function::from::FromScript,
             script_value::ScriptValue, WorldAccessGuard,
@@ -41,7 +40,6 @@ use std::{
     f32::consts::PI,
     any::TypeId,
     borrow::Cow,
-    ffi::OsStr,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -292,7 +290,6 @@ impl From<Error> for LuaError {
 #[derive(SystemParam)]
 pub struct Pico8<'w, 's> {
     images: ResMut<'w, Assets<Image>>,
-    carts: ResMut<'w, Assets<Cart>>,
     pub state: ResMut<'w, Pico8State>,
     commands: Commands<'w, 's>,
     canvas: Res<'w, N9Canvas>,
@@ -411,6 +408,7 @@ impl From<u8> for SfxCommand {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 enum Radii {
     Radii(u32, u32),
@@ -928,7 +926,7 @@ impl Pico8<'_, '_> {
     ) -> Option<tiled::Properties> {
         let map: &Map = self.state.maps.get(map_index).expect("No such map");
         match *map {
-            Map::P8(ref map) => None,
+            Map::P8(ref _map) => None,
 
             #[cfg(feature = "level")]
             Map::Level(ref map) => self.tiled.mgetp(map, prop_by, map_index, layer_index),
@@ -1566,31 +1564,8 @@ impl Pico8State {
             N9Color::Color(c) => c.into(),
         }
     }
-
-    // pub fn get_color(index: usize, world: &mut World) -> Result<Color, LuaError> {
-    //     let mut system_state: SystemState<(Res<Nano9Palette>, Res<Assets<Image>>, Res<DrawState>)> =
-    //         SystemState::new(world);
-    //     let (palette, images, draw_state) = system_state.get(world);
-
-    //     images
-    //         .get(&palette.0)
-    //         .ok_or_else(|| LuaError::RuntimeError(format!("no such palette {:?}", &palette.0)))
-    //         .and_then(|pal| {
-    //             pal.get_color_at_1d(index as u32)
-    //                 .map_err(|_| LuaError::RuntimeError(format!("no such pixel index {:?}", index)))
-    //         })
-    // }
 }
 
-fn path_to_lang(path: &AssetPath) -> Language {
-    // For carts we use cart.p8#lua, which is labeled asset, so we
-    // need to tell it what language our cart is.
-    if path.path().extension() == Some(OsStr::new("lua")) {
-        Language::Lua
-    } else {
-        Language::Unknown
-    }
-}
 pub(crate) fn plugin(app: &mut App) {
     embedded_asset!(app, "pico-8-palette.png");
     embedded_asset!(app, "rect-border.png");

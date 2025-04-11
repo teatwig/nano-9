@@ -49,6 +49,7 @@ pub enum CartLoaderError {
     LoadDirect(#[from] bevy::asset::LoadDirectError),
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct MusicParts {
     begin: bool,

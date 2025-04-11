@@ -254,7 +254,6 @@ pub fn sync_window_size(
 /// Sends events allowing scripts to drive update logic
 pub fn send_update(
     mut writer: EventWriter<ScriptCallbackEvent>,
-    frame_count: Res<bevy::core::FrameCount>,
 ) {
     writer.send(ScriptCallbackEvent::new_for_all(
         call::Update,

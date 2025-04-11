@@ -9,14 +9,15 @@ use bevy_mod_scripting::core::{
 use bevy::prelude::*;
 use std::{any::TypeId, borrow::Borrow, collections::HashMap, fmt::Display, hash::Hash};
 
-fn script_value_to_f32(value: &ScriptValue) -> Option<f32> {
-    match value {
-        ScriptValue::Float(f) => Some(*f as f32),
-        ScriptValue::Integer(i) => Some(*i as f32),
-        _ => None,
-    }
-}
+// fn script_value_to_f32(value: &ScriptValue) -> Option<f32> {
+//     match value {
+//         ScriptValue::Float(f) => Some(*f as f32),
+//         ScriptValue::Integer(i) => Some(*i as f32),
+//         _ => None,
+//     }
+// }
 
+#[allow(non_camel_case_types)]
 pub struct f32Value;
 impl FromScript for f32Value {
     type This<'w> = f32;
@@ -61,6 +62,7 @@ impl FromScript for Vec2Value {
     }
 }
 
+#[allow(dead_code)]
 fn getr<'a, K, V, Q>(map: &'a HashMap<K, V>, k: &Q) -> Result<&'a V, InteropError>
 where
     K: Borrow<Q> + Hash + Eq,

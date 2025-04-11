@@ -20,6 +20,7 @@ use std::{
     process,
 };
 
+#[allow(dead_code)]
 #[derive(Resource)]
 struct InitState(Handle<Pico8State>);
 
@@ -67,7 +68,7 @@ fn main() -> io::Result<()> {
                 AssetSourceBuilder::platform_default(parent.to_str().expect("parent dir"), None),
             );
         }
-        /// Get rid of this.
+        // Get rid of this.
         let content = fs::read_to_string(path)?;
 
         let config: Config = toml::from_str::<Config>(&content)
@@ -76,15 +77,9 @@ fn main() -> io::Result<()> {
         // let cmd = config.clone();
         app.add_systems(
             PostStartup,
-            move |asset_server: Res<AssetServer>, mut commands: Commands, pico8: Pico8| {
+            move |asset_server: Res<AssetServer>, mut commands: Commands| {
                 let pico8state: Handle<Pico8State> = asset_server.load("nano9.toml");
                 commands.insert_resource(InitState(pico8state));
-                // let asset_path = AssetPath::from_path(&code_path).with_source(&source);
-                // pico8.state.code = asset_server.load(&asset_path);
-                // dbg!(&asset_path);
-                // commands.spawn(ScriptComponent(vec!["main.lua".into()]));
-                // commands.spawn(ScriptComponent(vec![asset_path.to_string().into()]));
-                // commands.queue(cmd.clone())
             },
         );
         nano9_plugin = Nano9Plugin { config };

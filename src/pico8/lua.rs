@@ -27,9 +27,9 @@ use crate::{
 #[cfg(feature = "level")]
 use std::collections::HashMap;
 
-pub(crate) fn with_system_param<S: SystemParam + 'static,X>(
+pub(crate) fn with_system_param<S: SystemParam + 'static,X, E: std::error::Error + Send + Sync + 'static>(
     ctx: &FunctionCallContext,
-    f: impl FnOnce(&mut S::Item<'_, '_>) -> Result<X, Error>,
+    f: impl FnOnce(&mut S::Item<'_, '_>) -> Result<X, E>,
 ) -> Result<X, InteropError>
 {
     let world_guard = ctx.world()?;
@@ -58,7 +58,7 @@ fn with_pico8<X>(
     ctx: &FunctionCallContext,
     f: impl FnOnce(&mut Pico8) -> Result<X, Error>,
 ) -> Result<X, InteropError> {
-    with_system_param::<Pico8, X>(ctx, f)
+    with_system_param::<Pico8, X, Error>(ctx, f)
 }
 
 pub(crate) fn plugin(app: &mut App) {
@@ -130,7 +130,6 @@ pub(crate) fn plugin(app: &mut App) {
         .register(
             "sspr",
             |ctx: FunctionCallContext,
-             n: ScriptValue,
              sx: f32,
              sy: f32,
              sw: f32,
@@ -455,7 +454,7 @@ pub(crate) fn plugin(app: &mut App) {
                 })
             },
         )
-        .register("ent", |ctx: FunctionCallContext, id: i64| {
+        .register("ent", |_ctx: FunctionCallContext, id: i64| {
             let id = Entity::from_bits(id as u64);
             // let entity = N9Entity {
             //     entity: id,
@@ -473,7 +472,7 @@ pub(crate) fn plugin(app: &mut App) {
             Val(id)
         })
 
-        .register("print_ent", |ctx: FunctionCallContext, id: Val<Entity>| {
+        .register("print_ent", |_ctx: FunctionCallContext, id: Val<Entity>| {
             info!("print id {}", &id.0);
         })
         ;

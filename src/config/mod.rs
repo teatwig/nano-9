@@ -90,9 +90,9 @@ pub enum Font {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
-struct Palette {
-    path: String,
-    row: Option<u32>,
+pub struct Palette {
+    pub path: String,
+    pub row: Option<u32>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -265,7 +265,7 @@ impl AssetLoader for ConfigLoader {
                                     }.into())
                                 }
                             }
-                            x => Err(ConfigLoaderError::Message(format!("Unknown map format {:?}", &map.path)))
+                            _ => Err(ConfigLoaderError::Message(format!("Unknown map format {:?}", &map.path)))
                         }
                     } else {
                         Err(ConfigLoaderError::Message(format!("The map path {:?} did not have an extension.", &map.path)))
@@ -273,10 +273,9 @@ impl AssetLoader for ConfigLoader {
                 }).collect::<Result<Vec<_>, _>>()?.into(),
                 audio_banks: config.audio_banks.into_iter().map(|bank| pico8::AudioBank(match bank {
                     AudioBank::P8 { p8, count } => {
-                            // (0..count).map(|i|
-                            //                pico8::Audio::Sfx(load_context.load(&AssetPath::from_path(&p8).with_label(&format!("sfx{i}"))))
-                            // ).collect::<Vec<_>>()
-                            vec![]
+                            (0..count).map(|i|
+                                           pico8::Audio::Sfx(load_context.load(&AssetPath::from_path(&p8).with_label(&format!("sfx{i}"))))
+                            ).collect::<Vec<_>>()
                     }
                     AudioBank::Paths { paths } => {
                         paths.into_iter().map(|p| pico8::Audio::AudioSource(load_context.load(p))).collect::<Vec<_>>()
@@ -426,12 +425,11 @@ impl Command for Config {
                 }).collect::<Result<Vec<_>, _>>().expect("load map").into(),
                 audio_banks: self.audio_banks.into_iter().map(|bank| pico8::AudioBank(match bank {
                     AudioBank::P8 { p8, count } => {
-                        // let asset_path = AssetPath::from_path(&p8);
-                        //     (0..count).map(|i| {
-                        //         let label = format!("sfx{i}");
-                        //         pico8::Audio::Sfx(asset_server.load(&asset_path.clone().with_label(&label)))
-                        //     }).collect::<Vec<_>>()
-                        vec![]
+                        let asset_path = AssetPath::from_path(&p8);
+                            (0..count).map(|i| {
+                                let label = format!("sfx{i}");
+                                pico8::Audio::Sfx(asset_server.load(&asset_path.clone().with_label(&label)))
+                            }).collect::<Vec<_>>()
                     }
                     AudioBank::Paths { paths } => {
                         paths.into_iter().map(|p| pico8::Audio::AudioSource(asset_server.load(p))).collect::<Vec<_>>()
@@ -440,7 +438,6 @@ impl Command for Config {
 
                         // vec![AudioBank(cart.sfx.clone().into_iter().map(Audio::Sfx).collect())].into(),
                 sprite_sheets: self.sprite_sheets.into_iter().zip(layouts).map(|(sheet, layout)| {
-                    let flags: Vec<u8>;
                     if sheet.path.extension() == Some(OsStr::new("tsx")) {
                         #[cfg(feature = "level")]
                         {
@@ -495,10 +492,9 @@ impl Command for Config {
                                                              }
                                                          },
                                                          Font::Path { path, height } => {
-
                                                              pico8::N9Font {
                                                                  handle: asset_server.load(path),
-                                                                 height: None,
+                                                                 height,
                                                              }
                                                          }
                                                          Font::Default { .. } => { panic!("Must use a path if not default font.") }
