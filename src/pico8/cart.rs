@@ -18,15 +18,7 @@ pub(crate) fn plugin(app: &mut App) {
     app.add_event::<LoadCart>()
         .init_asset::<Cart>()
         .init_asset_loader::<CartLoader>()
-        .add_systems(
-            PostUpdate,
-            (
-                load_cart,
-                // (send_init, event_handler::<call::Init, LuaScriptingPlugin>)
-                //     .run_if(on_asset_change::<Cart>()),
-            )
-                .chain(),
-        );
+        .add_systems(PostUpdate, load_cart);
 }
 
 #[non_exhaustive]

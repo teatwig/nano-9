@@ -13,9 +13,9 @@ use bevy::{
 };
 
 use bevy_mod_scripting::{
-    ScriptFunctionsPlugin,
+    BMSPlugin,
     core::{
-        asset::ScriptAsset,
+        asset::{ScriptAsset, ScriptAssetSettings, Language},
         bindings::{function::namespace::NamespaceBuilder, script_value::ScriptValue},
         callback_labels,
         event::ScriptCallbackEvent,
@@ -383,6 +383,9 @@ impl Plugin for Nano9Plugin {
                 16 * 4,
             )),
         })
+            .insert_resource({let mut settings = ScriptAssetSettings::default();
+                             settings.extension_to_language_map.insert("p8#lua", Language::Lua);
+                             settings })
         .insert_resource(N9Canvas {
             size: canvas_size,
             ..default()
@@ -395,7 +398,8 @@ impl Plugin for Nano9Plugin {
                 .frames_per_second
                 .unwrap_or(DEFAULT_FRAMES_PER_SECOND) as f64,
         ))
-        .add_plugins((lua_scripting_plugin, crate::plugin, add_info, ScriptFunctionsPlugin))
+        .add_plugins(BMSPlugin.set(lua_scripting_plugin))
+        .add_plugins((crate::plugin, add_info))
         .add_systems(Startup, (setup_canvas, spawn_camera).chain())
         .add_systems(
             Update,
