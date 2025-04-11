@@ -743,7 +743,7 @@ mod test {
         let b = 3..6;
         let c = 6..9;
         let v = [a, b, c];
-        v.iter().flat_map(|it| it.clone());
+        let _ = v.iter().flat_map(|it| it.clone());
     }
 
     #[test]

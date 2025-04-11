@@ -60,50 +60,6 @@ pub struct N9Font {
     pub height: Option<f32>,
 }
 
-#[derive(Clone, Component, Debug, Reflect, Default)]
-#[reflect(Component, Default)]
-pub struct P8Flags {
-    pub value: u8,
-}
-// We name these oddly so they'll be in the right order
-//     pub a_red    : bool,
-//     pub b_orange : bool,
-//     pub c_yellow : bool,
-//     pub d_green  : bool,
-//     pub e_blue   : bool,
-//     pub f_purple : bool,
-//     pub g_pink   : bool,
-//     pub h_peach  : bool,
-// }
-
-// /// We name these oddly so they'll be in the right order
-// #[derive(Clone, Component, Debug, Reflect, Default)]
-// #[reflect(Component, Default)]
-// pub struct P8Flags {
-//     pub a_red    : bool,
-//     pub b_orange : bool,
-//     pub c_yellow : bool,
-//     pub d_green  : bool,
-//     pub e_blue   : bool,
-//     pub f_purple : bool,
-//     pub g_pink   : bool,
-//     pub h_peach  : bool,
-// }
-
-bitflags::bitflags! {
-    #[derive(Clone, Copy, Debug, PartialOrd, PartialEq, Eq, Hash, Ord, Component)]
-    pub struct SpriteFlags: u8 {
-        const Red    = 0b00000001;
-        const Orange = 0b00000010;
-        const Yellow = 0b00000100;
-        const Green  = 0b00001000;
-        const Blue   = 0b00010000;
-        const Purple = 0b00100000;
-        const Pink   = 0b01000000;
-        const Peach  = 0b10000000;
-    }
-}
-
 #[derive(Clone, Debug, Deref, DerefMut)]
 pub struct AudioBank(pub Vec<Audio>);
 
@@ -509,7 +465,6 @@ impl Pico8<'_, '_> {
     #[allow(dead_code)]
     pub fn load_cart(&mut self, cart: Handle<Cart>) {
         self.commands.spawn(LoadCart(cart));
-        // self.cart_state.set(CartState::Loading(cart));
     }
 
     /// sspr( sx, sy, sw, sh, dx, dy, [dw,] [dh,] [flip_x,] [flip_y,] [sheet_index])
@@ -1002,7 +957,6 @@ impl Pico8<'_, '_> {
     }
 
     pub fn camera(&mut self, pos: Option<Vec2>) -> Vec2 {
-        
         if let Some(pos) = pos {
             let last = std::mem::replace(&mut self.state.draw_state.camera_position, pos);
             self.commands.trigger(UpdateCameraPos(pos));
@@ -1016,10 +970,7 @@ impl Pico8<'_, '_> {
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let min = a.min(b);
         let delta = b - a;
-        // let size = UVec2::new((a.x - b.x).abs() + 1,
-        //                       (a.y - b.y).abs() + 1);
         let size = UVec2::new(delta.x.unsigned_abs(), delta.y.unsigned_abs()) + UVec2::ONE;
-        // dbg!(a, b, size);
         let mut image = Image::new_fill(
             Extent3d {
                 width: size.x,
@@ -1036,7 +987,6 @@ impl Pico8<'_, '_> {
         for (x, y) in
             bresenham::Bresenham::new((c.x as isize, c.y as isize), (d.x as isize, d.y as isize))
         {
-            // dbg!(x, y);
             image.set_color_at(x as u32, y as u32, Color::WHITE)?;
         }
         let handle = self.images.add(image);
@@ -1050,12 +1000,6 @@ impl Pico8<'_, '_> {
                     color,
                     anchor: Anchor::TopLeft,
                     custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
-                    // image_mode: SpriteImageMode::Sliced(TextureSlicer {
-                    //     border: BorderRect::square(1.0),
-                    //     center_scale_mode: SliceScaleMode::Stretch,
-                    //     sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
-                    //     ..default()
-                    // }),
                     ..default()
                 },
                 Transform::from_xyz(min.x as f32, negate_y(min.y as f32), clearable.suggest_z()),
@@ -1091,13 +1035,8 @@ impl Pico8<'_, '_> {
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
-        // let min = a.min(b);
         let r: UVec2 = r.into();
         let size: UVec2 = r * UVec2::splat(2) + UVec2::ONE;
-        // // let size = UVec2::new((a.x - b.x).abs() + 1,
-        // //                       (a.y - b.y).abs() + 1);
-        // let size = UVec2::new(delta.x.abs() as u32, delta.y.abs() as u32) + UVec2::ONE;
-        // dbg!(a, b, size);
         let mut pixmap = Pixmap::new(size.x, size.y).expect("pixmap");
         let oval =
             tiny_skia::Rect::from_ltrb(0.0, 0.0, size.x as f32, size.y as f32).expect("circ rect");
@@ -1139,12 +1078,6 @@ impl Pico8<'_, '_> {
                         offset / size.y as f32,
                     )),
                     custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
-                    // image_mode: SpriteImageMode::Sliced(TextureSlicer {
-                    //     border: BorderRect::square(1.0),
-                    //     center_scale_mode: SliceScaleMode::Stretch,
-                    //     sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
-                    //     ..default()
-                    // }),
                     ..default()
                 },
                 Transform::from_xyz(pos.x as f32, negate_y(pos.y as f32), clearable.suggest_z()),
@@ -1161,13 +1094,8 @@ impl Pico8<'_, '_> {
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
-        // let min = a.min(b);
         let r: UVec2 = r.into();
         let size: UVec2 = r * UVec2::splat(2) + UVec2::ONE;
-        // // let size = UVec2::new((a.x - b.x).abs() + 1,
-        // //                       (a.y - b.y).abs() + 1);
-        // let size = UVec2::new(delta.x.abs() as u32, delta.y.abs() as u32) + UVec2::ONE;
-        // dbg!(a, b, size);
         let mut pixmap = Pixmap::new(size.x, size.y).expect("pixmap");
         let oval =
             tiny_skia::Rect::from_ltrb(0.0, 0.0, size.x as f32, size.y as f32).expect("circ rect");
@@ -1212,12 +1140,6 @@ impl Pico8<'_, '_> {
                         offset / size.y as f32,
                     )),
                     custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
-                    // image_mode: SpriteImageMode::Sliced(TextureSlicer {
-                    //     border: BorderRect::square(1.0),
-                    //     center_scale_mode: SliceScaleMode::Stretch,
-                    //     sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
-                    //     ..default()
-                    // }),
                     ..default()
                 },
                 Transform::from_xyz(pos.x as f32, negate_y(pos.y as f32), clearable.suggest_z()),
@@ -1279,12 +1201,6 @@ impl Pico8<'_, '_> {
                     color,
                     anchor: Anchor::TopLeft,
                     custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
-                    // image_mode: SpriteImageMode::Sliced(TextureSlicer {
-                    //     border: BorderRect::square(1.0),
-                    //     center_scale_mode: SliceScaleMode::Stretch,
-                    //     sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
-                    //     ..default()
-                    // }),
                     ..default()
                 },
                 Transform::from_xyz(
@@ -1305,14 +1221,9 @@ impl Pico8<'_, '_> {
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
-        // let min = a.min(b);
         let size: UVec2 = ((lower_right - upper_left) + IVec2::ONE)
             .try_into()
             .unwrap();
-        // // let size = UVec2::new((a.x - b.x).abs() + 1,
-        // //                       (a.y - b.y).abs() + 1);
-        // let size = UVec2::new(delta.x.abs() as u32, delta.y.abs() as u32) + UVec2::ONE;
-        // dbg!(a, b, size);
         let mut pixmap = Pixmap::new(size.x, size.y).expect("pixmap");
         let oval =
             tiny_skia::Rect::from_ltrb(0.0, 0.0, size.x as f32, size.y as f32).expect("oval rect");
@@ -1353,12 +1264,6 @@ impl Pico8<'_, '_> {
                     color,
                     anchor: Anchor::TopLeft,
                     custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
-                    // image_mode: SpriteImageMode::Sliced(TextureSlicer {
-                    //     border: BorderRect::square(1.0),
-                    //     center_scale_mode: SliceScaleMode::Stretch,
-                    //     sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
-                    //     ..default()
-                    // }),
                     ..default()
                 },
                 Transform::from_xyz(
@@ -1573,14 +1478,6 @@ pub(crate) fn plugin(app: &mut App) {
     app.init_asset::<Pico8State>()
         .init_resource::<Pico8State>()
         .init_resource::<PlayerInputs>()
-        .register_type::<P8Flags>()
-        // .add_systems(
-        //     PreStartup,
-        //     |mut asset_settings: ResMut<ScriptAssetSettings>| {
-        //         asset_settings
-        //             .script_id_mapper = AssetPathToScriptIdMapper { map: path_to_lang };
-        //     },
-        // )
         .add_observer(
             |trigger: Trigger<UpdateCameraPos>,
              camera: Single<&mut Transform, With<Nano9Camera>>| {

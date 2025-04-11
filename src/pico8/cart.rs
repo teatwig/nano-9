@@ -721,6 +721,23 @@ end"#
     #[test]
     fn test_pooh_sfx() {
         let settings = CartLoaderSettings::default();
+        let cart = CartParts::from_str(POOH_SFX_CART, &settings).unwrap();
+        assert_eq!(cart.lua, "");
+        // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), None);
+        // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), None);
+        assert_eq!(cart.map.len(), 0);
+        assert_eq!(cart.sfx.len(), 1);
+        let sfx = &cart.sfx[0];
+        let notes = &sfx.notes;
+        assert_eq!(sfx.speed, 1);
+        assert_eq!(notes[0].volume(), 2.0 / 7.0);
+        assert_eq!(notes[0].pitch(), 62);
+        assert_eq!(notes[0].wave(), WaveForm::Triangle);
+    }
+
+    #[test]
+    fn test_sfx() {
+        let settings = CartLoaderSettings::default();
         let cart = CartParts::from_str(TEST_SFX_CART, &settings).unwrap();
         assert_eq!(cart.lua, "");
         // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), None);
