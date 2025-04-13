@@ -29,10 +29,7 @@ use crate::{config::*, error::ErrorState, pico8::fill_input, N9Var};
 #[derive(Component)]
 pub struct Nano9Sprite;
 
-#[derive(Resource)]
-pub struct Nano9Screen(pub Handle<Image>);
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Reflect)]
 pub struct DrawState {
     pub pen: Color,
     pub camera_position: Vec2,
@@ -78,7 +75,7 @@ pub mod call {
     callback_labels!(
     SetGlobal => "_set_global",
     Update => "_update",
-    Update60 => "_update60",
+    // Update60 => "_update60",
     Init => "_init",
     Eval => "_eval",
     Draw => "_draw"); // TODO: Should permit trailing comma
@@ -116,45 +113,33 @@ fn spawn_camera(mut commands: Commands, canvas: Option<Res<N9Canvas>>) {
     let canvas_size: UVec2 = canvas.map(|c| c.size).unwrap_or_default();
     commands
         .spawn((
+            Name::new("dolly"),
             Transform::from_xyz(
                 canvas_size.x as f32 / 2.0,
                 -(canvas_size.y as f32) / 2.0,
                 0.0,
             ),
             InheritedVisibility::default(),
-            Name::new("dolly"),
         ))
         .with_children(|parent| {
             let mut camera_commands = parent.spawn((
+                Name::new("camera"),
                 Camera2d,
-                // Camera {
-
-                //     viewport: Some(Viewport {
-                //         physical_position: [200, 100].into(),
-                //         physical_size: [600, 600].into(),
-                //         ..default()
-                //     }),
-                //     ..default(),
-                // },
                 Msaa::Off,
-                // Projection::from(projection),
                 projection,
                 IsDefaultUiCamera,
                 InheritedVisibility::default(),
                 Nano9Camera,
                 N9Var::new("camera"),
-                Name::new("camera"),
             ));
             if let Some(handle) = handle {
                 camera_commands.with_children(|parent| {
                     parent.spawn((
+                        Name::new("canvas"),
                         Sprite::from_image(handle),
-                        // transform: Transform::from_xyz(64.0, 64.0, -1.0),
                         Transform::from_xyz(0.0, 0.0, -100.0),
-                        //.with_scale(Vec3::splat(settings.pixel_scale)),
                         Nano9Sprite,
                         N9Var::new("canvas"),
-                        Name::new("canvas"),
                     ));
                 });
             }
@@ -261,22 +246,11 @@ pub fn send_update(
     ));
 }
 
-pub fn send_update60(mut writer: EventWriter<ScriptCallbackEvent>) {
-    writer.send(ScriptCallbackEvent::new_for_all(
-        call::Update60,
-        vec![ScriptValue::Unit],
-    ));
-}
-
 /// Sends initialization event
 pub fn send_init(
     mut writer: EventWriter<ScriptCallbackEvent>,
-    // mut loaded: EventReader<OnScriptLoaded>,
 ) {
     info!("calling init");
-    // todo!("PUT INIT ELSEWHERE like Lua's on_script_loaded()");
-    // for e in loaded.read() {
-    // eprintln!("init {}", e.sid);
     writer.send(ScriptCallbackEvent::new_for_all(
         call::Init,
         vec![ScriptValue::Unit],
@@ -307,7 +281,7 @@ impl Nano9Plugin {
             .unwrap_or(DEFAULT_SCREEN_SIZE);
         WindowPlugin {
             primary_window: Some(Window {
-                resolution: screen_size.as_vec2().into(), //WindowResolution::new(resolution.x, resolution.y),
+                resolution: screen_size.as_vec2().into(),
                 title: self
                     .config
                     .name
@@ -349,6 +323,7 @@ fn add_info(app: &mut App) {
 
 impl Plugin for Nano9Plugin {
     fn build(&self, app: &mut App) {
+        app.register_type::<DrawState>();
         // How do you enable shared context since it eats the plugin?
         let mut lua_scripting_plugin = LuaScriptingPlugin::default();
         let canvas_size: UVec2 = self

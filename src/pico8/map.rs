@@ -5,14 +5,14 @@ use bevy::prelude::*;
 use crate::level;
 use bevy_ecs_tilemap::prelude::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Reflect)]
 pub enum Map {
     P8(P8Map),
     #[cfg(feature = "level")]
     Level(level::Tiled),
 }
 
-#[derive(Clone, Debug, Deref, DerefMut)]
+#[derive(Clone, Debug, Deref, DerefMut, Reflect)]
 pub struct P8Map {
     #[deref]
     pub entries: Vec<u8>,

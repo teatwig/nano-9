@@ -4,7 +4,6 @@ use crate::{
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
     image::{ImageLoaderSettings, ImageSampler},
-    reflect::TypePath,
     render::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
@@ -15,7 +14,9 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 pub(crate) fn plugin(app: &mut App) {
-    app.add_event::<LoadCart>()
+    app
+        .register_type::<Cart>()
+        .add_event::<LoadCart>()
         .init_asset::<Cart>()
         .init_asset_loader::<CartLoader>()
         .add_systems(PostUpdate, load_cart);
@@ -60,7 +61,7 @@ pub struct CartParts {
     pub music: Vec<MusicParts>,
 }
 
-#[derive(Asset, TypePath, Debug)]
+#[derive(Asset, Debug, Reflect)]
 pub struct Cart {
     pub lua: Handle<ScriptAsset>,
     pub sprites: Handle<Image>,
@@ -324,7 +325,6 @@ impl CartParts {
                 map = bytes;
             }
         }
-
         // music
         let mut music = Vec::new();
         if let Some(content) = get_segment(&sections[MUSIC]) {

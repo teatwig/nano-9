@@ -44,7 +44,7 @@
 - boss
 
 ## Bugs
-- [ ]
+- [ ] _draw() gets called before Pico8State is loaded.
 
 ## Assets
 - Pay $1 or $2 for slime if we use it.

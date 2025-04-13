@@ -4,7 +4,6 @@ use crate::pico8::cart::{to_byte, to_nybble};
 use bevy::{
     audio::{AddAudioSource, Source},
     prelude::*,
-    reflect::TypePath,
     utils::Duration,
 };
 use dasp::{
@@ -297,7 +296,7 @@ pub trait Note {
     fn effect(&self) -> Effect;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 pub struct Pico8Note(pub u16);
 
 impl Pico8Note {
@@ -425,14 +424,14 @@ impl Note for Pico8Note {
 // This struct usually contains the data for the audio being played.
 // This is where data read from an audio file would be stored, for example.
 // This allows the type to be registered as an asset.
-#[derive(Asset, TypePath, Clone, Default, Debug)]
+#[derive(Asset, Clone, Default, Debug, Reflect)]
 pub struct Sfx {
     pub notes: Vec<Pico8Note>,
     pub speed: u8,
     pub loop_maybe: Option<Loop>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub enum Loop {
     Unstoppable {
         start: Option<u8>,
@@ -688,7 +687,10 @@ impl Decodable for Sfx {
 }
 
 pub(crate) fn plugin(app: &mut App) {
-    app.add_systems(PreStartup, add_channels)
+    app
+        .register_type::<Sfx>()
+        .register_type::<Loop>()
+        .add_systems(PreStartup, add_channels)
         .add_audio_source::<Sfx>();
 }
 

@@ -1,7 +1,8 @@
 use std::ops::{Deref, DerefMut};
+use bevy::prelude::Reflect;
 
 /// Keep a `Vec<T>` of `T` and pretend to be `T` with deref magic.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Reflect)]
 pub struct Cursor<T> {
     pub inner: Vec<T>,
     pub pos: usize,

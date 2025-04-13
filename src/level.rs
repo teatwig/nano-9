@@ -8,7 +8,7 @@ pub(crate) mod asset;
 pub(crate) mod reader;
 pub mod tiled;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub enum Tiled {
     Map { handle: Handle<TiledMap> },
     World { handle: Handle<TiledWorld> },
@@ -59,6 +59,7 @@ impl Tiled {
 
 pub(crate) fn plugin(app: &mut App) {
     app//.add_plugins(LdtkPlugin)
+        .register_type::<Tiled>()
         .init_asset_loader::<asset::TiledSetLoader>()
         .add_plugins(TilemapPlugin)
         .add_plugins(TiledMapPlugin(TiledMapPluginConfig { tiled_types_export_file: None }))

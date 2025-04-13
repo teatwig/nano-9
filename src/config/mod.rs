@@ -18,7 +18,10 @@ pub const DEFAULT_SCREEN_SIZE: UVec2 = UVec2::splat(512);
 pub(crate) fn plugin(app: &mut App) {
     embedded_asset!(app, "gameboy-palettes.png");
     embedded_asset!(app, "gameboy.ttf");
-    app.init_asset_loader::<ConfigLoader>()
+    app
+        // .register_type::<AudioBank>()
+        // .register_type::<SpriteSheet>()
+        .init_asset_loader::<ConfigLoader>()
         .add_systems(Update, update_asset);
 }
 

@@ -54,22 +54,22 @@ pub const PICO8_SPRITE_SIZE: UVec2 = UVec2::new(8, 8);
 pub const PICO8_TILE_COUNT: UVec2 = UVec2::new(16, 16);
 
 const ANALOG_STICK_THRESHOLD: f32 = 0.1;
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Reflect)]
 pub struct N9Font {
     pub handle: Handle<Font>,
     pub height: Option<f32>,
 }
 
-#[derive(Clone, Debug, Deref, DerefMut)]
+#[derive(Clone, Debug, Deref, DerefMut, Reflect)]
 pub struct AudioBank(pub Vec<Audio>);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub enum Audio {
     Sfx(Handle<Sfx>),
     AudioSource(Handle<AudioSource>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct Palette {
     pub handle: Handle<Image>,
     /// Row count
@@ -77,7 +77,8 @@ pub struct Palette {
 }
 
 /// Pico8State's state.
-#[derive(Resource, Clone, TypePath, Asset, Debug)]
+#[derive(Resource, Clone, Asset, Debug, Reflect)]
+#[reflect(Resource)]
 pub struct Pico8State {
     pub code: Handle<ScriptAsset>,
     pub(crate) palette: Palette,
@@ -158,7 +159,7 @@ impl From<(usize, usize)> for Spr {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct SpriteSheet {
     pub handle: Handle<Image>,
     pub layout: Handle<TextureAtlasLayout>,
@@ -1475,7 +1476,15 @@ pub(crate) fn plugin(app: &mut App) {
     embedded_asset!(app, "pico-8-palette.png");
     embedded_asset!(app, "rect-border.png");
     embedded_asset!(app, "pico-8.ttf");
-    app.init_asset::<Pico8State>()
+    app
+        .register_type::<Pico8State>()
+        .register_type::<N9Font>()
+        .register_type::<Palette>()
+        .register_type::<Palette>()
+        .register_type::<Audio>()
+        .register_type::<AudioBank>()
+        .register_type::<SpriteSheet>()
+        .init_asset::<Pico8State>()
         .init_resource::<Pico8State>()
         .init_resource::<PlayerInputs>()
         .add_observer(
