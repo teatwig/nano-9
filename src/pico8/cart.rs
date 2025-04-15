@@ -18,6 +18,7 @@ pub(crate) fn plugin(app: &mut App) {
         .register_type::<Cart>()
         .add_event::<LoadCart>()
         .init_asset::<Cart>()
+        .init_asset::<Gfx>()
         .init_asset_loader::<CartLoader>()
         .add_systems(PostUpdate, load_cart);
 }
@@ -68,6 +69,46 @@ pub struct Cart {
     pub map: Vec<u8>,
     pub flags: Vec<u8>,
     pub sfx: Vec<Handle<Sfx>>,
+}
+
+#[derive(Asset, Debug, Reflect)]
+pub struct Gfx {
+    nybbles: Vec<u8>,
+    pixel_width: usize,
+}
+
+impl Gfx {
+    /// Turn a Gfx into an image.
+    ///
+    /// The `write_color` function writes a Srgba set of pixels to the given u8
+    /// slice of four bytes.
+    pub fn to_image(&self, write_color: impl Fn(u8, &mut [u8])) -> Image {
+        let pixel_count = self.nybbles.len() * 2;
+        let columns = self.pixel_width;
+        let (rows, remainder) = (pixel_count / columns, pixel_count % columns);
+        assert_eq!(remainder, 0, "Gfx expects an integer number of rows but {} bytes were left over", remainder);
+        let mut pixel_bytes = vec![0x00; columns * rows * 4];
+        let mut i = 0;
+        for byte in &self.nybbles {
+            // first nybble
+            write_color(byte >> 4, &mut pixel_bytes[i * 4..(i + 1) * 4]);
+            i += 1;
+            // second nybble
+            write_color(byte & 0x0f, &mut pixel_bytes[i * 4..(i + 1) * 4]);
+            i += 1;
+        }
+        Image::new(
+            Extent3d {
+                width: columns as u32,
+                height: rows as u32,
+                ..default()
+            },
+            TextureDimension::D2,
+            pixel_bytes,
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::RENDER_WORLD,
+        )
+    }
 }
 
 const PALETTE: [[u8; 3]; 16] = [
@@ -221,14 +262,14 @@ impl CartParts {
                 if partial_rows != 0 {
                     rows = (rows / 8 + 1) * 8;
                 }
-                let mut bytes = vec![0x00; columns * rows * 4];
-                let mut set_color = |pixel_index: usize, palette_index: u8| {
+                let mut bytes = vec![0x00; columns * rows / 2];
+                let write_color = |palette_index: u8, pixel_bytes: &mut [u8]| {
                     let pi = palette_index as usize;
                     // PERF: We should just set the 24 or 32 bits in one go, right?
-                    bytes[pixel_index * 4] = PALETTE[pi][0];
-                    bytes[pixel_index * 4 + 1] = PALETTE[pi][1];
-                    bytes[pixel_index * 4 + 2] = PALETTE[pi][2];
-                    bytes[pixel_index * 4 + 3] = if settings.is_transparent(pi) {
+                    pixel_bytes[0] = PALETTE[pi][0];
+                    pixel_bytes[1] = PALETTE[pi][1];
+                    pixel_bytes[2] = PALETTE[pi][2];
+                    pixel_bytes[3] = if settings.is_transparent(pi) {
                         0x00
                     } else {
                         0xff
@@ -237,14 +278,22 @@ impl CartParts {
                 let mut i = 0;
                 for line in content.lines() {
                     assert_eq!(columns, line.len(), "line: {}", &line);
-                    for c in line.as_bytes() {
-                        let c = *c as char;
-                        let digit: u8 =
+
+                    let line_bytes = line.as_bytes();
+                    let mut j = 0;
+                    while j < line_bytes.len() {
+                        let c = line_bytes[j] as char;
+                        let high: u8 =
                             c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
-                        set_color(i, digit);
+                        let c = line_bytes[j + 1] as char;
+                        let low: u8 =
+                            c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
+                        bytes[i] = (high << 4) | low;
                         i += 1;
+                        j += 2;
                     }
                 }
+                let gfx = Gfx { nybbles: bytes, pixel_width: columns };
 
                 // if partial_rows != 0 {
                 //     let missing_rows = 8 - partial_rows;
@@ -255,17 +304,7 @@ impl CartParts {
                 //     }
                 // }
                 // assert_eq!(i, columns * rows);
-                sprites = Some(Image::new(
-                    Extent3d {
-                        width: columns as u32,
-                        height: rows as u32,
-                        ..default()
-                    },
-                    TextureDimension::D2,
-                    bytes,
-                    TextureFormat::Rgba8UnormSrgb,
-                    RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
-                ));
+                sprites = Some(gfx.to_image(write_color));
             }
         }
         // gff
