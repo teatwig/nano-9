@@ -1,5 +1,6 @@
 use crate::{
     pico8::{audio::*, *}, DrawState,
+    error::RunState,
 };
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
@@ -97,7 +98,7 @@ impl Gfx {
             write_color(byte & 0x0f, &mut pixel_bytes[i * 4..(i + 1) * 4]);
             i += 1;
         }
-        Image::new(
+        let mut image = Image::new(
             Extent3d {
                 width: columns as u32,
                 height: rows as u32,
@@ -106,8 +107,11 @@ impl Gfx {
             TextureDimension::D2,
             pixel_bytes,
             TextureFormat::Rgba8UnormSrgb,
-            RenderAssetUsages::RENDER_WORLD,
-        )
+            // Must have main world, not sure why.
+            RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
+        );
+        image.sampler = ImageSampler::nearest();
+        image
     }
 }
 
@@ -139,6 +143,7 @@ fn load_cart(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut next_state: ResMut<NextState<RunState>>,
 ) {
     for load_cart in reader.read() {
         if let Some(cart) = carts.get(&load_cart.0) {
@@ -186,6 +191,7 @@ fn load_cart(
             };
             commands.insert_resource(state);
             info!("State inserted");
+            next_state.set(RunState::Run);
             // commands.entity(id).insert(ScriptComponent(
             //         vec![
             //             format!("{}#lua", load_cart.0.path())

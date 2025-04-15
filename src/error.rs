@@ -2,13 +2,13 @@ use bevy::{color::palettes::css, core::FrameCount, prelude::*, window::RequestRe
 use bevy_mod_scripting::core::event::ScriptErrorEvent;
 
 pub(crate) fn plugin(app: &mut App) {
-    app.init_state::<ErrorState>()
+    app.init_state::<RunState>()
         .add_systems(Startup, spawn_error_message_layout)
-        .add_systems(Update, (add_messages, clear_messages));
+        .add_systems(Update, (add_messages));
 
     if app.is_plugin_added::<WindowPlugin>() {
-        app.add_systems(OnEnter(ErrorState::None), hide::<ErrorMessages>)
-            .add_systems(OnExit(ErrorState::None), show::<ErrorMessages>);
+        app.add_systems(OnEnter(RunState::Messages), show::<ErrorMessages>)
+            .add_systems(OnExit(RunState::Messages), hide::<ErrorMessages>);
     }
 }
 
@@ -17,12 +17,15 @@ const PADDING: Val = Val::Px(5.);
 const LEFT_PADDING: Val = Val::Px(10.);
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
-pub enum ErrorState {
+pub enum RunState {
     #[default]
-    None,
-    Messages {
-        frame: u32,
-    },
+    Uninit,
+    Run,
+    Pause,
+    /// Error messages
+    ///
+    /// XXX: Change name to suit.
+    Messages,
 }
 
 #[derive(Component)]
@@ -99,7 +102,7 @@ pub fn add_messages(
     mut r: EventReader<ScriptErrorEvent>,
     query: Query<Entity, With<ErrorMessages>>,
     frame_count: Res<FrameCount>,
-    mut state: ResMut<NextState<ErrorState>>,
+    mut state: ResMut<NextState<RunState>>,
     mut commands: Commands,
 ) {
     if r.is_empty() {
@@ -120,30 +123,30 @@ pub fn add_messages(
         }
     });
 
-    state.set(ErrorState::Messages {
-        frame: frame_count.0,
+    state.set(RunState::Messages {
+        // frame: frame_count.0,
     });
 }
 
-pub fn clear_messages(
-    r: EventReader<ScriptErrorEvent>,
-    query: Query<Entity, With<ErrorMessages>>,
-    frame_count: Res<FrameCount>,
-    state: Res<State<ErrorState>>,
-    mut next_state: ResMut<NextState<ErrorState>>,
-    mut commands: Commands,
-) {
-    if r.is_empty() {
-        return;
-    }
-    if let ErrorState::Messages { frame } = **state {
-        if frame == frame_count.0 {
-            // Don't clear messages when some were delivered this frame.
-            return;
-        }
-    }
-    let id = query.single();
-    commands.entity(id).despawn_descendants();
+// pub fn clear_messages(
+//     r: EventReader<ScriptErrorEvent>,
+//     query: Query<Entity, With<ErrorMessages>>,
+//     frame_count: Res<FrameCount>,
+//     state: Res<State<RunState>>,
+//     mut next_state: ResMut<NextState<RunState>>,
+//     mut commands: Commands,
+// ) {
+//     if r.is_empty() {
+//         return;
+//     }
+//     // if let RunState::Messages { frame } = **state {
+//     //     if frame == frame_count.0 {
+//     //         // Don't clear messages when some were delivered this frame.
+//     //         return;
+//     //     }
+//     // }
+//     let id = query.single();
+//     commands.entity(id).despawn_descendants();
 
-    next_state.set(ErrorState::None);
-}
+//     next_state.set(RunState::None);
+// }

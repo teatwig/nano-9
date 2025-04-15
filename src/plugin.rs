@@ -24,7 +24,7 @@ use bevy_mod_scripting::{
     lua::LuaScriptingPlugin,
 };
 
-use crate::{config::*, error::ErrorState, pico8::fill_input, N9Var};
+use crate::{config::*, error::RunState, pico8::fill_input, N9Var};
 
 #[derive(Component)]
 pub struct Nano9Sprite;
@@ -380,12 +380,12 @@ impl Plugin for Nano9Plugin {
             Update,
             (
                 fill_input,
-                send_init.run_if(on_asset_change::<ScriptAsset>()),
+                send_init.run_if(init_when::<ScriptAsset>()),
                 event_handler::<call::Init, LuaScriptingPlugin>,
-                send_update.run_if(in_state(ErrorState::None)),
+                send_update.run_if(in_state(RunState::Run)),
                 event_handler::<call::Update, LuaScriptingPlugin>,
                 event_handler::<call::Eval, LuaScriptingPlugin>,
-                send_draw.run_if(in_state(ErrorState::None)),
+                send_draw.run_if(in_state(RunState::Run)),
                 event_handler::<call::Draw, LuaScriptingPlugin>,
             )
                 .chain(),
@@ -398,6 +398,35 @@ impl Plugin for Nano9Plugin {
         if app.is_plugin_added::<WindowPlugin>() {
             app.add_systems(Update, sync_window_size)
                 .add_systems(Update, fullscreen_key);
+        }
+    }
+}
+
+pub fn init_when<T: Asset>() -> impl FnMut(EventReader<AssetEvent<T>>, Local<bool>, Res<State<RunState>>) -> bool + Clone {
+    // The events need to be consumed, so that there are no false positives on subsequent
+    // calls of the run condition. Simply checking `is_empty` would not be enough.
+    // PERF: note that `count` is efficient (not actually looping/iterating),
+    // due to Bevy having a specialized implementation for events.
+    move |mut reader: EventReader<AssetEvent<T>>, mut asset_change: Local<bool>, state: Res<State<RunState>>| {
+        let asset_just_changed = reader
+            .read()
+            .inspect(|e| info!("asset event {e:?}"))
+            .any(|e| {
+                matches!(
+                    e, //AssetEvent::LoadedWithDependencies { .. } |
+                    AssetEvent::Added { .. } | AssetEvent::Modified { .. }
+                )
+            });
+        match **state {
+            _ => {
+                *asset_change |= asset_just_changed;
+                false
+            },
+            RunState::Run => {
+                let result = *asset_change | asset_just_changed;
+                *asset_change = false;
+                result
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::{call, error::ErrorState, pico8::lua::with_system_param};
+use crate::{call, error::RunState, pico8::lua::with_system_param};
 use bevy::{
     core::FrameCount,
     prelude::*,
@@ -69,15 +69,14 @@ fn with_minibuffer<T>(
 }
 
 pub fn toggle_pause(
-    state: Res<State<ErrorState>>,
-    mut next_state: ResMut<NextState<ErrorState>>,
+    state: Res<State<RunState>>,
+    mut next_state: ResMut<NextState<RunState>>,
     frame_count: Res<FrameCount>,
 ) {
     next_state.set(match **state {
-        ErrorState::None => ErrorState::Messages {
-            frame: frame_count.0,
-        },
-        ErrorState::Messages { .. } => ErrorState::None,
+        RunState::Run => RunState::Pause,
+        RunState::Pause => RunState::Run,
+        _ => RunState::Pause,
     });
 }
 
