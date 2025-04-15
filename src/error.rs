@@ -4,7 +4,7 @@ use bevy_mod_scripting::core::event::ScriptErrorEvent;
 pub(crate) fn plugin(app: &mut App) {
     app.init_state::<RunState>()
         .add_systems(Startup, spawn_error_message_layout)
-        .add_systems(Update, (add_messages));
+        .add_systems(Update, add_messages);
 
     if app.is_plugin_added::<WindowPlugin>() {
         app.add_systems(OnEnter(RunState::Messages), show::<ErrorMessages>)

@@ -30,6 +30,7 @@ use rand::Rng;
 use crate::{
     cursor::Cursor,
     pico8::{
+        Gfx,
         audio::{Sfx, SfxChannels},
         Cart, ClearEvent, Clearable, LoadCart, Map,
     },
@@ -159,9 +160,20 @@ impl From<(usize, usize)> for Spr {
     }
 }
 
+pub struct Pal {
+    colors: Vec<u8>,
+    transparency: Vec<bool>,
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub enum SprAsset {
+    Gfx(Handle<Gfx>),
+    Image(Handle<Image>),
+}
+
 #[derive(Debug, Clone, Reflect)]
 pub struct SpriteSheet {
-    pub handle: Handle<Image>,
+    pub handle: SprAsset,
     pub layout: Handle<TextureAtlasLayout>,
     pub sprite_size: UVec2,
     pub flags: Vec<u8>,
@@ -483,7 +495,10 @@ impl Pico8<'_, '_> {
         let sheet_index = sheet_index.unwrap_or(0);
         let sheet = &self.state.sprite_sheets.inner[sheet_index];
         let sprite = Sprite {
-            image: sheet.handle.clone(),
+            image: match &sheet.handle {
+                SprAsset::Image(handle) => handle.clone(),
+                SprAsset::Gfx(handle) => todo!(),
+            },
             anchor: Anchor::TopLeft,
             rect: Some(sprite_rect),
             custom_size: screen_size,
@@ -529,7 +544,10 @@ impl Pico8<'_, '_> {
                 index,
             };
             Sprite {
-                image: sprites.handle.clone(),
+            image: match &sprites.handle {
+                SprAsset::Image(handle) => handle.clone(),
+                SprAsset::Gfx(handle) => todo!(),
+            },
                 anchor: Anchor::TopLeft,
                 texture_atlas: Some(atlas),
                 rect: size.map(|v| Rect {

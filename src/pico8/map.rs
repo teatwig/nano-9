@@ -1,4 +1,4 @@
-use crate::pico8::{self, Clearable};
+use crate::pico8::{self, Clearable, SprAsset};
 use bevy::prelude::*;
 
 #[cfg(feature = "level")]
@@ -110,7 +110,10 @@ impl P8Map {
                 map_type,
                 size: map_size,
                 storage: tile_storage,
-                texture: TilemapTexture::Single(sprites.handle.clone()),
+                texture: TilemapTexture::Single(match &sprites.handle {
+                    SprAsset::Image(handle) => handle.clone(),
+                    SprAsset::Gfx(handle) => todo!(),
+                }),
                 tile_size,
                 // transform: Transform::from_xyz(screen_start.x, -screen_start.y, 0.0),//get_tilemap_center_transform(&map_size, &grid_size, &map_type, 0.0),
                 transform,

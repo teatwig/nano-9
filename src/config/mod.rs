@@ -196,10 +196,10 @@ impl AssetLoader for ConfigLoader {
                     }
                     let flags = flags_from_tileset(tileset);
                     sprite_sheets.push(pico8::SpriteSheet {
-                        handle: load_context
+                        handle: pico8::SprAsset::Image(load_context
                             .loader()
                             .with_settings(pixel_art_settings)
-                            .load(&*tileset.image.as_ref().expect("tileset image").source),
+                            .load(&*tileset.image.as_ref().expect("tileset image").source)),
                         //load_context
                         // .load_with_settings(&*tileset.image.expect("tileset image").source,
                         //                     pixel_art_settings),
@@ -224,10 +224,10 @@ impl AssetLoader for ConfigLoader {
                         None
                     };
                 sprite_sheets.push(pico8::SpriteSheet {
-                    handle: load_context
+                    handle: pico8::SprAsset::Image(load_context
                         .loader()
                         .with_settings(pixel_art_settings)
-                        .load(&*sheet.path),
+                        .load(&*sheet.path)),
                     sprite_size: sheet.sprite_size.unwrap_or(UVec2::splat(8)),
                     flags: vec![],
                     layout: layout.unwrap_or(Handle::default()),
@@ -452,8 +452,8 @@ impl Command for Config {
                             }
                             let flags = flags_from_tileset(&tileset);
                             pico8::SpriteSheet {
-                                handle: asset_server.load_with_settings(&*tileset.image.expect("tileset image").source,
-                                                                        pixel_art_settings),
+                                handle: pico8::SprAsset::Image(asset_server.load_with_settings(&*tileset.image.expect("tileset image").source,
+                                                                        pixel_art_settings)),
                                 sprite_size: tile_size,
                                 flags,
                                 layout: layout.unwrap_or(Handle::default()),
@@ -468,7 +468,7 @@ impl Command for Config {
                         }
                         dbg!(&layout);
                         pico8::SpriteSheet {
-                            handle: asset_server.load_with_settings(path, pixel_art_settings),
+                            handle: pico8::SprAsset::Image(asset_server.load_with_settings(path, pixel_art_settings)),
                             sprite_size: sheet.sprite_size.unwrap_or(UVec2::splat(8)),
                             flags: vec![],
                             layout: layout.unwrap_or(Handle::default()),

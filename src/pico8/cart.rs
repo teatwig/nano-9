@@ -56,7 +56,7 @@ pub struct MusicParts {
 #[derive(Debug)]
 pub struct CartParts {
     pub lua: String,
-    pub sprites: Option<Image>,
+    pub gfx: Option<Gfx>,
     pub map: Vec<u8>,
     pub flags: Vec<u8>,
     pub sfx: Vec<Sfx>,
@@ -66,13 +66,13 @@ pub struct CartParts {
 #[derive(Asset, Debug, Reflect)]
 pub struct Cart {
     pub lua: Handle<ScriptAsset>,
-    pub sprites: Handle<Image>,
+    pub gfx: Option<Handle<Gfx>>,
     pub map: Vec<u8>,
     pub flags: Vec<u8>,
     pub sfx: Vec<Handle<Sfx>>,
 }
 
-#[derive(Asset, Debug, Reflect)]
+#[derive(Asset, Debug, Reflect, Clone)]
 pub struct Gfx {
     nybbles: Vec<u8>,
     pixel_width: usize,
@@ -152,6 +152,20 @@ fn load_cart(
                 // Use `nearest` image sampling to preserve the pixel art style.
                 settings.sampler = ImageSampler::nearest();
             };
+            let sprite_sheets: Vec<_> = cart.gfx.as_ref().map(|gfx| {
+                SpriteSheet {
+                    handle: SprAsset::Gfx(gfx.clone()),
+                    sprite_size: UVec2::splat(8),
+                    flags: cart.flags.clone(),
+                    layout: layouts.add(TextureAtlasLayout::from_grid(
+                        PICO8_SPRITE_SIZE,
+                        PICO8_TILE_COUNT.x,
+                        PICO8_TILE_COUNT.y,
+                        None,
+                        None,
+                    )),
+                }
+            }).into_iter().collect();
             let state = Pico8State {
                 palette: Palette {
                     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
@@ -168,19 +182,7 @@ fn load_cart(
                     cart.sfx.clone().into_iter().map(Audio::Sfx).collect(),
                 )]
                 .into(),
-                sprite_sheets: vec![SpriteSheet {
-                    handle: cart.sprites.clone(),
-                    sprite_size: UVec2::splat(8),
-                    flags: cart.flags.clone(),
-                    layout: layouts.add(TextureAtlasLayout::from_grid(
-                        PICO8_SPRITE_SIZE,
-                        PICO8_TILE_COUNT.x,
-                        PICO8_TILE_COUNT.y,
-                        None,
-                        None,
-                    )),
-                }]
-                .into(),
+                sprite_sheets: sprite_sheets.into(),
                 code: cart.lua.clone(),
                 draw_state: DrawState::default(),
                 font: vec![N9Font {
@@ -257,7 +259,7 @@ impl CartParts {
         // lua
         let lua: String = get_segment(&sections[LUA]).unwrap_or("").into();
         // gfx
-        let mut sprites = None;
+        let mut gfx = None;
         if let Some(content) = get_segment(&sections[GFX]) {
             let mut lines = content.lines();
             let columns = lines.next().map(|l| l.len());
@@ -299,18 +301,8 @@ impl CartParts {
                         j += 2;
                     }
                 }
-                let gfx = Gfx { nybbles: bytes, pixel_width: columns };
-
-                // if partial_rows != 0 {
-                //     let missing_rows = 8 - partial_rows;
-                //     for j in 0..missing_rows {
-                //         for k in 0..columns {
-
-                //         }
-                //     }
-                // }
-                // assert_eq!(i, columns * rows);
-                sprites = Some(gfx.to_image(write_color));
+                gfx = Some(Gfx { nybbles: bytes, pixel_width: columns });
+                // sprites = Some(gfx.to_image(write_color));
             }
         }
         // gff
@@ -426,7 +418,7 @@ impl CartParts {
         };
         Ok(CartParts {
             lua,
-            sprites,
+            gfx,
             map,
             flags: gff,
             sfx,
@@ -485,7 +477,7 @@ impl AssetLoader for CartLoader {
         let parts = CartParts::from_str(&content, settings)?;
         let code = parts.lua;
         // cart.lua = Some(load_context.add_labeled_asset("lua".into(), ScriptAsset { bytes: code.into_bytes() }));
-        let sprites = parts.sprites.unwrap_or_else(Image::default);
+        let gfx = parts.gfx.clone();
         let mut code_path: PathBuf = load_context.path().into();
         let path = code_path.as_mut_os_string();
         path.push("#lua");
@@ -494,8 +486,8 @@ impl AssetLoader for CartLoader {
                 content: code.into_bytes().into_boxed_slice(),
                 asset_path: code_path.into(),
             }),
-            sprites: load_context
-                .labeled_asset_scope("sprites".into(), move |_load_context| sprites),
+            gfx: gfx.map(|gfx| load_context
+                .labeled_asset_scope("gfx".into(), move |_load_context| gfx)),
             map: parts.map,
             flags: parts.flags,
             sfx: parts
@@ -643,15 +635,15 @@ __gff__
 end"#
         );
         assert_eq!(
-            cart.sprites
+            cart.gfx
                 .as_ref()
-                .map(|s| s.texture_descriptor.size.width),
+                .map(|gfx| gfx.pixel_width),
             Some(128)
         );
         assert_eq!(
-            cart.sprites
+            cart.gfx
                 .as_ref()
-                .map(|s| s.texture_descriptor.size.height),
+                .map(|gfx| gfx.nybbles.len() * 2/ gfx.pixel_width),
             Some(8)
         );
     }
@@ -668,15 +660,15 @@ end"#
 end"#
         );
         assert_eq!(
-            cart.sprites
+            cart.gfx
                 .as_ref()
-                .map(|s| s.texture_descriptor.size.width),
+                .map(|gfx| gfx.pixel_width),
             Some(128)
         );
         assert_eq!(
-            cart.sprites
+            cart.gfx
                 .as_ref()
-                .map(|s| s.texture_descriptor.size.height),
+                .map(|gfx| gfx.nybbles.len() * 2 / gfx.pixel_width),
             Some(8)
         );
     }
@@ -709,15 +701,15 @@ map(0, 0, 10, 10)
 end"#
         );
         assert_eq!(
-            cart.sprites
+            cart.gfx
                 .as_ref()
-                .map(|s| s.texture_descriptor.size.width),
+                .map(|gfx| gfx.pixel_width),
             Some(128)
         );
         assert_eq!(
-            cart.sprites
+            cart.gfx
                 .as_ref()
-                .map(|s| s.texture_descriptor.size.height),
+                .map(|gfx| gfx.nybbles.len() * 2 / gfx.pixel_width),
             Some(8)
         );
         assert_eq!(cart.map.len(), 128 * 7);
@@ -729,17 +721,18 @@ end"#
         let cart = CartParts::from_str(TEST_SFX_CART, &settings).unwrap();
         assert_eq!(cart.lua, "");
         assert_eq!(
-            cart.sprites
+            cart.gfx
                 .as_ref()
-                .map(|s| s.texture_descriptor.size.width),
+                .map(|gfx| gfx.pixel_width),
             Some(128)
         );
         assert_eq!(
-            cart.sprites
+            cart.gfx
                 .as_ref()
-                .map(|s| s.texture_descriptor.size.height),
+                .map(|gfx| gfx.nybbles.len() * 2 / gfx.pixel_width),
             Some(8)
         );
+
         assert_eq!(cart.map.len(), 0);
         assert_eq!(cart.sfx.len(), 1);
         let sfx = &cart.sfx[0];
