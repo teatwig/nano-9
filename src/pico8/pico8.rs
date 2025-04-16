@@ -160,6 +160,7 @@ impl From<(usize, usize)> for Spr {
     }
 }
 
+#[derive(Debug, Resource, Hash)]
 pub struct Pal {
     colors: Vec<u8>,
     transparency: Vec<bool>,
@@ -267,6 +268,8 @@ pub struct Pico8<'w, 's> {
     time: Res<'w, Time>,
     #[cfg(feature = "level")]
     tiled: crate::level::tiled::Level<'w, 's>,
+    gfxs: Res<'w, Assets<Gfx>>,
+    pal: Res<'w, Pal>,
 }
 
 pub(crate) fn fill_input(
@@ -544,10 +547,10 @@ impl Pico8<'_, '_> {
                 index,
             };
             Sprite {
-            image: match &sprites.handle {
-                SprAsset::Image(handle) => handle.clone(),
-                SprAsset::Gfx(handle) => todo!(),
-            },
+                image: match &sprites.handle {
+                    SprAsset::Image(handle) => handle.clone(),
+                    SprAsset::Gfx(handle) => todo!(),
+                },
                 anchor: Anchor::TopLeft,
                 texture_atlas: Some(atlas),
                 rect: size.map(|v| Rect {
@@ -1497,7 +1500,6 @@ pub(crate) fn plugin(app: &mut App) {
     app
         .register_type::<Pico8State>()
         .register_type::<N9Font>()
-        .register_type::<Palette>()
         .register_type::<Palette>()
         .register_type::<Audio>()
         .register_type::<AudioBank>()

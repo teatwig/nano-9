@@ -418,15 +418,15 @@ pub fn init_when<T: Asset>() -> impl FnMut(EventReader<AssetEvent<T>>, Local<boo
                 )
             });
         match **state {
-            _ => {
-                *asset_change |= asset_just_changed;
-                false
-            },
             RunState::Run => {
                 let result = *asset_change | asset_just_changed;
                 *asset_change = false;
                 result
             }
+            _ => {
+                *asset_change |= asset_just_changed;
+                false
+            },
         }
     }
 }
