@@ -30,6 +30,7 @@ use rand::Rng;
 use crate::{
     cursor::Cursor,
     pico8::{
+        cart::PALETTE,
         Gfx,
         audio::{Sfx, SfxChannels},
         Cart, ClearEvent, Clearable, LoadCart, Map,
@@ -38,6 +39,7 @@ use crate::{
 };
 
 use std::{
+    collections::HashMap,
     f32::consts::PI,
     any::TypeId,
     borrow::Cow,
@@ -45,6 +47,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
+    hash::{Hash, Hasher},
 };
 
 pub const PICO8_PALETTE: &str = "embedded://nano9/pico8/pico-8-palette.png";
@@ -83,6 +86,11 @@ pub struct Palette {
 pub struct Pico8State {
     pub code: Handle<ScriptAsset>,
     pub(crate) palette: Palette,
+    #[reflect(ignore)]
+    pub(crate) pal: Pal,
+    // XXX: rename to gfx_images?
+    #[reflect(ignore)]
+    pub(crate) gfx_handles: HashMap<(Pal, Handle<Gfx>), Handle<Image>>,
     pub(crate) border: Handle<Image>,
     pub(crate) sprite_sheets: Cursor<SpriteSheet>,
     pub(crate) maps: Cursor<Map>,
@@ -160,10 +168,79 @@ impl From<(usize, usize)> for Spr {
     }
 }
 
-#[derive(Debug, Resource, Hash)]
+#[derive(Debug, Clone, Eq)]
 pub struct Pal {
-    colors: Vec<u8>,
-    transparency: Vec<bool>,
+    palette: Vec<[u8; 4]>,
+    remap: Vec<u8>,
+    transparency: BitVec<u8, Lsb0>,
+}
+impl Hash for Pal {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.remap.hash(state);
+        self.transparency.hash(state);
+    }
+}
+impl PartialEq for Pal {
+    fn eq(&self, other: &Self) -> bool {
+        self.remap == other.remap && self.transparency == other.transparency
+    }
+}
+
+
+impl Default for Pal {
+    fn default() -> Self {
+        let mut pal = Pal::with_capacity(16);
+        for c in &PALETTE {
+            pal.palette.push([c[0], c[1], c[2], 0xff]);
+        }
+        pal.transparency.set(0, true);
+        pal
+    }
+}
+
+impl Pal {
+    pub fn with_capacity(count: usize) -> Self {
+        let palette = Vec::with_capacity(count);
+        let remap = (0..count).map(|x| x as u8).into_iter().collect();
+        let transparency = BitVec::repeat(false, count);
+        Self {
+            palette,
+            remap,
+            transparency,
+        }
+    }
+    pub fn from_image(image: &Image) -> Self {
+        let size = image.size();
+        let count = (size.x * size.y) as usize;
+        let mut palette = Vec::with_capacity(count);
+        for i in 0..size.x {
+            for j in 0..size.y {
+                let color = image.get_color_at(i, j).unwrap().to_srgba();
+                let rgb = color.to_u8_array();
+                palette.push(rgb);
+            }
+        }
+        let remap = (0..count).map(|x| x as u8).into_iter().collect();
+        let transparency = BitVec::repeat(false, count);
+        Self {
+            palette,
+            remap,
+            transparency,
+        }
+    }
+
+    pub fn write_color(&self, palette_index: u8, pixel_bytes: &mut [u8]) -> Result<(), Error> {
+        let pi = *self.remap.get(palette_index as usize).ok_or(Error::NoSuch("palette index".into()))? as usize;
+        // PERF: We should just set the 24 or 32 bits in one go, right?
+        if *self.transparency.get(pi).ok_or(Error::NoSuch("transparency bit".into()))? {
+            pixel_bytes[0..=2].copy_from_slice(&self.palette[pi][0..=2]);
+            pixel_bytes[3] = 0x00;
+        } else {
+            pixel_bytes[0..=3].copy_from_slice(&self.palette[pi]);
+        }
+        Ok(())
+    }
+
 }
 
 #[derive(Debug, Clone, Reflect)]
@@ -269,7 +346,6 @@ pub struct Pico8<'w, 's> {
     #[cfg(feature = "level")]
     tiled: crate::level::tiled::Level<'w, 's>,
     gfxs: Res<'w, Assets<Gfx>>,
-    pal: Res<'w, Pal>,
 }
 
 pub(crate) fn fill_input(
@@ -533,6 +609,17 @@ impl Pico8<'_, '_> {
         let x = pos.x;
         let y = pos.y;
         let flip = flip.unwrap_or_default();
+        let image = match &sprites.handle {
+                    SprAsset::Image(handle) => handle.clone(),
+                    SprAsset::Gfx(handle) => {
+                        self.state.gfx_handles.entry((self.state.pal, *handle))
+                            .or_insert_with(|| {
+                                let gfx = self.gfxs.get(handle).unwrap();//.ok_or(Error::NoSuch("gfx asset".into()))?;
+                                let image = gfx.to_image(|i, bytes| { self.state.pal.write_color(i, bytes); });
+                                self.images.add(image)
+                            }).clone()
+                    }
+                };
         let (sprites, index): (&SpriteSheet, usize) = match spr.into() {
             Spr::Cur { sprite } => (&self.state.sprite_sheets, sprite),
             Spr::From { sheet, sprite } => (&self.state.sprite_sheets.inner[sheet], sprite),
@@ -547,10 +634,7 @@ impl Pico8<'_, '_> {
                 index,
             };
             Sprite {
-                image: match &sprites.handle {
-                    SprAsset::Image(handle) => handle.clone(),
-                    SprAsset::Gfx(handle) => todo!(),
-                },
+                image,
                 anchor: Anchor::TopLeft,
                 texture_atlas: Some(atlas),
                 rect: size.map(|v| Rect {
@@ -1431,16 +1515,6 @@ impl Command for AudioCommand {
 
 impl FromWorld for Pico8State {
     fn from_world(world: &mut World) -> Self {
-        // let layout = {
-        //     let mut layouts = world.resource_mut::<Assets<TextureAtlasLayout>>();
-        //     layouts.add(TextureAtlasLayout::from_grid(
-        //         PICO8_SPRITE_SIZE,
-        //         PICO8_TILE_COUNT.x,
-        //         PICO8_TILE_COUNT.y,
-        //         None,
-        //         None,
-        //     ))
-        // };
         let asset_server = world.resource::<AssetServer>();
 
         let pixel_art_settings = |settings: &mut ImageLoaderSettings| {
@@ -1449,10 +1523,12 @@ impl FromWorld for Pico8State {
         };
 
         Pico8State {
+            gfx_handles: HashMap::default(),
             palette: Palette {
                 handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
                 row: 0,
             },
+            pal: Pal::default(),
             border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
             code: Handle::<ScriptAsset>::default(),
             font: vec![N9Font {

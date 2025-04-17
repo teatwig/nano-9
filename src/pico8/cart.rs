@@ -12,7 +12,10 @@ use bevy::{
 };
 use bevy_mod_scripting::core::asset::ScriptAsset;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+};
 
 pub(crate) fn plugin(app: &mut App) {
     app
@@ -115,7 +118,7 @@ impl Gfx {
     }
 }
 
-const PALETTE: [[u8; 3]; 16] = [
+pub const PALETTE: [[u8; 3]; 16] = [
     [0x00, 0x00, 0x00], //black
     [0x1d, 0x2b, 0x53], //dark-blue
     [0x7e, 0x25, 0x53], //dark-purple
@@ -171,6 +174,8 @@ fn load_cart(
                     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
                     row: 0,
                 },
+                pal: Pal::default(),
+                gfx_handles: HashMap::default(),
                 border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
                 maps: vec![P8Map {
                     entries: cart.map.clone(),
