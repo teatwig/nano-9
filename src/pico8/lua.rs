@@ -20,7 +20,7 @@ use bevy_mod_scripting::core::{
 
 use crate::{
     pico8::{
-        Error, Pico8, PropBy, SfxCommand, Spr,
+        Error, Pico8, PropBy, SfxCommand, Spr, PalModify,
     }, DropPolicy, N9Color, N9Entity,
 };
 
@@ -420,7 +420,22 @@ pub(crate) fn plugin(app: &mut App) {
                 })?;
                 Ok(())
             },
-        );
+        )
+        .register(
+            "pal",
+            |ctx: FunctionCallContext, old: Option<usize>, new: Option<usize>, mode: Option<u8>| {
+                with_pico8(&ctx, move |pico8| {
+                    pico8.pal(old.zip(new), mode.map(|i| match i {
+                        0 => PalModify::Following,
+                        1 => PalModify::Present,
+                        2 => PalModify::Secondary,
+                        x => panic!("No such palette modify mode {x}"),
+                    }));
+                    Ok(())
+                })
+            },
+        )
+        ;
 
     #[cfg(feature = "level")]
     NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)

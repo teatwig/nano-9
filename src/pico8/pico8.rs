@@ -34,6 +34,7 @@ use crate::{
         Gfx,
         audio::{Sfx, SfxChannels},
         Cart, ClearEvent, Clearable, LoadCart, Map,
+        Pal,
     },
     DrawState, N9Canvas, N9Color, Nano9Camera,
 };
@@ -47,7 +48,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    hash::{Hash, Hasher},
+    hash::{Hash, Hasher, DefaultHasher},
 };
 
 pub const PICO8_PALETTE: &str = "embedded://nano9/pico8/pico-8-palette.png";
@@ -78,6 +79,25 @@ pub struct Palette {
     pub handle: Handle<Image>,
     /// Row count
     pub row: u32,
+}
+
+#[derive(Debug, Resource, Default)]
+pub struct GfxHandles {
+    map: HashMap<u64, Handle<Image>>,
+}
+
+impl GfxHandles {
+    fn get_or_create(&mut self, pal: &Pal, gfx: &Handle<Gfx>, gfxs: &Assets<Gfx>, images: &mut Assets<Image>) -> Handle<Image> {
+        let mut hasher = DefaultHasher::new();
+        pal.hash(&mut hasher);
+        gfx.hash(&mut hasher);
+        self.map.entry(hasher.finish())
+                .or_insert_with(|| {
+                    let gfx = gfxs.get(gfx).expect("gfx");//.ok_or(Error::NoSuch("gfx asset".into()))?;
+                    let image = gfx.to_image(|i, bytes| { pal.write_color(i, bytes); });
+                    images.add(image)
+                }).clone()
+    }
 }
 
 /// Pico8State's state.
@@ -166,81 +186,6 @@ impl From<(usize, usize)> for Spr {
     fn from((sprite, sheet): (usize, usize)) -> Self {
         Spr::From { sprite, sheet }
     }
-}
-
-#[derive(Debug, Clone, Eq)]
-pub struct Pal {
-    palette: Vec<[u8; 4]>,
-    remap: Vec<u8>,
-    transparency: BitVec<u8, Lsb0>,
-}
-impl Hash for Pal {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.remap.hash(state);
-        self.transparency.hash(state);
-    }
-}
-impl PartialEq for Pal {
-    fn eq(&self, other: &Self) -> bool {
-        self.remap == other.remap && self.transparency == other.transparency
-    }
-}
-
-
-impl Default for Pal {
-    fn default() -> Self {
-        let mut pal = Pal::with_capacity(16);
-        for c in &PALETTE {
-            pal.palette.push([c[0], c[1], c[2], 0xff]);
-        }
-        pal.transparency.set(0, true);
-        pal
-    }
-}
-
-impl Pal {
-    pub fn with_capacity(count: usize) -> Self {
-        let palette = Vec::with_capacity(count);
-        let remap = (0..count).map(|x| x as u8).into_iter().collect();
-        let transparency = BitVec::repeat(false, count);
-        Self {
-            palette,
-            remap,
-            transparency,
-        }
-    }
-    pub fn from_image(image: &Image) -> Self {
-        let size = image.size();
-        let count = (size.x * size.y) as usize;
-        let mut palette = Vec::with_capacity(count);
-        for i in 0..size.x {
-            for j in 0..size.y {
-                let color = image.get_color_at(i, j).unwrap().to_srgba();
-                let rgb = color.to_u8_array();
-                palette.push(rgb);
-            }
-        }
-        let remap = (0..count).map(|x| x as u8).into_iter().collect();
-        let transparency = BitVec::repeat(false, count);
-        Self {
-            palette,
-            remap,
-            transparency,
-        }
-    }
-
-    pub fn write_color(&self, palette_index: u8, pixel_bytes: &mut [u8]) -> Result<(), Error> {
-        let pi = *self.remap.get(palette_index as usize).ok_or(Error::NoSuch("palette index".into()))? as usize;
-        // PERF: We should just set the 24 or 32 bits in one go, right?
-        if *self.transparency.get(pi).ok_or(Error::NoSuch("transparency bit".into()))? {
-            pixel_bytes[0..=2].copy_from_slice(&self.palette[pi][0..=2]);
-            pixel_bytes[3] = 0x00;
-        } else {
-            pixel_bytes[0..=3].copy_from_slice(&self.palette[pi]);
-        }
-        Ok(())
-    }
-
 }
 
 #[derive(Debug, Clone, Reflect)]
@@ -346,6 +291,7 @@ pub struct Pico8<'w, 's> {
     #[cfg(feature = "level")]
     tiled: crate::level::tiled::Level<'w, 's>,
     gfxs: Res<'w, Assets<Gfx>>,
+    gfx_handles: ResMut<'w, GfxHandles>,
 }
 
 pub(crate) fn fill_input(
@@ -609,17 +555,6 @@ impl Pico8<'_, '_> {
         let x = pos.x;
         let y = pos.y;
         let flip = flip.unwrap_or_default();
-        let image = match &sprites.handle {
-                    SprAsset::Image(handle) => handle.clone(),
-                    SprAsset::Gfx(handle) => {
-                        self.state.gfx_handles.entry((self.state.pal, *handle))
-                            .or_insert_with(|| {
-                                let gfx = self.gfxs.get(handle).unwrap();//.ok_or(Error::NoSuch("gfx asset".into()))?;
-                                let image = gfx.to_image(|i, bytes| { self.state.pal.write_color(i, bytes); });
-                                self.images.add(image)
-                            }).clone()
-                    }
-                };
         let (sprites, index): (&SpriteSheet, usize) = match spr.into() {
             Spr::Cur { sprite } => (&self.state.sprite_sheets, sprite),
             Spr::From { sheet, sprite } => (&self.state.sprite_sheets.inner[sheet], sprite),
@@ -628,6 +563,12 @@ impl Pico8<'_, '_> {
                 return Ok(Entity::PLACEHOLDER);
             }
         };
+        let image = match &sprites.handle {
+                    SprAsset::Image(handle) => handle.clone(),
+                    SprAsset::Gfx(handle) => {
+                        self.gfx_handles.get_or_create(&self.state.pal, &handle, &self.gfxs, &mut self.images)
+                    }
+                };
         let mut sprite = {
             let atlas = TextureAtlas {
                 layout: sprites.layout.clone(),
@@ -1403,6 +1344,25 @@ impl Pico8<'_, '_> {
     pub fn props(&self, id: Entity) -> Result<tiled::Properties, Error> {
         self.tiled.props(id)
     }
+
+    pub fn pal(&mut self, original_to_new: Option<(usize, usize)>, mode: Option<PalModify>) {
+        let mode = mode.unwrap_or(PalModify::default());
+        assert!(matches!(mode, PalModify::Following));
+        if let Some((old, new)) = original_to_new {
+            self.state.pal.remap(old, new);
+        } else {
+            // Reset the pal.
+            self.state.pal.reset();
+        }
+    }
+}
+
+#[derive(Default, Debug, Clone)]
+pub enum PalModify {
+    #[default]
+    Following,
+    Present,
+    Secondary,
 }
 
 enum SfxDest {
@@ -1583,6 +1543,7 @@ pub(crate) fn plugin(app: &mut App) {
         .init_asset::<Pico8State>()
         .init_resource::<Pico8State>()
         .init_resource::<PlayerInputs>()
+        .init_resource::<GfxHandles>()
         .add_observer(
             |trigger: Trigger<UpdateCameraPos>,
              camera: Single<&mut Transform, With<Nano9Camera>>| {

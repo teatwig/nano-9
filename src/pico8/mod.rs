@@ -10,6 +10,8 @@ pub mod audio;
 mod map;
 pub use map::*;
 pub(crate) mod lua;
+mod pal;
+pub(crate) use pal::*;
 
 pub(crate) fn plugin(app: &mut App) {
     app.add_plugins(pico8::plugin)
