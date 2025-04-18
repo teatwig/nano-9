@@ -323,6 +323,12 @@ pub(crate) fn plugin(app: &mut App) {
         .register("rnd", |ctx: FunctionCallContext, value: ScriptValue| {
             with_pico8(&ctx, move |pico8| Ok(pico8.rnd(value)))
         })
+        .register("srand", |ctx: FunctionCallContext, value: u64| {
+            with_pico8(&ctx, move |pico8| {
+                pico8.srand(value);
+                Ok(())
+            })
+        })
         .register(
             "_camera",
             |ctx: FunctionCallContext, x: Option<f32>, y: Option<f32>| {

@@ -2,7 +2,7 @@
 use crate::level::{self, tiled::*};
 use crate::{call, level::asset::TiledSet, pico8};
 use bevy::{
-    asset::{embedded_asset, io::AssetSourceId, io::Reader, AssetLoader, AssetPath, LoadContext},
+    asset::{embedded_asset, io::Reader, AssetLoader, LoadContext},
     image::{ImageLoaderSettings, ImageSampler},
     prelude::*,
 };
@@ -282,9 +282,10 @@ impl AssetLoader for ConfigLoader {
                 }).collect::<Result<Vec<_>, _>>()?.into(),
                 audio_banks: config.audio_banks.into_iter().map(|bank| pico8::AudioBank(match bank {
                     AudioBank::P8 { p8, count } => {
-                            (0..count).map(|i|
-                                           pico8::Audio::Sfx(load_context.load(&AssetPath::from_path(&p8).with_label(&format!("sfx{i}"))))
-                            ).collect::<Vec<_>>()
+                        todo!()
+                            // (0..count).map(|i|
+                            //                pico8::Audio::Sfx(load_context.load(&AssetPath::from_path(&p8).with_label(&format!("sfx{i}"))))
+                            // ).collect::<Vec<_>>()
                     }
                     AudioBank::Paths { paths } => {
                         paths.into_iter().map(|p| pico8::Audio::AudioSource(load_context.load(p))).collect::<Vec<_>>()

@@ -6,6 +6,7 @@
 -- [2]: @shanecelis@mastodon.gamedev.place
 -- [3]: https://opensource.org/licenses/MIT
 
+local NUMBER_BITS <const> = 32
 printh = print
 debug_print = print
 function on_script_loaded()
@@ -89,6 +90,17 @@ shr = function(x, y)
   y = math.floor(y)
   return x >> y
 end
+rotl = function(x, y)
+  x = math.floor(x)
+  y = math.floor(y)
+  return (x << y) | (x >> (NUMBER_BITS-y))
+end
+rotr = function(x, y)
+  x = math.floor(x)
+  y = math.floor(y)
+  return (x << (NUMBER_BITS-y)) | (x >> y)
+end
+
 
 function add(a,v)
     if a == nil then
@@ -108,6 +120,14 @@ function del(a,dv)
         end
     end
 end
+
+function deli(a,i)
+    if a == nil then
+        warn("del from nil")
+        return
+    end
+    return table.remove(a,i)
+end
 function foreach(a,f)
     if not a then
         warn("foreach got a nil value")
@@ -117,8 +137,18 @@ function foreach(a,f)
         f(v)
     end
 end
-function count(a)
-    return #a
+function count(a,v)
+    if v == nil then
+        return #a
+    else
+        local count = 0
+        for i,v in ipairs(a) do
+            if v==dv then
+                count = count + 1
+            end
+        end
+        return count
+    end
 end
 function all(a)
     local i = 0
@@ -155,6 +185,7 @@ function tonum(data)
 end
 
 tostr = tostring
+t = time
 
 function split(inputstr, sep, convert_numbers)
     if sep == nil then

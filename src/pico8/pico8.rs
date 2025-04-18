@@ -34,6 +34,7 @@ use crate::{
         audio::{Sfx, SfxChannels},
         Cart, ClearEvent, Clearable, LoadCart, Map,
         Pal,
+        rand::Rand8,
     },
     DrawState, N9Canvas, N9Color, Nano9Camera,
 };
@@ -291,6 +292,7 @@ pub struct Pico8<'w, 's> {
     tiled: crate::level::tiled::Level<'w, 's>,
     gfxs: Res<'w, Assets<Gfx>>,
     gfx_handles: ResMut<'w, GfxHandles>,
+    rand8: Rand8<'w>,
 }
 
 pub(crate) fn fill_input(
@@ -1056,22 +1058,11 @@ impl Pico8<'_, '_> {
     }
 
     pub fn rnd(&mut self, value: ScriptValue) -> ScriptValue {
-        let mut rng = rand::thread_rng();
-        match value {
-            ScriptValue::Integer(x) => ScriptValue::from(rng.gen_range(0..=x)),
-            ScriptValue::Float(x) => ScriptValue::from(rng.gen_range(0.0..x)),
-            ScriptValue::List(mut x) => {
-                if x.is_empty() {
-                    ScriptValue::Unit
-                } else {
-                    let index = rng.gen_range(0..x.len());
-                    x.swap_remove(index)
-                }
-            }
-            _ => ScriptValue::Error(InteropError::external_error(Box::new(
-                Error::InvalidArgument("rng expects integer, float, or list".into()),
-            ))),
-        }
+        self.rand8.rnd(value)
+    }
+
+    pub fn srand(&mut self, seed: u64) {
+        self.rand8.srand(seed)
     }
 
     pub fn circfill(
@@ -1363,6 +1354,10 @@ impl Pico8<'_, '_> {
             self.state.pal.reset_transparency();
         }
     }
+
+    // pub fn color(&mut self, color) -> Option<u8> {
+
+    // }
 }
 
 #[derive(Default, Debug, Clone)]
