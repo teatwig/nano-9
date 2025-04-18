@@ -220,14 +220,19 @@ pub(crate) fn plugin(app: &mut App) {
         .register(
             "print",
             |ctx: FunctionCallContext,
-             text: Option<String>,
+             text: Option<ScriptValue>,
              x: Option<f32>,
              y: Option<f32>,
              c: Option<N9Color>| {
                 with_pico8(&ctx, move |pico8| {
                     let pos =
                         x.map(|x| Vec2::new(x, y.unwrap_or(pico8.state.draw_state.print_cursor.y)));
-                    pico8.print(text.as_deref().unwrap_or(""), pos, c)
+                    match text.unwrap_or(ScriptValue::Unit) {
+                        ScriptValue::String(s) => pico8.print(&s, pos, c),
+                        ScriptValue::Float(f) => pico8.print(&format!("{f:.4}"), pos, c),
+                        ScriptValue::Integer(x) => pico8.print(&format!("{x}"), pos, c),
+                        _ => pico8.print(&"", pos, c),
+                    }
                 })
             },
         )
@@ -320,7 +325,7 @@ pub(crate) fn plugin(app: &mut App) {
         .register("time", |ctx: FunctionCallContext| {
             with_pico8(&ctx, move |pico8| Ok(pico8.time()))
         })
-        .register("rnd", |ctx: FunctionCallContext, value: ScriptValue| {
+        .register("rnd", |ctx: FunctionCallContext, value: Option<ScriptValue>| {
             with_pico8(&ctx, move |pico8| Ok(pico8.rnd(value)))
         })
         .register("srand", |ctx: FunctionCallContext, value: u64| {

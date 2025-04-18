@@ -20,11 +20,13 @@ pub struct Rand8<'w> {
 }
 
 impl<'w> Rand8<'w> {
-    pub fn rnd(&mut self, value: ScriptValue) -> ScriptValue {
+    pub fn rnd(&mut self, value: Option<ScriptValue>) -> ScriptValue {
+        let value = value.unwrap_or(ScriptValue::Unit);
         let (ref mut rng, ref mut _seed) = *self.rand;
         match value {
             ScriptValue::Integer(x) => ScriptValue::from(rng.next_u64() as i64 % (x + 1)),
-            ScriptValue::Float(x) => ScriptValue::from((rng.next_u64() as f64) / (u64::MAX as f64)),
+            ScriptValue::Float(x) => ScriptValue::from(x * (rng.next_u64() as f64) / (u64::MAX as f64)),
+            ScriptValue::Unit => ScriptValue::from((rng.next_u64() as f64) / (u64::MAX as f64)),
             ScriptValue::List(mut x) => {
                 if x.is_empty() {
                     ScriptValue::Unit
@@ -41,7 +43,8 @@ impl<'w> Rand8<'w> {
 
     pub fn srand(&mut self, new_seed: u64) {
         let (ref mut rng, ref mut seed) = *self.rand;
-        **seed = RngSeed::<WyRand>::from_seed(new_seed.to_ne_bytes());
+        rng.reseed(new_seed.to_ne_bytes());
+        **seed = RngSeed::<WyRand>::from_seed(new_seed.to_ne_bytes());;
     }
 }
 

@@ -1057,7 +1057,7 @@ impl Pico8<'_, '_> {
         Ok(id)
     }
 
-    pub fn rnd(&mut self, value: ScriptValue) -> ScriptValue {
+    pub fn rnd(&mut self, value: Option<ScriptValue>) -> ScriptValue {
         self.rand8.rnd(value)
     }
 

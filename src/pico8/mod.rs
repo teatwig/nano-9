@@ -19,5 +19,6 @@ pub(crate) fn plugin(app: &mut App) {
         .add_plugins(lua::plugin)
         .add_plugins(clear::plugin)
         .add_plugins(audio::plugin)
+        .add_plugins(rand::plugin)
         .add_plugins(cart::plugin);
 }

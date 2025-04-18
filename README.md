@@ -25,7 +25,7 @@ The goals for Nano-9 are to
 
 ## Anti-Goals
 
-- Do not provide 100% compatibility with Pico-8.
+- Do not provide 100% compatibility with Pico-8. See [compatibility](compat.md) document.
 - Do not provide a comprehensive game development console experience.
 - Do not support `peek()` or `poke()` in their entirety.
 - Do not write P8 or PNG cartridges.
