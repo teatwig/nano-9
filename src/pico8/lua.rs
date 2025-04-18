@@ -435,6 +435,15 @@ pub(crate) fn plugin(app: &mut App) {
                 })
             },
         )
+        .register(
+            "palt",
+            |ctx: FunctionCallContext, color: Option<usize>, transparency: Option<bool>| {
+                with_pico8(&ctx, move |pico8| {
+                    pico8.palt(color, transparency);
+                    Ok(())
+                })
+            },
+        )
         ;
 
     #[cfg(feature = "level")]

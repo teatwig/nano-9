@@ -30,7 +30,6 @@ use rand::Rng;
 use crate::{
     cursor::Cursor,
     pico8::{
-        cart::PALETTE,
         Gfx,
         audio::{Sfx, SfxChannels},
         Cart, ClearEvent, Clearable, LoadCart, Map,
@@ -566,7 +565,7 @@ impl Pico8<'_, '_> {
         let image = match &sprites.handle {
                     SprAsset::Image(handle) => handle.clone(),
                     SprAsset::Gfx(handle) => {
-                        self.gfx_handles.get_or_create(&self.state.pal, &handle, &self.gfxs, &mut self.images)
+                        self.gfx_handles.get_or_create(&self.state.pal, handle, &self.gfxs, &mut self.images)
                     }
                 };
         let mut sprite = {
@@ -1346,13 +1345,22 @@ impl Pico8<'_, '_> {
     }
 
     pub fn pal(&mut self, original_to_new: Option<(usize, usize)>, mode: Option<PalModify>) {
-        let mode = mode.unwrap_or(PalModify::default());
+        let mode = mode.unwrap_or_default();
         assert!(matches!(mode, PalModify::Following));
         if let Some((old, new)) = original_to_new {
             self.state.pal.remap(old, new);
         } else {
             // Reset the pal.
             self.state.pal.reset();
+        }
+    }
+
+    pub fn palt(&mut self, color_index: Option<usize>, transparent: Option<bool>) {
+        if let Some(color_index) = color_index {
+            self.state.pal.transparency.set(color_index, transparent.unwrap_or(false));
+        } else {
+            // Reset the pal.
+            self.state.pal.reset_transparency();
         }
     }
 }
