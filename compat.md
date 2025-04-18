@@ -34,7 +34,7 @@
 ## Tables
 - [x] add(t, v, [i])
 - [x] all(t)
-- [/] count(t, [v])
+- [-] count(t, [v])
 - [x] del(t, v)
 - [x] deli(t, i)
 - [x] foreach(t, f)
@@ -113,7 +113,7 @@
 - [ ] chr(num)
 - [x] ord(str, [index])
 - [x] tonum(val, [format_flags])
-- [/] tostr(val, [usehex])
+- [-] tostr(val, [usehex])
 
 ## Values and objects
 - [x] setmetatable(tbl, metatbl)
@@ -134,7 +134,7 @@
 - [ ] run([breadcrumb])
 - ## Debugging
 - [ ] assert(cond, [message])
-- [/] printh(str, [filename], [overwrite])
+- [-] printh(str, [filename], [overwrite])
 - [ ] stat(n)
 - [ ] stop() (undocumented)
 - [ ] trace() (undocumented)
