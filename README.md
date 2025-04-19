@@ -29,6 +29,7 @@ The goals for Nano-9 are to
 - Do not provide a comprehensive game development console experience.
 - Do not support `peek()` or `poke()` in their entirety.
 - Do not write P8 or PNG cartridges.
+- Do not use fixed-point numbers.
 - Do not support same performance characteristics.
   
   Let me provide an example where Nano-9 and Pico-8 performance differ. In
@@ -43,8 +44,8 @@ The goals for Nano-9 are to
   `Sprite`, `print()` to create a `Text` component, `map()` to create a
   `bevy_ecs_tilemap::TilemapBundle`. In this way the comfortable world of Pico-8
   can help introduce one to the Bevy world, and it can also provide affordances
-  not possible in Pico-8. For instance one could query entities for collision
-  information.
+  not possible in Pico-8. For instance one could query on-screen entities for
+  collision information.
 
 ## Current Design Considerations
 
@@ -52,7 +53,14 @@ There are a number of questions that remain unanswered.
 
 ### Support Pico-8's Lua dialect?
 I would like to but by what means? Text translation at load time? A compiler
-patch?
+patch? Currently Nano-9 only supports Lua.
+
+There are tools that help one convert Pico-8's dialect into conventional Lua:
+
+- [pico8-to-lua](https://github.com/benwiley4000/pico8-to-lua)
+- [Depicofier](https://github.com/Enichan/Depicofier)
+
+But I haven't seen one that captures every part of Pico-8's dialect.
 
 ### Allow one to opt-in to retained entities?
 One of the principle differences between Pico-8 and Bevy is that Pico-8 has an
@@ -120,6 +128,7 @@ Here is what the Rust version of the same thing looks like.
 fn update(mut pico8: Pico8, mut x: Local<u32>) -> Result<(), Pico8Error> {
     pico8.pset(*x, *x)?;
     *x += 1;
+    Ok(())
 }
 ```
 
