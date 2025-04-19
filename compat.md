@@ -1,4 +1,5 @@
 # API Compatibility
+
 - [x] _init()
 - [x] _update()
 - [x] _draw()
@@ -12,8 +13,8 @@
 - [x] ovalfill(x0, y0, x1, y1, [col])
 - [ ] clip([x,] [y,] [w,] [h])
 - [x] cls([col])
-- [ ] color(col)
-- [ ] cursor([x,] [y,] [col])
+- [x] color(col)
+- [x] cursor([x,] [y,] [col])
 - [x] fget(n, [f])
 - [ ] fillp([pat])
 - [x] fset(n, [f,] [v])
@@ -25,9 +26,9 @@
 - [x] pset(x, y, [c])
 - [x] rect(x0, y0, x1, y1, [col])
 - [x] rectfill(x0, y0, x1, y1, [col])
-- [ ] sget(x, y)
+- [x] sget(x, y)
 - [x] spr(n, x, y, [w,] [h,] [flip_x,] [flip_y])
-- [ ] sset(x, y, [c])
+- [x] sset(x, y, [c])
 - [x] sspr(sx, sy, sw, sh, dx, dy, [dw,] [dh,] [flip_x,] [flip_y])
 - [ ] tline(x0, y0, x1, y1, mx, my, [mdx,] [mdy])
 
@@ -132,7 +133,8 @@
 - [ ] menuitem(index, [label, callback])
 - [ ] extcmd(cmd)
 - [ ] run([breadcrumb])
-- ## Debugging
+
+## Debugging
 - [ ] assert(cond, [message])
 - [-] printh(str, [filename], [overwrite])
 - [ ] stat(n)

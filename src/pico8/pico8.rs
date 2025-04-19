@@ -28,6 +28,7 @@ use bitvec::prelude::*;
 use rand::Rng;
 
 use crate::{
+    PColor,
     cursor::Cursor,
     pico8::{
         Gfx,
@@ -290,7 +291,7 @@ pub struct Pico8<'w, 's> {
     time: Res<'w, Time>,
     #[cfg(feature = "level")]
     tiled: crate::level::tiled::Level<'w, 's>,
-    gfxs: Res<'w, Assets<Gfx>>,
+    gfxs: ResMut<'w, Assets<Gfx>>,
     gfx_handles: ResMut<'w, GfxHandles>,
     rand8: Rand8<'w>,
 }
@@ -608,9 +609,21 @@ impl Pico8<'_, '_> {
             .id())
     }
 
+    // XXX: Should this be here? It's not a Pico8 API.
     pub fn get_color(&self, c: impl Into<N9Color>) -> Result<Color, Error> {
         match c.into() {
-            N9Color::Pen => Ok(self.state.draw_state.pen),
+            N9Color::Pen => match self.state.draw_state.pen {
+                PColor::Palette(n) => {
+                    let pal = self
+                        .images
+                        .get(&self.state.palette.handle)
+                        .ok_or(Error::NoAsset("palette".into()))?;
+
+                    // Strangely. It's not a 1d texture.
+                    Ok(pal.get_color_at(n as u32, self.state.palette.row)?)
+                }
+                PColor::Color(c) => Ok(c.into())
+            },
             N9Color::Palette(n) => {
                 let pal = self
                     .images
@@ -648,6 +661,52 @@ impl Pico8<'_, '_> {
             .ok_or(Error::NoAsset("canvas".into()))?;
         image.set_color_at(pos.x, pos.y, c)?;
         Ok(())
+    }
+
+    pub fn sset(&mut self, pos: UVec2, color: Option<N9Color>, sheet_index: Option<usize>) -> Result<(), Error> {
+        let color = color.unwrap_or(N9Color::Pen);
+        let sheet_index = sheet_index.unwrap_or(0);
+        let sheet = &self.state.sprite_sheets.inner[sheet_index];
+        match &sheet.handle {
+            SprAsset::Gfx(handle) => {
+                let gfx = self.gfxs.get_mut(handle).ok_or(Error::NoSuch("Gfx".into()))?;
+                gfx.set(pos, match color {
+                    N9Color::Palette(n) => Ok(n as u8),
+                    N9Color::Pen => match self.state.draw_state.pen {
+                        PColor::Palette(n) => Ok(n as u8),
+                        PColor::Color(_) => Err(Error::InvalidArgument("Cannot write pen `Color` to Gfx asset".into())),
+                    },
+                    N9Color::Color(_) => Err(Error::InvalidArgument("Cannot write arg `Color` to Gfx asset".into())),
+                }?);
+            }
+            SprAsset::Image(handle) => {
+                let c = self.get_color(color)?;
+                let image = self
+                    .images
+                    .get_mut(&self.canvas.handle)
+                    .ok_or(Error::NoAsset("canvas".into()))?;
+                image.set_color_at(pos.x, pos.y, c)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn sget(&mut self, pos: UVec2, sheet_index: Option<usize>) -> Result<PColor, Error> {
+        let sheet_index = sheet_index.unwrap_or(0);
+        let sheet = &self.state.sprite_sheets.inner[sheet_index];
+        Ok(match &sheet.handle {
+            SprAsset::Gfx(handle) => {
+                let gfx = self.gfxs.get(handle).ok_or(Error::NoSuch("Gfx".into()))?;
+                PColor::Palette(gfx.get(pos) as usize)
+            }
+            SprAsset::Image(handle) => {
+                let image = self
+                    .images
+                    .get_mut(&self.canvas.handle)
+                    .ok_or(Error::NoAsset("canvas".into()))?;
+                PColor::Color(image.get_color_at(pos.x, pos.y)?.into())
+            }
+        })
     }
 
     pub fn rectfill(
@@ -1314,20 +1373,20 @@ impl Pico8<'_, '_> {
         Ok(id)
     }
 
-    /// Set a sprite.
-    pub fn sset(&mut self, id: Entity, sprite_index: usize) {
-        self.commands.queue(move |world: &mut World| {
-            if let Some(mut sprite) = world.get_mut::<Sprite>(id) {
-                if let Some(ref mut atlas) = sprite.texture_atlas.as_mut() {
-                    atlas.index = sprite_index;
-                } else {
-                    warn!("No texture atlas for sprite {id}");
-                }
-            } else {
-                warn!("No sprite {id}");
-            }
-        });
-    }
+    // Set a sprite.
+    // pub fn sset(&mut self, id: Entity, sprite_index: usize) {
+    //     self.commands.queue(move |world: &mut World| {
+    //         if let Some(mut sprite) = world.get_mut::<Sprite>(id) {
+    //             if let Some(ref mut atlas) = sprite.texture_atlas.as_mut() {
+    //                 atlas.index = sprite_index;
+    //             } else {
+    //                 warn!("No texture atlas for sprite {id}");
+    //             }
+    //         } else {
+    //             warn!("No sprite {id}");
+    //         }
+    //     });
+    // }
 
     #[cfg(feature = "level")]
     /// Get properties
@@ -1355,9 +1414,25 @@ impl Pico8<'_, '_> {
         }
     }
 
-    // pub fn color(&mut self, color) -> Option<u8> {
+    pub fn color(&mut self, color: Option<PColor>) -> PColor {
+        let last_color = self.state.draw_state.pen;
+        if let Some(color) = color {
+            self.state.draw_state.pen = color;
+        }
+        last_color
+    }
 
-    // }
+    pub fn cursor(&mut self, pos: Option<Vec2>, color: Option<PColor>) -> (Vec2, PColor) {
+        let last_pos = self.state.draw_state.print_cursor;
+        let last_color = self.state.draw_state.pen;
+        if let Some(pos) = pos {
+            self.state.draw_state.print_cursor = pos;
+        }
+        if let Some(color) = color {
+            self.state.draw_state.pen = color;
+        }
+        (last_pos, last_color)
+    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -1507,30 +1582,6 @@ impl FromWorld for Pico8State {
     }
 }
 
-impl Pico8State {
-    pub fn get_color_or_pen(&self, c: impl Into<N9Color>, world: &World) -> Color {
-        match c.into() {
-            N9Color::Pen => self.draw_state.pen,
-            N9Color::Palette(n) => {
-                let images = world.resource::<Assets<Image>>();
-                images
-                    .get(&self.palette.handle)
-                    .and_then(|pal| {
-                        // Strangely. It's not a 1d texture.
-                        match pal.get_color_at(n as u32, self.palette.row) {
-                            Ok(c) => Some(c),
-                            Err(e) => {
-                                warn!("Could not look up color in palette at {n}: {e}");
-                                None
-                            }
-                        }
-                    })
-                    .unwrap_or(Srgba::rgb(1.0, 0.0, 1.0).into())
-            }
-            N9Color::Color(c) => c.into(),
-        }
-    }
-}
 
 pub(crate) fn plugin(app: &mut App) {
     embedded_asset!(app, "pico-8-palette.png");

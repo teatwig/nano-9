@@ -24,14 +24,14 @@ use bevy_mod_scripting::{
     lua::LuaScriptingPlugin,
 };
 
-use crate::{config::*, error::RunState, pico8::fill_input, N9Var};
+use crate::{config::*, PColor, error::RunState, pico8::fill_input, N9Var};
 
 #[derive(Component)]
 pub struct Nano9Sprite;
 
 #[derive(Clone, Debug, Reflect)]
 pub struct DrawState {
-    pub pen: Color,
+    pub pen: PColor,
     pub camera_position: Vec2,
     pub print_cursor: Vec2,
 }
@@ -45,7 +45,7 @@ pub struct N9Canvas {
 impl Default for DrawState {
     fn default() -> Self {
         DrawState {
-            pen: Srgba::rgb(0.761, 0.765, 0.780).into(), // color 6, palette
+            pen: PColor::Palette(6),
             camera_position: Vec2::ZERO,
             print_cursor: Vec2::ZERO,
         }

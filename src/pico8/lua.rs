@@ -5,6 +5,7 @@ use bevy::{
 
 use bevy_mod_scripting::core::{
         bindings::{
+            IntoScript,
             access_map::ReflectAccessId,
             function::{
                 from::{FromScript, Val},
@@ -19,6 +20,7 @@ use bevy_mod_scripting::core::{
     };
 
 use crate::{
+    PColor,
     pico8::{
         Error, Pico8, PropBy, SfxCommand, Spr, PalModify,
     }, DropPolicy, N9Color, N9Entity,
@@ -455,6 +457,31 @@ pub(crate) fn plugin(app: &mut App) {
                 })
             },
         )
+        .register(
+            "color",
+            |ctx: FunctionCallContext, color: Option<PColor>| {
+                with_pico8(&ctx, move |pico8| {
+                    Ok(pico8.color(color))
+                })
+            },
+        )
+        .register(
+            "_cursor",
+            |ctx: FunctionCallContext, x: Option<f32>, y: Option<f32>, color: Option<PColor>| {
+                let (last_pos, last_color) = with_pico8(&ctx, move |pico8| {
+                    let pos = if x.is_some() || y.is_some() {
+                        Some(Vec2::new(x.unwrap_or(0.0), y.unwrap_or(0.0)))
+                    } else {
+                        None
+                    };
+
+                    Ok(pico8.cursor(pos, color))
+                })?;
+                Ok(ScriptValue::List(vec![ScriptValue::Float(last_pos.x as f64),
+                                          ScriptValue::Float(last_pos.y as f64),
+                                          last_color.into_script(ctx.world()?)?]))
+            },
+        )
         ;
 
     #[cfg(feature = "level")]
@@ -481,14 +508,30 @@ pub(crate) fn plugin(app: &mut App) {
         })
         .register(
             "sset",
-            |ctx: FunctionCallContext, id: i64, sprite_index: usize| {
-                let id = Entity::from_bits(id as u64);
+            |ctx: FunctionCallContext, x: u32, y: u32, color: Option<N9Color>, sprite_index: Option<usize>| {
                 with_pico8(&ctx, move |pico8| {
-                    pico8.sset(id, sprite_index);
-                    Ok(())
+                    pico8.sset(UVec2::new(x, y), color, sprite_index)
                 })
             },
         )
+        .register(
+            "sget",
+            |ctx: FunctionCallContext, x: u32, y: u32, sprite_index: Option<usize>| {
+                with_pico8(&ctx, move |pico8| {
+                    pico8.sget(UVec2::new(x, y), sprite_index)
+                })
+            },
+        )
+        // .register(
+        //     "sset",
+        //     |ctx: FunctionCallContext, id: i64, sprite_index: usize| {
+        //         let id = Entity::from_bits(id as u64);
+        //         with_pico8(&ctx, move |pico8| {
+        //             pico8.sset(id, sprite_index);
+        //             Ok(())
+        //         })
+        //     },
+        // )
         .register("ent", |_ctx: FunctionCallContext, id: i64| {
             let id = Entity::from_bits(id as u64);
             // let entity = N9Entity {

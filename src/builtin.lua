@@ -272,5 +272,10 @@ function _eval(str, output)
     return v
 end
 
+function cursor(x, y, c)
+    local l = _cursor(x, y, c)
+    return l[1], l[2], l[3]
+end
+
 -- function run(breadcrumb)
 -- end

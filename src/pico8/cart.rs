@@ -82,6 +82,34 @@ pub struct Gfx {
 }
 
 impl Gfx {
+    pub fn new(size: UVec2) -> Self {
+        Gfx {
+            nybbles: vec![0; (size.x * size.y) as usize / 2],
+            pixel_width: size.x as usize,
+        }
+    }
+
+    pub fn get(&self, pos: UVec2) -> u8 {
+        let byte = self.nybbles[pos.x as usize / 2 + pos.y  as usize * self.pixel_width / 2];
+        if pos.x % 2 == 0 {
+            // high nybble
+            byte >> 4
+        } else {
+            // low nybble
+            byte & 0x0f
+        }
+    }
+
+    pub fn set(&mut self, pos: UVec2, color_index: u8) {
+        let byte = &mut self.nybbles[pos.x as usize / 2 + pos.y as usize * self.pixel_width / 2];
+        if pos.x % 2 == 0 {
+            // high nybble
+            *byte = color_index << 4 | *byte & 0x0f;
+        } else {
+            // low nybble
+            *byte = (*byte & 0xf0) | (color_index & 0x0f);
+        }
+    }
     /// Turn a Gfx into an image.
     ///
     /// The `write_color` function writes a Srgba set of pixels to the given u8
@@ -648,7 +676,7 @@ end"#
         assert_eq!(
             cart.gfx
                 .as_ref()
-                .map(|gfx| gfx.nybbles.len() * 2/ gfx.pixel_width),
+                .map(|gfx| gfx.nybbles.len() * 2 / gfx.pixel_width),
             Some(8)
         );
     }
