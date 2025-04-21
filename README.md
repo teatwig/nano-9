@@ -119,6 +119,17 @@ the bottom-right.
 x = 0
 function _update()
     pset(x, x)
+    x += 1
+end
+```
+
+Here is the Nano-9 code. Note: that it does not have the `+=` operator of
+Pico-8. It's just Lua.
+
+``` lua
+x = 0
+function _update()
+    pset(x, x)
     x = x + 1
 end
 ```
@@ -131,6 +142,9 @@ fn update(mut pico8: Pico8, mut x: Local<u32>) -> Result<(), Pico8Error> {
     Ok(())
 }
 ```
+
+This is not to suggest that the Rust version is preferable, only that it's
+available.
 
 ### Can I use this to port my game to a console?
 
@@ -163,7 +177,7 @@ If you like the ones provided by Pico-8, use it! Here are some tools I like:
 
 The Pico-8 TTF font this project uses has its height one pixel higher than
 necessary; it's 7 pixels high. However, Pico-8 renders its text with 6 pixels of
-verical spacing between lines. If one renders multi-line text naively with
+vertical spacing between lines. If one renders multi-line text naively with
 Bevy's `Text::new(multi_line_string)` component, it will not look like Pico-8;
 it will be off by 1 pixel each line, which for a small 128x128 display is a lot!
 I tried to muck with the font in [FontForge](https://fontforge.org/en-US/) but
