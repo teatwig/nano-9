@@ -11,7 +11,7 @@ Nano-9 is Bevy in [Pico-8](https://www.lexaloffle.com/pico-8.php) clothing.
 The goals for Nano-9 are to
 
 - offer a Pico-8 API and semantics in both Rust and Lua,
-- support the P8 cartridge format (maybe PNG),
+- support the P8 and PNG cartridge format,
 - provide a gateway from the Pico-8 world to the Bevy world,
 - support different color palettes,
 - support different color palette sizes,
@@ -47,6 +47,8 @@ The goals for Nano-9 are to
   not possible in Pico-8. For instance one could query on-screen entities for
   collision information.
 
+## Extensions
+
 ## Current Design Considerations
 
 There are a number of questions that remain unanswered.
@@ -62,12 +64,12 @@ There are tools that help one convert Pico-8's dialect into conventional Lua:
 
 But I haven't seen one that captures every part of Pico-8's dialect.
 
-### Allow one to opt-in to retained entities?
+### Opt-in to retained entities 
 One of the principle differences between Pico-8 and Bevy is that Pico-8 has an
-what's called an immediate rendering system. If one wants to render a character,
-one renders its sprite every frame. Bevy in contrast uses a retained rendering
-system. One spawns a `Sprite` and that persists and is rendered every
-frame until it is despawned.
+uses an immediate rendering system. If one wants to render a character, one
+renders its sprite every frame by calling `spr()`. Bevy in contrast uses a
+retained rendering system. One spawns a `Sprite` and that persists and is
+rendered every frame until it is despawned.
 
 One can imagine though that perhaps Nano-9's `spr()` function could be used like
 so:
@@ -87,7 +89,8 @@ end
 
 One could opt-in to retained functionality. Is this a good idea? Retained mode
 is more complicated to maintain but it is more performant. Happy to hear
-feedback on this.
+feedback on this. This feature is implemented and available. It seems helpful
+for maps which are heavier than sprites.
 
 ## FAQ
 
