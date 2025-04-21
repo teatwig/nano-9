@@ -34,6 +34,7 @@ bitvec = "1.0.1"
 futures-lite = { version = "2.6.0", optional = true }
 bevy_rand = { version = "0.9.0", features = ["wyrand"] }
 bevy_prng = "0.9.0"
+pico8_decompress = { version = "0.1.0", path = "../pico8_decompress" }
 # regex = "1.11.1"
 # XXX: Don't leave this here.
 # bevy_mod_debugdump = "0.12.1"

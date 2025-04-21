@@ -16,14 +16,15 @@ use std::{
     collections::HashMap,
     path::PathBuf,
 };
+use pico8_decompress::*;
 
 pub(crate) fn plugin(app: &mut App) {
     app
         .register_type::<Cart>()
         .add_event::<LoadCart>()
         .init_asset::<Cart>()
-        .init_asset::<Gfx>()
-        .init_asset_loader::<CartLoader>()
+        .init_asset_loader::<P8CartLoader>()
+        .init_asset_loader::<PngCartLoader>()
         .add_systems(PostUpdate, load_cart);
 }
 
@@ -45,6 +46,8 @@ pub enum CartLoaderError {
     Sfx(#[from] SfxError),
     #[error("Load error: {0}")]
     LoadDirect(#[from] bevy::asset::LoadDirectError),
+    #[error("Decompression error: {0}")]
+    Decompression(String),
 }
 
 #[allow(dead_code)]
@@ -73,77 +76,6 @@ pub struct Cart {
     pub map: Vec<u8>,
     pub flags: Vec<u8>,
     pub sfx: Vec<Handle<Sfx>>,
-}
-
-#[derive(Asset, Debug, Reflect, Clone)]
-pub struct Gfx {
-    nybbles: Vec<u8>,
-    pixel_width: usize,
-}
-
-impl Gfx {
-    pub fn new(size: UVec2) -> Self {
-        Gfx {
-            nybbles: vec![0; (size.x * size.y) as usize / 2],
-            pixel_width: size.x as usize,
-        }
-    }
-
-    pub fn get(&self, pos: UVec2) -> u8 {
-        let byte = self.nybbles[pos.x as usize / 2 + pos.y  as usize * self.pixel_width / 2];
-        if pos.x % 2 == 0 {
-            // high nybble
-            byte >> 4
-        } else {
-            // low nybble
-            byte & 0x0f
-        }
-    }
-
-    pub fn set(&mut self, pos: UVec2, color_index: u8) {
-        let byte = &mut self.nybbles[pos.x as usize / 2 + pos.y as usize * self.pixel_width / 2];
-        if pos.x % 2 == 0 {
-            // high nybble
-            *byte = color_index << 4 | *byte & 0x0f;
-        } else {
-            // low nybble
-            *byte = (*byte & 0xf0) | (color_index & 0x0f);
-        }
-    }
-    /// Turn a Gfx into an image.
-    ///
-    /// The `write_color` function writes a Srgba set of pixels to the given u8
-    /// slice of four bytes.
-    pub fn to_image(&self, write_color: impl Fn(u8, &mut [u8])) -> Image {
-        let pixel_count = self.nybbles.len() * 2;
-        let columns = self.pixel_width;
-        let (rows, remainder) = (pixel_count / columns, pixel_count % columns);
-        assert_eq!(remainder, 0, "Gfx expects an integer number of rows but {} bytes were left over", remainder);
-        let mut pixel_bytes = vec![0x00; columns * rows * 4];
-        let mut i = 0;
-        for byte in &self.nybbles {
-            // first nybble
-            write_color(byte >> 4, &mut pixel_bytes[i * 4..(i + 1) * 4]);
-            i += 1;
-            // second nybble
-            write_color(byte & 0x0f, &mut pixel_bytes[i * 4..(i + 1) * 4]);
-            i += 1;
-        }
-        let mut image = Image::new(
-            Extent3d {
-                width: columns as u32,
-                height: rows as u32,
-                ..default()
-            },
-            TextureDimension::D2,
-            pixel_bytes,
-            TextureFormat::Rgba8UnormSrgb,
-            // Must have main world, not sure why.
-            RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
-        );
-        image.sampler = ImageSampler::nearest();
-        image
-    }
 }
 
 pub const PALETTE: [[u8; 3]; 16] = [
@@ -324,10 +256,10 @@ impl CartParts {
                     let mut j = 0;
                     while j < line_bytes.len() {
                         let c = line_bytes[j] as char;
-                        let high: u8 =
+                        let low: u8 =
                             c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
                         let c = line_bytes[j + 1] as char;
-                        let low: u8 =
+                        let high: u8 =
                             c.to_digit(16).ok_or(CartLoaderError::UnexpectedHex(c))? as u8;
                         bytes[i] = (high << 4) | low;
                         i += 1;
@@ -492,9 +424,9 @@ impl Default for CartLoaderSettings {
 }
 
 #[derive(Default)]
-struct CartLoader;
+struct P8CartLoader;
 
-impl AssetLoader for CartLoader {
+impl AssetLoader for P8CartLoader {
     type Asset = Cart;
     type Settings = CartLoaderSettings;
     type Error = CartLoaderError;
@@ -536,6 +468,69 @@ impl AssetLoader for CartLoader {
 
     fn extensions(&self) -> &[&str] {
         &["p8"]
+    }
+}
+
+#[derive(Default)]
+struct PngCartLoader;
+
+impl AssetLoader for PngCartLoader {
+    type Asset = Cart;
+    type Settings = CartLoaderSettings;
+    type Error = CartLoaderError;
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        settings: &CartLoaderSettings,
+        load_context: &mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+
+        let v = extract_bits_from_png(&bytes[..])?;
+        let code = pxa::decompress(&v[0x4300..=0x7fff], None).map_err(|e| CartLoaderError::Decompression(format!("{e}")))?;
+        let mut nybbles = vec![0; 0x2000];
+        nybbles.copy_from_slice(&v[0..=0x1fff]);
+
+        let gfx = Gfx {
+            nybbles,
+            pixel_width: 128
+        };
+        let mut map = vec![0; 0x1000];
+        map.copy_from_slice(&v[0x2000..=0x2fff]);
+        let flags = Vec::from(&v[0x3000..=0x30ff]);
+
+        // let content = String::from_utf8(bytes)?;
+        // let parts = CartParts::from_str(&content, settings)?;
+        // let code = parts.lua;
+        // cart.lua = Some(load_context.add_labeled_asset("lua".into(), ScriptAsset { bytes: code.into_bytes() }));
+        // let gfx = parts.gfx.clone();
+        let mut code_path: PathBuf = load_context.path().into();
+        let path = code_path.as_mut_os_string();
+        path.push("#lua");
+        Ok(Cart {
+            lua: load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
+                content: code.into_boxed_slice(),
+                asset_path: code_path.into(),
+            }),
+            gfx: Some(load_context
+                .labeled_asset_scope("gfx".into(), move |_load_context| gfx)),
+            map,
+            flags,
+            sfx: vec![]
+                // parts
+                // .sfx
+                // .into_iter()
+                // .enumerate()
+                // .map(|(n, sfx)| {
+                //     load_context.labeled_asset_scope(format!("sfx{n}"), move |_load_context| sfx)
+                // })
+                // .collect(),
+        })
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &["png"]
     }
 }
 

@@ -794,6 +794,8 @@ impl Pico8<'_, '_> {
                 mask,
                 &self.state.sprite_sheets.inner,
                 &mut self.commands,
+                |handle|
+                self.gfx_handles.get_or_create(&self.state.pal, &handle, &self.gfxs, &mut self.images)
             ),
             #[cfg(feature = "level")]
             Map::Level(ref map) => Ok(map.map(screen_start, 0, &mut self.commands)),

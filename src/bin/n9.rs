@@ -83,7 +83,8 @@ fn main() -> io::Result<()> {
             },
         );
         nano9_plugin = Nano9Plugin { config };
-    } else if script_path.extension() == Some(OsStr::new("p8")) {
+    } else if script_path.extension() == Some(OsStr::new("p8"))
+        || script_path.extension() == Some(OsStr::new("png")) {
         eprintln!("loading cart");
         let path = script_path.clone();
         app.add_systems(

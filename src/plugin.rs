@@ -360,6 +360,7 @@ impl Plugin for Nano9Plugin {
         })
             .insert_resource({let mut settings = ScriptAssetSettings::default();
                              settings.extension_to_language_map.insert("p8#lua", Language::Lua);
+                             settings.extension_to_language_map.insert("png#lua", Language::Lua);
                              settings })
         .insert_resource(N9Canvas {
             size: canvas_size,
