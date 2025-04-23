@@ -16,70 +16,65 @@ use std::{
     collections::HashMap,
     path::PathBuf,
 };
+use bitvec::{view::BitView, prelude::*};
+use std::marker::PhantomData;
 
 pub(crate) fn plugin(app: &mut App) {
     app
         .init_asset::<Gfx>();
 }
 
+/// An indexed image using `N`-bit palette with color index `T`.
 #[derive(Asset, Debug, Reflect, Clone)]
-pub struct Gfx {
-    pub nybbles: Vec<u8>,
-    pub pixel_width: usize,
+pub struct Gfx<const N: usize = 4, T: TypePath + Send + Sync + BitStore = u8> {
+    #[reflect(ignore)]
+    pub data: BitVec<T, Lsb0>,
+    pub width: usize,
+    pub height: usize,
 }
 
-impl Gfx {
-    pub fn new(size: UVec2) -> Self {
+impl<const N: usize, T: TypePath + Send + Sync + Default + BitView<Store = T> + BitStore + Copy> Gfx<N, T> {
+    /// Create an indexed image.
+    pub fn new(width: usize, height: usize) -> Self {
         Gfx {
-            nybbles: vec![0; (size.x * size.y) as usize / 2],
-            pixel_width: size.x as usize,
+            data: BitVec::<T, Lsb0>::repeat(false, width * height * N),
+            width,
+            height,
         }
     }
 
-    pub fn get(&self, pos: UVec2) -> u8 {
-        let byte = self.nybbles[pos.x as usize / 2 + pos.y  as usize * self.pixel_width / 2];
-        if pos.x % 2 == 0 {
-            // high nybble
-            byte >> 4
-        } else {
-            // low nybble
-            byte & 0x0f
-        }
+    /// Get a color index.
+    pub fn get(&self, x: usize, y: usize) -> T {
+        let start = x * N + y * N * self.width;
+        let slice = &self.data[start..start+N];
+        let mut result = T::default();
+        let mut bits = result.view_bits_mut::<Lsb0>();
+        bits[0..N].copy_from_bitslice(slice);
+        result
     }
 
-    pub fn set(&mut self, pos: UVec2, color_index: u8) {
-        let byte = &mut self.nybbles[pos.x as usize / 2 + pos.y as usize * self.pixel_width / 2];
-        if pos.x % 2 == 0 {
-            // high nybble
-            *byte = color_index << 4 | *byte & 0x0f;
-        } else {
-            // low nybble
-            *byte = (*byte & 0xf0) | (color_index & 0x0f);
-        }
+    /// Set a color index.
+    pub fn set(&mut self, x: usize, y: usize, color_index: T) {
+        let bits = color_index.view_bits::<Lsb0>();
+        let start = x * N + y * N * self.width;
+        self.data[start..start+N].copy_from_bitslice(&bits[0..N]);
     }
-    /// Turn a Gfx into an image.
+
+    /// Create an image.
     ///
-    /// The `write_color` function writes a Srgba set of pixels to the given u8
-    /// slice of four bytes.
-    pub fn to_image(&self, write_color: impl Fn(u8, &mut [u8])) -> Image {
-        let pixel_count = self.nybbles.len() * 2;
-        let columns = self.pixel_width;
-        let (rows, remainder) = (pixel_count / columns, pixel_count % columns);
-        assert_eq!(remainder, 0, "Gfx expects an integer number of rows but {} bytes were left over", remainder);
-        let mut pixel_bytes = vec![0x00; columns * rows * 4];
-        let mut i = 0;
-        for byte in &self.nybbles {
-            // first nybble
-            write_color(byte & 0x0f, &mut pixel_bytes[i * 4..(i + 1) * 4]);
-            i += 1;
-            // second nybble
-            write_color(byte >> 4, &mut pixel_bytes[i * 4..(i + 1) * 4]);
-            i += 1;
+    /// The `write_color` function accepts a color_index and the pixel_index and
+    /// writes a Srgba set of u8 pixels.
+    pub fn to_image(&self, mut write_color: impl FnMut(T, usize, &mut [u8])) -> Image {
+        let mut pixel_bytes = vec![0x00; self.width * self.height * 4];
+        let mut color_index = T::default();
+        for (i, pixel) in self.data.chunks_exact(N).enumerate() {
+            color_index.view_bits_mut::<Lsb0>()[0..N].copy_from_slice(pixel);
+            write_color(color_index, i, &mut pixel_bytes[i * 4..(i + 1) * 4]);
         }
         let mut image = Image::new(
             Extent3d {
-                width: columns as u32,
-                height: rows as u32,
+                width: self.width as u32,
+                height: self.height as u32,
                 ..default()
             },
             TextureDimension::D2,
@@ -91,4 +86,26 @@ impl Gfx {
         image.sampler = ImageSampler::nearest();
         image
     }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn ex0() {
+        let mut a = Gfx::<4>::new(8, 8);
+        assert_eq!(0, a.get(0, 0));
+        a.set(0, 0, 15);
+        assert_eq!(15, a.get(0, 0));
+    }
+
+    #[test]
+    fn create_image() {
+        let mut a = Gfx::<4>::new(8, 8);
+        assert_eq!(0, a.get(0, 0));
+        a.set(0, 0, 15);
+        let _ = a.to_image(|_,_,_| {});
+    }
+
 }

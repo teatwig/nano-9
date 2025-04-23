@@ -16,6 +16,7 @@ use std::{
     collections::HashMap,
     path::PathBuf,
 };
+use bitvec::prelude::*;
 use pico8_decompress::*;
 
 pub(crate) fn plugin(app: &mut App) {
@@ -266,7 +267,7 @@ impl CartParts {
                         j += 2;
                     }
                 }
-                gfx = Some(Gfx { nybbles: bytes, pixel_width: columns });
+                gfx = Some(Gfx { data: BitVec::<u8, Lsb0>::from_vec(bytes), width: columns, height: rows });
                 // sprites = Some(gfx.to_image(write_color));
             }
         }
@@ -493,8 +494,9 @@ impl AssetLoader for PngCartLoader {
         nybbles.copy_from_slice(&v[0..=0x1fff]);
 
         let gfx = Gfx {
-            nybbles,
-            pixel_width: 128
+            data: BitVec::<u8, Lsb0>::from_vec(nybbles),
+            width: 128,
+            height: 128,
         };
         let mut map = vec![0; 0x1000];
         map.copy_from_slice(&v[0x2000..=0x2fff]);

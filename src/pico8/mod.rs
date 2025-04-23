@@ -15,7 +15,7 @@ pub(crate) use pal::*;
 pub(crate) mod rand;
 mod gfx;
 pub(crate) use gfx::*;
-mod gfx2;
+// mod gfx2;
 
 pub(crate) fn plugin(app: &mut App) {
     app.add_plugins(pico8::plugin)

@@ -95,7 +95,7 @@ impl GfxHandles {
         self.map.entry(hasher.finish())
                 .or_insert_with(|| {
                     let gfx = gfxs.get(gfx).expect("gfx");//.ok_or(Error::NoSuch("gfx asset".into()))?;
-                    let image = gfx.to_image(|i, bytes| { pal.write_color(i, bytes); });
+                    let image = gfx.to_image(|i, _, bytes| { pal.write_color(i, bytes); });
                     images.add(image)
                 }).clone()
     }
@@ -670,7 +670,7 @@ impl Pico8<'_, '_> {
         match &sheet.handle {
             SprAsset::Gfx(handle) => {
                 let gfx = self.gfxs.get_mut(handle).ok_or(Error::NoSuch("Gfx".into()))?;
-                gfx.set(pos, match color {
+                gfx.set(pos.x as usize, pos.y as usize, match color {
                     N9Color::Palette(n) => Ok(n as u8),
                     N9Color::Pen => match self.state.draw_state.pen {
                         PColor::Palette(n) => Ok(n as u8),
@@ -697,7 +697,7 @@ impl Pico8<'_, '_> {
         Ok(match &sheet.handle {
             SprAsset::Gfx(handle) => {
                 let gfx = self.gfxs.get(handle).ok_or(Error::NoSuch("Gfx".into()))?;
-                PColor::Palette(gfx.get(pos) as usize)
+                PColor::Palette(gfx.get(pos.x as usize, pos.y as usize) as usize)
             }
             SprAsset::Image(handle) => {
                 let image = self
