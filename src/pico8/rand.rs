@@ -44,7 +44,7 @@ impl<'w> Rand8<'w> {
     pub fn srand(&mut self, new_seed: u64) {
         let (ref mut rng, ref mut seed) = *self.rand;
         rng.reseed(new_seed.to_ne_bytes());
-        **seed = RngSeed::<WyRand>::from_seed(new_seed.to_ne_bytes());;
+        **seed = RngSeed::<WyRand>::from_seed(new_seed.to_ne_bytes());
     }
 }
 
