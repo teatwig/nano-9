@@ -1066,7 +1066,7 @@ impl Pico8<'_, '_> {
         } else {
             (start - 1) as usize
         };
-        dbg!(match end {
+        match end {
             Some(end) => {
                 let end = if end < 0 {
                     (count - end) as usize
@@ -1082,7 +1082,7 @@ impl Pico8<'_, '_> {
                 }
             }
             None => string.chars().skip(start).collect(),
-        })
+        }
     }
 
     pub fn time(&self) -> f32 {
