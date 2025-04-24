@@ -1,23 +1,12 @@
-use crate::{
-    pico8::{audio::*, *}, DrawState,
-    error::RunState,
-};
+use crate::pico8::*;
 use bevy::{
-    asset::{io::Reader, AssetLoader, LoadContext},
-    image::{ImageLoaderSettings, ImageSampler},
+    image::ImageSampler,
     render::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
 };
-use bevy_mod_scripting::core::asset::ScriptAsset;
-use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-};
 use bitvec::{view::BitView, prelude::*};
-use std::marker::PhantomData;
 
 pub(crate) fn plugin(app: &mut App) {
     app
@@ -48,7 +37,7 @@ impl<const N: usize, T: TypePath + Send + Sync + Default + BitView<Store = T> + 
         let start = x * N + y * N * self.width;
         let slice = &self.data[start..start+N];
         let mut result = T::default();
-        let mut bits = result.view_bits_mut::<Lsb0>();
+        let bits = result.view_bits_mut::<Lsb0>();
         bits[0..N].copy_from_bitslice(slice);
         result
     }
@@ -87,6 +76,7 @@ impl<const N: usize, T: TypePath + Send + Sync + Default + BitView<Store = T> + 
         image
     }
 }
+
 
 #[cfg(test)]
 mod test {

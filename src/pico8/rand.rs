@@ -19,7 +19,7 @@ pub struct Rand8<'w> {
     rand: Single<'w, (&'static mut Entropy<WyRand>, &'static mut RngSeed<WyRand>), With<Source>>
 }
 
-impl<'w> Rand8<'w> {
+impl Rand8<'_> {
     pub fn rnd(&mut self, value: Option<ScriptValue>) -> ScriptValue {
         let value = value.unwrap_or(ScriptValue::Unit);
         let (ref mut rng, ref mut _seed) = *self.rand;

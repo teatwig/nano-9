@@ -5,10 +5,6 @@ use crate::{
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
     image::{ImageLoaderSettings, ImageSampler},
-    render::{
-        render_asset::RenderAssetUsages,
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
-    },
 };
 use bevy_mod_scripting::core::asset::ScriptAsset;
 use serde::{Deserialize, Serialize};
@@ -667,13 +663,13 @@ end"#
         assert_eq!(
             cart.gfx
                 .as_ref()
-                .map(|gfx| gfx.pixel_width),
+                .map(|gfx| gfx.width),
             Some(128)
         );
         assert_eq!(
             cart.gfx
                 .as_ref()
-                .map(|gfx| gfx.nybbles.len() * 2 / gfx.pixel_width),
+                .map(|gfx| gfx.height),
             Some(8)
         );
     }
@@ -692,13 +688,13 @@ end"#
         assert_eq!(
             cart.gfx
                 .as_ref()
-                .map(|gfx| gfx.pixel_width),
+                .map(|gfx| gfx.width),
             Some(128)
         );
         assert_eq!(
             cart.gfx
                 .as_ref()
-                .map(|gfx| gfx.nybbles.len() * 2 / gfx.pixel_width),
+                .map(|gfx| gfx.height),
             Some(8)
         );
     }
@@ -733,13 +729,13 @@ end"#
         assert_eq!(
             cart.gfx
                 .as_ref()
-                .map(|gfx| gfx.pixel_width),
+                .map(|gfx| gfx.width),
             Some(128)
         );
         assert_eq!(
             cart.gfx
                 .as_ref()
-                .map(|gfx| gfx.nybbles.len() * 2 / gfx.pixel_width),
+                .map(|gfx| gfx.height),
             Some(8)
         );
         assert_eq!(cart.map.len(), 128 * 7);
@@ -753,13 +749,13 @@ end"#
         assert_eq!(
             cart.gfx
                 .as_ref()
-                .map(|gfx| gfx.pixel_width),
+                .map(|gfx| gfx.width),
             Some(128)
         );
         assert_eq!(
             cart.gfx
                 .as_ref()
-                .map(|gfx| gfx.nybbles.len() * 2 / gfx.pixel_width),
+                .map(|gfx| gfx.height),
             Some(8)
         );
 

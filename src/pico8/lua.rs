@@ -231,9 +231,9 @@ pub(crate) fn plugin(app: &mut App) {
                         x.map(|x| Vec2::new(x, y.unwrap_or(pico8.state.draw_state.print_cursor.y)));
                     match text.unwrap_or(ScriptValue::Unit) {
                         ScriptValue::String(s) => pico8.print(&s, pos, c),
-                        ScriptValue::Float(f) => pico8.print(&format!("{f:.4}"), pos, c),
-                        ScriptValue::Integer(x) => pico8.print(&format!("{x}"), pos, c),
-                        _ => pico8.print(&"", pos, c),
+                        ScriptValue::Float(f) => pico8.print(format!("{f:.4}"), pos, c),
+                        ScriptValue::Integer(x) => pico8.print(format!("{x}"), pos, c),
+                        _ => pico8.print("", pos, c),
                     }
                 })
             },
