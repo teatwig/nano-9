@@ -6,11 +6,10 @@ use bevy::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
 };
-use bitvec::{view::BitView, prelude::*};
+use bitvec::{prelude::*, view::BitView};
 
 pub(crate) fn plugin(app: &mut App) {
-    app
-        .init_asset::<Gfx>();
+    app.init_asset::<Gfx>();
 }
 
 /// An indexed image using `N`-bit palette with color index `T`.
@@ -22,7 +21,11 @@ pub struct Gfx<const N: usize = 4, T: TypePath + Send + Sync + BitStore = u8> {
     pub height: usize,
 }
 
-impl<const N: usize, T: TypePath + Send + Sync + Default + BitView<Store = T> + BitStore + Copy> Gfx<N, T> {
+impl<
+        const N: usize,
+        T: TypePath + Send + Sync + Default + BitView<Store = T> + BitStore + Copy,
+    > Gfx<N, T>
+{
     /// Create an indexed image.
     pub fn new(width: usize, height: usize) -> Self {
         Gfx {
@@ -35,7 +38,7 @@ impl<const N: usize, T: TypePath + Send + Sync + Default + BitView<Store = T> + 
     /// Get a color index.
     pub fn get(&self, x: usize, y: usize) -> T {
         let start = x * N + y * N * self.width;
-        let slice = &self.data[start..start+N];
+        let slice = &self.data[start..start + N];
         let mut result = T::default();
         let bits = result.view_bits_mut::<Lsb0>();
         bits[0..N].copy_from_bitslice(slice);
@@ -46,7 +49,7 @@ impl<const N: usize, T: TypePath + Send + Sync + Default + BitView<Store = T> + 
     pub fn set(&mut self, x: usize, y: usize, color_index: T) {
         let bits = color_index.view_bits::<Lsb0>();
         let start = x * N + y * N * self.width;
-        self.data[start..start+N].copy_from_bitslice(&bits[0..N]);
+        self.data[start..start + N].copy_from_bitslice(&bits[0..N]);
     }
 
     /// Create an image.
@@ -77,7 +80,6 @@ impl<const N: usize, T: TypePath + Send + Sync + Default + BitView<Store = T> + 
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -95,7 +97,6 @@ mod test {
         let mut a = Gfx::<4>::new(8, 8);
         assert_eq!(0, a.get(0, 0));
         a.set(0, 0, 15);
-        let _ = a.to_image(|_,_,_| {});
+        let _ = a.to_image(|_, _, _| {});
     }
-
 }

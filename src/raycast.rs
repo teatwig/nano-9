@@ -4,104 +4,99 @@ use bevy::{
     prelude::*,
 };
 
+use crate::pico8::{lua::with_system_param, negate_y, Error};
 use bevy_mod_scripting::core::{
-        bindings::{
-            function::{
-                from::FromScript,
-                namespace::{GlobalNamespace, NamespaceBuilder},
-                script_function::FunctionCallContext,
-            },
-            script_value::ScriptValue,
+    bindings::{
+        function::{
+            from::FromScript,
+            namespace::{GlobalNamespace, NamespaceBuilder},
+            script_function::FunctionCallContext,
         },
-        error::InteropError,
-    };
-use crate::pico8::{Error, negate_y, lua::with_system_param};
-
-use crate::{
-    conversions::RectValue,
+        script_value::ScriptValue,
+    },
+    error::InteropError,
 };
+
+use crate::conversions::RectValue;
 
 pub struct RaycastPlugin;
 
 impl Plugin for RaycastPlugin {
     fn build(&self, app: &mut App) {
-       app
-        .register_type::<Place>()
-        .register_type::<Cover>();
+        app.register_type::<Place>().register_type::<Cover>();
 
         // XXX: cfg!(feature = "scripting")
-    let world = app.world_mut();
-    NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-        .register(
-            "raydown",
-            |ctx: FunctionCallContext,
-             x: f32,
-             y: f32,
-             mask: Option<u32>,
-             shape: Option<ScriptValue>| {
-                let pos = Vec2::new(x, y);
-                let shape = if let Some(v) = shape {
-                    let Rect { min, max } = RectValue::from_script(v, ctx.world()?)?;
-                    Some(Aabb2d { min, max })
-                } else {
-                    None
-                };
-                with_rays(&ctx, move |pico8| {
-                    // let ids: Vec<u64> = pico8
-                    //    .ray(pos, dir, mask)
-                    //    .into_iter()
-                    //    .map(|id| id.to_bits()).collect();
-                    let ids: Vec<i64> = pico8
-                        .raydown(pos, mask, shape)
-                        .into_iter()
-                        .map(|id| id.to_bits() as i64)
-                        .collect();
-                    Ok(ids)
-                })
-            },
-        )
-        .register(
-            "raycast",
-            |ctx: FunctionCallContext,
-             x: f32,
-             y: f32,
-             dx: f32,
-             dy: f32,
-             mask: Option<u32>,
-             shape: Option<ScriptValue>| {
-                let pos = Vec2::new(x, y);
-                let dxdy = Vec2::new(dx, dy);
-                let shape = if let Some(v) = shape {
-                    let Rect { min, max } = RectValue::from_script(v, ctx.world()?)?;
-                    Some(Aabb2d { min, max })
-                } else {
-                    None
-                };
-                with_rays(&ctx, move |pico8| {
-                    // let dir = Dir2::new(dxdy).map_err(|_| Error::InvalidArgument("dx, dy direction".into()))?;
-                    let Ok(dir) = Dir2::new(dxdy) else {
-                        return Ok(ScriptValue::Unit);
+        let world = app.world_mut();
+        NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
+            .register(
+                "raydown",
+                |ctx: FunctionCallContext,
+                 x: f32,
+                 y: f32,
+                 mask: Option<u32>,
+                 shape: Option<ScriptValue>| {
+                    let pos = Vec2::new(x, y);
+                    let shape = if let Some(v) = shape {
+                        let Rect { min, max } = RectValue::from_script(v, ctx.world()?)?;
+                        Some(Aabb2d { min, max })
+                    } else {
+                        None
                     };
-                    let ids_dists: Vec<ScriptValue> = pico8
-                        .raycast(pos, dir, mask, shape)
-                        .into_iter()
-                        .flat_map(|(id, dist)| {
-                            [
-                                ScriptValue::Integer(id.to_bits() as i64),
-                                ScriptValue::Float(dist as f64),
-                            ]
-                        })
-                        .collect();
-                    Ok(ScriptValue::List(ids_dists))
+                    with_rays(&ctx, move |pico8| {
+                        // let ids: Vec<u64> = pico8
+                        //    .ray(pos, dir, mask)
+                        //    .into_iter()
+                        //    .map(|id| id.to_bits()).collect();
+                        let ids: Vec<i64> = pico8
+                            .raydown(pos, mask, shape)
+                            .into_iter()
+                            .map(|id| id.to_bits() as i64)
+                            .collect();
+                        Ok(ids)
+                    })
+                },
+            )
+            .register(
+                "raycast",
+                |ctx: FunctionCallContext,
+                 x: f32,
+                 y: f32,
+                 dx: f32,
+                 dy: f32,
+                 mask: Option<u32>,
+                 shape: Option<ScriptValue>| {
+                    let pos = Vec2::new(x, y);
+                    let dxdy = Vec2::new(dx, dy);
+                    let shape = if let Some(v) = shape {
+                        let Rect { min, max } = RectValue::from_script(v, ctx.world()?)?;
+                        Some(Aabb2d { min, max })
+                    } else {
+                        None
+                    };
+                    with_rays(&ctx, move |pico8| {
+                        // let dir = Dir2::new(dxdy).map_err(|_| Error::InvalidArgument("dx, dy direction".into()))?;
+                        let Ok(dir) = Dir2::new(dxdy) else {
+                            return Ok(ScriptValue::Unit);
+                        };
+                        let ids_dists: Vec<ScriptValue> = pico8
+                            .raycast(pos, dir, mask, shape)
+                            .into_iter()
+                            .flat_map(|(id, dist)| {
+                                [
+                                    ScriptValue::Integer(id.to_bits() as i64),
+                                    ScriptValue::Float(dist as f64),
+                                ]
+                            })
+                            .collect();
+                        Ok(ScriptValue::List(ids_dists))
+                    })
+                },
+            )
+            .register("place", |ctx: FunctionCallContext, name: String| {
+                with_rays(&ctx, move |pico8| {
+                    Ok(pico8.place(&name).map(|v| vec![v.x, v.y]))
                 })
-            },
-        )
-        .register("place", |ctx: FunctionCallContext, name: String| {
-            with_rays(&ctx, move |pico8| {
-                Ok(pico8.place(&name).map(|v| vec![v.x, v.y]))
-            })
-        })
-            ;
+            });
     }
 }
 /// A `ray`-able object.

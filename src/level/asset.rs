@@ -1,6 +1,6 @@
+use std::io::ErrorKind;
 #[cfg(feature = "user_properties")]
 use std::ops::Deref;
-use std::io::ErrorKind;
 
 #[cfg(feature = "user_properties")]
 use bevy::reflect::TypeRegistryArc;
@@ -13,7 +13,6 @@ use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
     prelude::*,
 };
-
 
 /// [TiledMap] loading error.
 #[derive(Debug, thiserror::Error)]

@@ -3,15 +3,17 @@ use std::{any::TypeId, sync::Arc};
 
 use crate::ValueExt;
 use bevy_mod_scripting::{
-    GetTypeDependencies,
     core::docgen::typed_through::{ThroughTypeInfo, TypedThrough},
     core::{
-        bindings::{IntoScript, function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
+        bindings::{
+            function::from::FromScript, script_value::ScriptValue, IntoScript, WorldAccessGuard,
+        },
         error::InteropError,
     },
     lua::mlua::{
         self, prelude::LuaError, FromLua, Lua, UserData, UserDataFields, UserDataMethods, Value,
     },
+    GetTypeDependencies,
 };
 
 #[derive(Debug, Clone, Copy, Reflect, GetTypeDependencies)]
@@ -67,15 +69,16 @@ impl FromScript for PColor {
 }
 
 impl IntoScript for PColor {
-    fn into_script(
-            self,
-            world: WorldAccessGuard<'_>,
-        ) -> Result<ScriptValue, InteropError> {
+    fn into_script(self, world: WorldAccessGuard<'_>) -> Result<ScriptValue, InteropError> {
         match self {
             PColor::Palette(n) => Ok(ScriptValue::Integer(n as i64)),
             PColor::Color(n) => {
                 let a = n.to_u8_array();
-                Ok(ScriptValue::List(a.into_iter().map(|x| ScriptValue::Integer(x as i64)).collect()))
+                Ok(ScriptValue::List(
+                    a.into_iter()
+                        .map(|x| ScriptValue::Integer(x as i64))
+                        .collect(),
+                ))
             }
         }
     }

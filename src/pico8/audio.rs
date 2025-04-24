@@ -308,7 +308,10 @@ impl Pico8Note {
         );
         assert!(pitch <= 63, "expected pitch <= 63 but was {pitch}");
         Pico8Note(
-            (pitch & 0b0011_1111) as u16 | ((u8::from(wave) as u16) << 6) | (((volume & 0b111) as u16) << 9) | ((u8::from(effect) as u16 & 0b111) << 12),
+            (pitch & 0b0011_1111) as u16
+                | ((u8::from(wave) as u16) << 6)
+                | (((volume & 0b111) as u16) << 9)
+                | ((u8::from(effect) as u16 & 0b111) << 12),
         )
     }
 }
@@ -449,6 +452,25 @@ impl Sfx {
         Sfx {
             notes: notes.into_iter().collect(),
             speed: 16,
+            loop_maybe: None,
+        }
+    }
+
+    pub fn from_u8(data: &[u8]) -> Self {
+        let n = data.len();
+        let note_end = n - 4;
+        let notes = data[0..note_end]
+            .chunks(2)
+            .map(|pair| Pico8Note((pair[1] as u16) << 8 | pair[0] as u16))
+            .collect();
+        // let editor = data[note_end + 0];
+        let speed = data[note_end + 1];
+        let start = data[note_end + 2];
+        let end = data[note_end + 3];
+
+        Self {
+            notes,
+            speed,
             loop_maybe: None,
         }
     }
@@ -687,8 +709,7 @@ impl Decodable for Sfx {
 }
 
 pub(crate) fn plugin(app: &mut App) {
-    app
-        .register_type::<Sfx>()
+    app.register_type::<Sfx>()
         .register_type::<Loop>()
         .add_systems(PreStartup, add_channels)
         .add_audio_source::<Sfx>();

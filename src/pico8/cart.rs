@@ -1,23 +1,20 @@
 use crate::{
-    pico8::{audio::*, *}, DrawState,
     error::RunState,
+    pico8::{audio::*, *},
+    DrawState,
 };
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
     image::{ImageLoaderSettings, ImageSampler},
 };
 use bevy_mod_scripting::core::asset::ScriptAsset;
-use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-};
 use bitvec::prelude::*;
 use pico8_decompress::*;
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, path::PathBuf};
 
 pub(crate) fn plugin(app: &mut App) {
-    app
-        .register_type::<Cart>()
+    app.register_type::<Cart>()
         .add_event::<LoadCart>()
         .init_asset::<Cart>()
         .init_asset_loader::<P8CartLoader>()
@@ -112,8 +109,10 @@ fn load_cart(
                 // Use `nearest` image sampling to preserve the pixel art style.
                 settings.sampler = ImageSampler::nearest();
             };
-            let sprite_sheets: Vec<_> = cart.gfx.as_ref().map(|gfx| {
-                SpriteSheet {
+            let sprite_sheets: Vec<_> = cart
+                .gfx
+                .as_ref()
+                .map(|gfx| SpriteSheet {
                     handle: SprAsset::Gfx(gfx.clone()),
                     sprite_size: UVec2::splat(8),
                     flags: cart.flags.clone(),
@@ -124,8 +123,9 @@ fn load_cart(
                         None,
                         None,
                     )),
-                }
-            }).into_iter().collect();
+                })
+                .into_iter()
+                .collect();
             let state = Pico8State {
                 palette: Palette {
                     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
@@ -263,7 +263,11 @@ impl CartParts {
                         j += 2;
                     }
                 }
-                gfx = Some(Gfx { data: BitVec::<u8, Lsb0>::from_vec(bytes), width: columns, height: rows });
+                gfx = Some(Gfx {
+                    data: BitVec::<u8, Lsb0>::from_vec(bytes),
+                    width: columns,
+                    height: rows,
+                });
                 // sprites = Some(gfx.to_image(write_color));
             }
         }
@@ -448,8 +452,9 @@ impl AssetLoader for P8CartLoader {
                 content: code.into_bytes().into_boxed_slice(),
                 asset_path: code_path.into(),
             }),
-            gfx: gfx.map(|gfx| load_context
-                .labeled_asset_scope("gfx".into(), move |_load_context| gfx)),
+            gfx: gfx.map(|gfx| {
+                load_context.labeled_asset_scope("gfx".into(), move |_load_context| gfx)
+            }),
             map: parts.map,
             flags: parts.flags,
             sfx: parts
@@ -485,7 +490,12 @@ impl AssetLoader for PngCartLoader {
         reader.read_to_end(&mut bytes).await?;
 
         let v = extract_bits_from_png(&bytes[..])?;
-        let code = pxa::decompress(&v[0x4300..=0x7fff], None).map_err(|e| CartLoaderError::Decompression(format!("{e}")))?;
+        let p8scii_code = pxa::decompress(&v[0x4300..=0x7fff], None)
+            .map_err(|e| CartLoaderError::Decompression(format!("{e}")))?;
+        let code = p8scii::vec_to_utf8(p8scii_code);
+        // use std::io::Write;
+        // std::fs::File::create("code.lua").expect("create code.lua").write_all(&code).expect("write code.lua");
+        // dbg!(std::str::from_utf8(&code).expect("utf8"));
         let mut nybbles = vec![0; 0x2000];
         nybbles.copy_from_slice(&v[0..=0x1fff]);
 
@@ -498,6 +508,8 @@ impl AssetLoader for PngCartLoader {
         map.copy_from_slice(&v[0x2000..=0x2fff]);
         let flags = Vec::from(&v[0x3000..=0x30ff]);
 
+        let sfx = v[0x3200..=0x42ff].chunks(68).map(Sfx::from_u8);
+
         // let content = String::from_utf8(bytes)?;
         // let parts = CartParts::from_str(&content, settings)?;
         // let code = parts.lua;
@@ -508,22 +520,19 @@ impl AssetLoader for PngCartLoader {
         path.push("#lua");
         Ok(Cart {
             lua: load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
-                content: code.into_boxed_slice(),
+                content: code.into_bytes().into_boxed_slice(),
                 asset_path: code_path.into(),
             }),
-            gfx: Some(load_context
-                .labeled_asset_scope("gfx".into(), move |_load_context| gfx)),
+            gfx: Some(load_context.labeled_asset_scope("gfx".into(), move |_load_context| gfx)),
             map,
             flags,
-            sfx: vec![]
-                // parts
-                // .sfx
-                // .into_iter()
-                // .enumerate()
-                // .map(|(n, sfx)| {
-                //     load_context.labeled_asset_scope(format!("sfx{n}"), move |_load_context| sfx)
-                // })
-                // .collect(),
+            sfx: sfx
+                .into_iter()
+                .enumerate()
+                .map(|(n, sfx)| {
+                    load_context.labeled_asset_scope(format!("sfx{n}"), move |_load_context| sfx)
+                })
+                .collect(),
         })
     }
 
@@ -660,18 +669,8 @@ __gff__
 	spr(1, 0, 0)
 end"#
         );
-        assert_eq!(
-            cart.gfx
-                .as_ref()
-                .map(|gfx| gfx.width),
-            Some(128)
-        );
-        assert_eq!(
-            cart.gfx
-                .as_ref()
-                .map(|gfx| gfx.height),
-            Some(8)
-        );
+        assert_eq!(cart.gfx.as_ref().map(|gfx| gfx.width), Some(128));
+        assert_eq!(cart.gfx.as_ref().map(|gfx| gfx.height), Some(8));
     }
 
     #[test]
@@ -685,18 +684,8 @@ end"#
 	spr(1, 0, 0)
 end"#
         );
-        assert_eq!(
-            cart.gfx
-                .as_ref()
-                .map(|gfx| gfx.width),
-            Some(128)
-        );
-        assert_eq!(
-            cart.gfx
-                .as_ref()
-                .map(|gfx| gfx.height),
-            Some(8)
-        );
+        assert_eq!(cart.gfx.as_ref().map(|gfx| gfx.width), Some(128));
+        assert_eq!(cart.gfx.as_ref().map(|gfx| gfx.height), Some(8));
     }
 
     #[test]
@@ -726,18 +715,8 @@ cls()
 map(0, 0, 10, 10)
 end"#
         );
-        assert_eq!(
-            cart.gfx
-                .as_ref()
-                .map(|gfx| gfx.width),
-            Some(128)
-        );
-        assert_eq!(
-            cart.gfx
-                .as_ref()
-                .map(|gfx| gfx.height),
-            Some(8)
-        );
+        assert_eq!(cart.gfx.as_ref().map(|gfx| gfx.width), Some(128));
+        assert_eq!(cart.gfx.as_ref().map(|gfx| gfx.height), Some(8));
         assert_eq!(cart.map.len(), 128 * 7);
     }
 
@@ -746,18 +725,8 @@ end"#
         let settings = CartLoaderSettings::default();
         let cart = CartParts::from_str(TEST_SFX_CART, &settings).unwrap();
         assert_eq!(cart.lua, "");
-        assert_eq!(
-            cart.gfx
-                .as_ref()
-                .map(|gfx| gfx.width),
-            Some(128)
-        );
-        assert_eq!(
-            cart.gfx
-                .as_ref()
-                .map(|gfx| gfx.height),
-            Some(8)
-        );
+        assert_eq!(cart.gfx.as_ref().map(|gfx| gfx.width), Some(128));
+        assert_eq!(cart.gfx.as_ref().map(|gfx| gfx.height), Some(8));
 
         assert_eq!(cart.map.len(), 0);
         assert_eq!(cart.sfx.len(), 1);

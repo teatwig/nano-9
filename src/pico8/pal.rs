@@ -3,10 +3,7 @@ use bevy::prelude::*;
 use bitvec::prelude::*;
 use rand::Rng;
 
-use crate::pico8::{
-        Error,
-        cart::PALETTE,
-    };
+use crate::pico8::{cart::PALETTE, Error};
 
 use std::hash::{Hash, Hasher};
 
@@ -28,7 +25,6 @@ impl PartialEq for Pal {
         self.remap == other.remap && self.transparency == other.transparency
     }
 }
-
 
 impl Default for Pal {
     fn default() -> Self {
@@ -90,9 +86,16 @@ impl Pal {
     }
 
     pub fn write_color(&self, palette_index: u8, pixel_bytes: &mut [u8]) -> Result<(), Error> {
-        let pi = *self.remap.get(palette_index as usize).ok_or(Error::NoSuch("palette index".into()))? as usize;
+        let pi = *self
+            .remap
+            .get(palette_index as usize)
+            .ok_or(Error::NoSuch("palette index".into()))? as usize;
         // PERF: We should just set the 24 or 32 bits in one go, right?
-        if *self.transparency.get(pi).ok_or(Error::NoSuch("transparency bit".into()))? {
+        if *self
+            .transparency
+            .get(pi)
+            .ok_or(Error::NoSuch("transparency bit".into()))?
+        {
             pixel_bytes[0..=2].copy_from_slice(&self.palette[pi][0..=2]);
             pixel_bytes[3] = 0x00;
         } else {
@@ -100,5 +103,4 @@ impl Pal {
         }
         Ok(())
     }
-
 }

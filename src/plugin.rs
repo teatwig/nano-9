@@ -13,18 +13,18 @@ use bevy::{
 };
 
 use bevy_mod_scripting::{
-    BMSPlugin,
     core::{
-        asset::{ScriptAsset, ScriptAssetSettings, Language},
+        asset::{Language, ScriptAsset, ScriptAssetSettings},
         bindings::{function::namespace::NamespaceBuilder, script_value::ScriptValue},
         callback_labels,
         event::ScriptCallbackEvent,
         handler::event_handler,
     },
     lua::LuaScriptingPlugin,
+    BMSPlugin,
 };
 
-use crate::{config::*, PColor, error::RunState, pico8::fill_input, N9Var};
+use crate::{config::*, error::RunState, pico8::fill_input, N9Var, PColor};
 
 #[derive(Component)]
 pub struct Nano9Sprite;
@@ -198,7 +198,10 @@ pub fn sync_window_size(
         // match *orthographic.into_inner() {
         //     Projection::Orthographic(ref mut orthographic) => {
 
-        info!("oldscale {} new_scale {new_scale} window_scale {window_scale}", &orthographic.scale);
+        info!(
+            "oldscale {} new_scale {new_scale} window_scale {window_scale}",
+            &orthographic.scale
+        );
         orthographic.scale = 1.0 / new_scale;
         let viewport_size = canvas_size * new_scale * window_scale;
         let start = (window_size * window_scale - viewport_size) / 2.0;
@@ -237,9 +240,7 @@ pub fn sync_window_size(
 }
 
 /// Sends events allowing scripts to drive update logic
-pub fn send_update(
-    mut writer: EventWriter<ScriptCallbackEvent>,
-) {
+pub fn send_update(mut writer: EventWriter<ScriptCallbackEvent>) {
     writer.send(ScriptCallbackEvent::new_for_all(
         call::Update,
         vec![ScriptValue::Unit],
@@ -247,9 +248,7 @@ pub fn send_update(
 }
 
 /// Sends initialization event
-pub fn send_init(
-    mut writer: EventWriter<ScriptCallbackEvent>,
-) {
+pub fn send_init(mut writer: EventWriter<ScriptCallbackEvent>) {
     info!("calling init");
     writer.send(ScriptCallbackEvent::new_for_all(
         call::Init,
@@ -282,12 +281,7 @@ impl Nano9Plugin {
         WindowPlugin {
             primary_window: Some(Window {
                 resolution: screen_size.as_vec2().into(),
-                title: self
-                    .config
-                    .name
-                    .as_deref()
-                    .unwrap_or("Nano-9")
-                    .into(),
+                title: self.config.name.as_deref().unwrap_or("Nano-9").into(),
                 // Turn off vsync to maximize CPU/GPU usage
                 present_mode: PresentMode::AutoVsync,
                 // Let's not allow resizing.
@@ -358,10 +352,16 @@ impl Plugin for Nano9Plugin {
                 16 * 4,
             )),
         })
-            .insert_resource({let mut settings = ScriptAssetSettings::default();
-                             settings.extension_to_language_map.insert("p8#lua", Language::Lua);
-                             settings.extension_to_language_map.insert("png#lua", Language::Lua);
-                             settings })
+        .insert_resource({
+            let mut settings = ScriptAssetSettings::default();
+            settings
+                .extension_to_language_map
+                .insert("p8#lua", Language::Lua);
+            settings
+                .extension_to_language_map
+                .insert("png#lua", Language::Lua);
+            settings
+        })
         .insert_resource(N9Canvas {
             size: canvas_size,
             ..default()
@@ -403,12 +403,15 @@ impl Plugin for Nano9Plugin {
     }
 }
 
-pub fn init_when<T: Asset>() -> impl FnMut(EventReader<AssetEvent<T>>, Local<bool>, Res<State<RunState>>) -> bool + Clone {
+pub fn init_when<T: Asset>(
+) -> impl FnMut(EventReader<AssetEvent<T>>, Local<bool>, Res<State<RunState>>) -> bool + Clone {
     // The events need to be consumed, so that there are no false positives on subsequent
     // calls of the run condition. Simply checking `is_empty` would not be enough.
     // PERF: note that `count` is efficient (not actually looping/iterating),
     // due to Bevy having a specialized implementation for events.
-    move |mut reader: EventReader<AssetEvent<T>>, mut asset_change: Local<bool>, state: Res<State<RunState>>| {
+    move |mut reader: EventReader<AssetEvent<T>>,
+          mut asset_change: Local<bool>,
+          state: Res<State<RunState>>| {
         let asset_just_changed = reader
             .read()
             .inspect(|e| info!("asset event {e:?}"))
@@ -427,7 +430,7 @@ pub fn init_when<T: Asset>() -> impl FnMut(EventReader<AssetEvent<T>>, Local<boo
             _ => {
                 *asset_change |= asset_just_changed;
                 false
-            },
+            }
         }
     }
 }

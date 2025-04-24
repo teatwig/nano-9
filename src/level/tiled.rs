@@ -2,10 +2,7 @@ use crate::{
     level,
     pico8::{self, PropBy},
 };
-use bevy::{
-    ecs::system::SystemParam,
-    prelude::*,
-};
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_ecs_tiled::{
     map::components::TiledMapStorage,
     prelude::{TiledMap, TiledMapHandle},
@@ -266,8 +263,7 @@ impl Level<'_, '_> {
                 let mut properties = object.properties.clone();
                 insert_object_fields(&mut properties, &object);
                 Ok(properties)
-            }
-            // _ => unreachable!(),
+            } // _ => unreachable!(),
         }
     }
 }

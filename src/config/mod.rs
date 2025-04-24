@@ -10,7 +10,7 @@ use bevy_mod_scripting::core::{
     bindings::script_value::ScriptValue, event::ScriptCallbackEvent, script::ScriptComponent,
 };
 use serde::Deserialize;
-use std::{ffi::OsStr, io, ops::Deref, path::PathBuf, collections::HashMap};
+use std::{collections::HashMap, ffi::OsStr, io, ops::Deref, path::PathBuf};
 
 pub const DEFAULT_CANVAS_SIZE: UVec2 = UVec2::splat(128);
 pub const DEFAULT_SCREEN_SIZE: UVec2 = UVec2::splat(512);
@@ -196,10 +196,12 @@ impl AssetLoader for ConfigLoader {
                     }
                     let flags = flags_from_tileset(tileset);
                     sprite_sheets.push(pico8::SpriteSheet {
-                        handle: pico8::SprAsset::Image(load_context
-                            .loader()
-                            .with_settings(pixel_art_settings)
-                            .load(&*tileset.image.as_ref().expect("tileset image").source)),
+                        handle: pico8::SprAsset::Image(
+                            load_context
+                                .loader()
+                                .with_settings(pixel_art_settings)
+                                .load(&*tileset.image.as_ref().expect("tileset image").source),
+                        ),
                         //load_context
                         // .load_with_settings(&*tileset.image.expect("tileset image").source,
                         //                     pixel_art_settings),
@@ -224,20 +226,29 @@ impl AssetLoader for ConfigLoader {
                         None
                     };
                 sprite_sheets.push(pico8::SpriteSheet {
-                    handle: pico8::SprAsset::Image(load_context
-                        .loader()
-                        .with_settings(pixel_art_settings)
-                        .load(&*sheet.path)),
+                    handle: pico8::SprAsset::Image(
+                        load_context
+                            .loader()
+                            .with_settings(pixel_art_settings)
+                            .load(&*sheet.path),
+                    ),
                     sprite_size: sheet.sprite_size.unwrap_or(UVec2::splat(8)),
                     flags: vec![],
                     layout: layout.unwrap_or(Handle::default()),
                 })
             }
         }
-        let image = load_context.loader()
-                    .immediate()
-                    .with_settings(pixel_art_settings)
-                    .load(config.palette.as_ref().map(|p| p.path.as_str()).unwrap_or(pico8::PICO8_PALETTE))
+        let image = load_context
+            .loader()
+            .immediate()
+            .with_settings(pixel_art_settings)
+            .load(
+                config
+                    .palette
+                    .as_ref()
+                    .map(|p| p.path.as_str())
+                    .unwrap_or(pico8::PICO8_PALETTE),
+            )
             .await?;
         let pal = pico8::Pal::from_image(image.get());
         let state = pico8::Pico8State {

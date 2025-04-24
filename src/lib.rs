@@ -23,7 +23,13 @@ pub mod raycast;
 
 pub(crate) fn plugin(app: &mut App) {
     // Add other plugins.
-    app.add_plugins((config::plugin, entity::plugin, error::plugin, var::plugin, pico8::plugin));
+    app.add_plugins((
+        config::plugin,
+        entity::plugin,
+        error::plugin,
+        var::plugin,
+        pico8::plugin,
+    ));
     if app.is_plugin_added::<WindowPlugin>() {
         #[cfg(feature = "level")]
         app.add_plugins(level::plugin);

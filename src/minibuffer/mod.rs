@@ -1,21 +1,15 @@
 use crate::{call, error::RunState, pico8::lua::with_system_param};
-use bevy::{
-    core::FrameCount,
-    prelude::*,
-};
+use bevy::{core::FrameCount, prelude::*};
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::event::ScriptCallbackEvent;
 
 use bevy_mod_scripting::core::{
-        bindings::{
-            function::{
-                namespace::NamespaceBuilder,
-                script_function::FunctionCallContext,
-            },
-            script_value::ScriptValue,
-        },
-        error::InteropError,
-    };
+    bindings::{
+        function::{namespace::NamespaceBuilder, script_function::FunctionCallContext},
+        script_value::ScriptValue,
+    },
+    error::InteropError,
+};
 mod count;
 pub use count::*;
 

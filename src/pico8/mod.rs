@@ -12,9 +12,10 @@ pub use map::*;
 pub(crate) mod lua;
 mod pal;
 pub(crate) use pal::*;
-pub(crate) mod rand;
 mod gfx;
+pub(crate) mod rand;
 pub(crate) use gfx::*;
+pub mod p8scii;
 // mod gfx2;
 
 pub(crate) fn plugin(app: &mut App) {

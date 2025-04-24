@@ -1,10 +1,7 @@
 use bevy_mod_scripting::core::{
-        bindings::{
-            function::from::FromScript,
-            script_value::ScriptValue, WorldAccessGuard,
-        },
-        error::InteropError,
-    };
+    bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
+    error::InteropError,
+};
 
 use bevy::prelude::*;
 use std::{any::TypeId, borrow::Borrow, collections::HashMap, fmt::Display, hash::Hash};

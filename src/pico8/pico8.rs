@@ -15,10 +15,7 @@ use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 use bevy_mod_scripting::{
     core::{
         asset::ScriptAsset,
-        bindings::{
-            function::from::FromScript,
-            script_value::ScriptValue, WorldAccessGuard,
-        },
+        bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
         docgen::typed_through::{ThroughTypeInfo, TypedThrough},
         error::InteropError,
     },
@@ -28,28 +25,25 @@ use bitvec::prelude::*;
 use rand::Rng;
 
 use crate::{
-    PColor,
     cursor::Cursor,
     pico8::{
-        Gfx,
         audio::{Sfx, SfxChannels},
-        Cart, ClearEvent, Clearable, LoadCart, Map,
-        Pal,
         rand::Rand8,
+        Cart, ClearEvent, Clearable, Gfx, LoadCart, Map, Pal,
     },
-    DrawState, N9Canvas, N9Color, Nano9Camera,
+    DrawState, N9Canvas, N9Color, Nano9Camera, PColor,
 };
 
 use std::{
-    collections::HashMap,
-    f32::consts::PI,
     any::TypeId,
     borrow::Cow,
+    collections::HashMap,
+    f32::consts::PI,
+    hash::{DefaultHasher, Hash, Hasher},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    hash::{Hash, Hasher, DefaultHasher},
 };
 
 pub const PICO8_PALETTE: &str = "embedded://nano9/pico8/pico-8-palette.png";
@@ -88,16 +82,26 @@ pub struct GfxHandles {
 }
 
 impl GfxHandles {
-    fn get_or_create(&mut self, pal: &Pal, gfx: &Handle<Gfx>, gfxs: &Assets<Gfx>, images: &mut Assets<Image>) -> Handle<Image> {
+    fn get_or_create(
+        &mut self,
+        pal: &Pal,
+        gfx: &Handle<Gfx>,
+        gfxs: &Assets<Gfx>,
+        images: &mut Assets<Image>,
+    ) -> Handle<Image> {
         let mut hasher = DefaultHasher::new();
         pal.hash(&mut hasher);
         gfx.hash(&mut hasher);
-        self.map.entry(hasher.finish())
-                .or_insert_with(|| {
-                    let gfx = gfxs.get(gfx).expect("gfx");//.ok_or(Error::NoSuch("gfx asset".into()))?;
-                    let image = gfx.to_image(|i, _, bytes| { pal.write_color(i, bytes); });
-                    images.add(image)
-                }).clone()
+        self.map
+            .entry(hasher.finish())
+            .or_insert_with(|| {
+                let gfx = gfxs.get(gfx).expect("gfx"); //.ok_or(Error::NoSuch("gfx asset".into()))?;
+                let image = gfx.to_image(|i, _, bytes| {
+                    pal.write_color(i, bytes);
+                });
+                images.add(image)
+            })
+            .clone()
     }
 }
 
@@ -566,11 +570,14 @@ impl Pico8<'_, '_> {
             }
         };
         let image = match &sprites.handle {
-                    SprAsset::Image(handle) => handle.clone(),
-                    SprAsset::Gfx(handle) => {
-                        self.gfx_handles.get_or_create(&self.state.pal, handle, &self.gfxs, &mut self.images)
-                    }
-                };
+            SprAsset::Image(handle) => handle.clone(),
+            SprAsset::Gfx(handle) => self.gfx_handles.get_or_create(
+                &self.state.pal,
+                handle,
+                &self.gfxs,
+                &mut self.images,
+            ),
+        };
         let mut sprite = {
             let atlas = TextureAtlas {
                 layout: sprites.layout.clone(),
@@ -600,12 +607,7 @@ impl Pico8<'_, '_> {
         }
         Ok(self
             .commands
-            .spawn((
-                Name::new("spr"),
-                sprite,
-                transform,
-                clearable,
-            ))
+            .spawn((Name::new("spr"), sprite, transform, clearable))
             .id())
     }
 
@@ -622,7 +624,7 @@ impl Pico8<'_, '_> {
                     // Strangely. It's not a 1d texture.
                     Ok(pal.get_color_at(n as u32, self.state.palette.row)?)
                 }
-                PColor::Color(c) => Ok(c.into())
+                PColor::Color(c) => Ok(c.into()),
             },
             N9Color::Palette(n) => {
                 let pal = self
@@ -663,21 +665,37 @@ impl Pico8<'_, '_> {
         Ok(())
     }
 
-    pub fn sset(&mut self, pos: UVec2, color: Option<N9Color>, sheet_index: Option<usize>) -> Result<(), Error> {
+    pub fn sset(
+        &mut self,
+        pos: UVec2,
+        color: Option<N9Color>,
+        sheet_index: Option<usize>,
+    ) -> Result<(), Error> {
         let color = color.unwrap_or(N9Color::Pen);
         let sheet_index = sheet_index.unwrap_or(0);
         let sheet = &self.state.sprite_sheets.inner[sheet_index];
         match &sheet.handle {
             SprAsset::Gfx(handle) => {
-                let gfx = self.gfxs.get_mut(handle).ok_or(Error::NoSuch("Gfx".into()))?;
-                gfx.set(pos.x as usize, pos.y as usize, match color {
-                    N9Color::Palette(n) => Ok(n as u8),
-                    N9Color::Pen => match self.state.draw_state.pen {
-                        PColor::Palette(n) => Ok(n as u8),
-                        PColor::Color(_) => Err(Error::InvalidArgument("Cannot write pen `Color` to Gfx asset".into())),
-                    },
-                    N9Color::Color(_) => Err(Error::InvalidArgument("Cannot write arg `Color` to Gfx asset".into())),
-                }?);
+                let gfx = self
+                    .gfxs
+                    .get_mut(handle)
+                    .ok_or(Error::NoSuch("Gfx".into()))?;
+                gfx.set(
+                    pos.x as usize,
+                    pos.y as usize,
+                    match color {
+                        N9Color::Palette(n) => Ok(n as u8),
+                        N9Color::Pen => match self.state.draw_state.pen {
+                            PColor::Palette(n) => Ok(n as u8),
+                            PColor::Color(_) => Err(Error::InvalidArgument(
+                                "Cannot write pen `Color` to Gfx asset".into(),
+                            )),
+                        },
+                        N9Color::Color(_) => Err(Error::InvalidArgument(
+                            "Cannot write arg `Color` to Gfx asset".into(),
+                        )),
+                    }?,
+                );
             }
             SprAsset::Image(handle) => {
                 let c = self.get_color(color)?;
@@ -794,8 +812,14 @@ impl Pico8<'_, '_> {
                 mask,
                 &self.state.sprite_sheets.inner,
                 &mut self.commands,
-                |handle|
-                self.gfx_handles.get_or_create(&self.state.pal, handle, &self.gfxs, &mut self.images)
+                |handle| {
+                    self.gfx_handles.get_or_create(
+                        &self.state.pal,
+                        handle,
+                        &self.gfxs,
+                        &mut self.images,
+                    )
+                },
             ),
             #[cfg(feature = "level")]
             Map::Level(ref map) => Ok(map.map(screen_start, 0, &mut self.commands)),
@@ -1042,7 +1066,7 @@ impl Pico8<'_, '_> {
         } else {
             (start - 1) as usize
         };
-        match end {
+        dbg!(match end {
             Some(end) => {
                 let end = if end < 0 {
                     (count - end) as usize
@@ -1058,7 +1082,7 @@ impl Pico8<'_, '_> {
                 }
             }
             None => string.chars().skip(start).collect(),
-        }
+        })
     }
 
     pub fn time(&self) -> f32 {
@@ -1409,7 +1433,10 @@ impl Pico8<'_, '_> {
 
     pub fn palt(&mut self, color_index: Option<usize>, transparent: Option<bool>) {
         if let Some(color_index) = color_index {
-            self.state.pal.transparency.set(color_index, transparent.unwrap_or(false));
+            self.state
+                .pal
+                .transparency
+                .set(color_index, transparent.unwrap_or(false));
         } else {
             // Reset the pal.
             self.state.pal.reset_transparency();
@@ -1527,8 +1554,11 @@ impl Command for AudioCommand {
                                 }
                             }
                         } else {
-                            warn!("Channels busy.");
-                            // Err(Error::ChannelsBusy)?;
+                            // The channels may be busy. If we log it, it can be
+                            // noisy in the log despite it not having much of an
+                            // effect to the game, so we're not going to log it.
+
+                            // warn!("Channels busy.");
                         }
                     }
                     SfxDest::Channel(chan) => {
@@ -1584,13 +1614,11 @@ impl FromWorld for Pico8State {
     }
 }
 
-
 pub(crate) fn plugin(app: &mut App) {
     embedded_asset!(app, "pico-8-palette.png");
     embedded_asset!(app, "rect-border.png");
     embedded_asset!(app, "pico-8.ttf");
-    app
-        .register_type::<Pico8State>()
+    app.register_type::<Pico8State>()
         .register_type::<N9Font>()
         .register_type::<Palette>()
         .register_type::<Audio>()

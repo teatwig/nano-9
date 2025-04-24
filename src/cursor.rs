@@ -1,5 +1,5 @@
-use std::ops::{Deref, DerefMut};
 use bevy::prelude::Reflect;
+use std::ops::{Deref, DerefMut};
 
 /// Keep a `Vec<T>` of `T` and pretend to be `T` with deref magic.
 #[derive(Clone, Debug, Default, Reflect)]

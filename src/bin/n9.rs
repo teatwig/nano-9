@@ -11,14 +11,7 @@ use bevy::{
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::script::ScriptComponent;
 use nano9::{config::Config, pico8::*, *};
-use std::{
-    borrow::Cow,
-    env,
-    ffi::OsStr,
-    fs, io,
-    path::PathBuf,
-    process,
-};
+use std::{borrow::Cow, env, ffi::OsStr, fs, io, path::PathBuf, process};
 
 #[allow(dead_code)]
 #[derive(Resource)]
@@ -84,7 +77,8 @@ fn main() -> io::Result<()> {
         );
         nano9_plugin = Nano9Plugin { config };
     } else if script_path.extension() == Some(OsStr::new("p8"))
-        || script_path.extension() == Some(OsStr::new("png")) {
+        || script_path.extension() == Some(OsStr::new("png"))
+    {
         eprintln!("loading cart");
         let path = script_path.clone();
         app.add_systems(
