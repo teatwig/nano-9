@@ -101,7 +101,7 @@ fn spawn_error_message_layout(mut commands: Commands) {
 pub fn add_messages(
     mut r: EventReader<ScriptErrorEvent>,
     query: Query<Entity, With<ErrorMessages>>,
-    frame_count: Res<FrameCount>,
+    _frame_count: Res<FrameCount>,
     mut state: ResMut<NextState<RunState>>,
     mut commands: Commands,
 ) {

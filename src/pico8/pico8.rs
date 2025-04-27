@@ -22,14 +22,13 @@ use bevy_mod_scripting::{
     lua::mlua::prelude::LuaError,
 };
 use bitvec::prelude::*;
-use rand::Rng;
 
 use crate::{
     cursor::Cursor,
     pico8::{
         audio::{Sfx, SfxChannels},
         rand::Rand8,
-        Cart, ClearEvent, Clearable, Gfx, LoadCart, Map, Pal,
+        Cart, ClearEvent, Clearable, Gfx, LoadCart, Map, PalMap,
     },
     DrawState, N9Canvas, N9Color, Nano9Camera, PColor,
 };
@@ -84,7 +83,7 @@ pub struct GfxHandles {
 impl GfxHandles {
     fn get_or_create(
         &mut self,
-        pal: &Pal,
+        pal: &PalMap,
         gfx: &Handle<Gfx>,
         gfxs: &Assets<Gfx>,
         images: &mut Assets<Image>,
@@ -97,8 +96,8 @@ impl GfxHandles {
             .or_insert_with(|| {
                 let gfx = gfxs.get(gfx).expect("gfx"); //.ok_or(Error::NoSuch("gfx asset".into()))?;
                 let image = gfx.to_image(|i, _, bytes| {
-                    pal.write_color(i, bytes);
-                });
+                    pal.write_color(i, bytes)
+                }).expect("gfx to image");
                 images.add(image)
             })
             .clone()
@@ -112,10 +111,10 @@ pub struct Pico8State {
     pub code: Handle<ScriptAsset>,
     pub(crate) palette: Palette,
     #[reflect(ignore)]
-    pub(crate) pal: Pal,
+    pub(crate) pal: PalMap,
     // XXX: rename to gfx_images?
     #[reflect(ignore)]
-    pub(crate) gfx_handles: HashMap<(Pal, Handle<Gfx>), Handle<Image>>,
+    pub(crate) gfx_handles: HashMap<(PalMap, Handle<Gfx>), Handle<Image>>,
     pub(crate) border: Handle<Image>,
     pub(crate) sprite_sheets: Cursor<SpriteSheet>,
     pub(crate) maps: Cursor<Map>,
@@ -528,7 +527,12 @@ impl Pico8<'_, '_> {
         let sprite = Sprite {
             image: match &sheet.handle {
                 SprAsset::Image(handle) => handle.clone(),
-                SprAsset::Gfx(handle) => todo!(),
+                SprAsset::Gfx(handle) => self.gfx_handles.get_or_create(
+                    &self.state.pal,
+                    handle,
+                    &self.gfxs,
+                    &mut self.images,
+                ),
             },
             anchor: Anchor::TopLeft,
             rect: Some(sprite_rect),
@@ -701,7 +705,7 @@ impl Pico8<'_, '_> {
                 let c = self.get_color(color)?;
                 let image = self
                     .images
-                    .get_mut(&self.canvas.handle)
+                    .get_mut(handle)
                     .ok_or(Error::NoAsset("canvas".into()))?;
                 image.set_color_at(pos.x, pos.y, c)?;
             }
@@ -720,7 +724,7 @@ impl Pico8<'_, '_> {
             SprAsset::Image(handle) => {
                 let image = self
                     .images
-                    .get_mut(&self.canvas.handle)
+                    .get_mut(handle)
                     .ok_or(Error::NoAsset("canvas".into()))?;
                 PColor::Color(image.get_color_at(pos.x, pos.y)?.into())
             }
@@ -1598,7 +1602,7 @@ impl FromWorld for Pico8State {
                 handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
                 row: 0,
             },
-            pal: Pal::default(),
+            pal: PalMap::default(),
             border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
             code: Handle::<ScriptAsset>::default(),
             font: vec![N9Font {

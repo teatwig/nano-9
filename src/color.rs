@@ -69,7 +69,7 @@ impl FromScript for PColor {
 }
 
 impl IntoScript for PColor {
-    fn into_script(self, world: WorldAccessGuard<'_>) -> Result<ScriptValue, InteropError> {
+    fn into_script(self, _world: WorldAccessGuard<'_>) -> Result<ScriptValue, InteropError> {
         match self {
             PColor::Palette(n) => Ok(ScriptValue::Integer(n as i64)),
             PColor::Color(n) => {

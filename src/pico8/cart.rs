@@ -131,7 +131,7 @@ fn load_cart(
                     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
                     row: 0,
                 },
-                pal: Pal::default(),
+                pal: PalMap::default(),
                 gfx_handles: HashMap::default(),
                 border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
                 maps: vec![P8Map {
@@ -171,7 +171,7 @@ fn load_cart(
 impl CartParts {
     fn from_str(
         content: &str,
-        settings: &CartLoaderSettings,
+        _settings: &CartLoaderSettings,
     ) -> Result<CartParts, CartLoaderError> {
         const LUA: usize = 0;
         const GFX: usize = 1;
@@ -233,18 +233,6 @@ impl CartParts {
                     rows = (rows / 8 + 1) * 8;
                 }
                 let mut bytes = vec![0x00; columns * rows / 2];
-                let write_color = |palette_index: u8, pixel_bytes: &mut [u8]| {
-                    let pi = palette_index as usize;
-                    // PERF: We should just set the 24 or 32 bits in one go, right?
-                    pixel_bytes[0] = PALETTE[pi][0];
-                    pixel_bytes[1] = PALETTE[pi][1];
-                    pixel_bytes[2] = PALETTE[pi][2];
-                    pixel_bytes[3] = if settings.is_transparent(pi) {
-                        0x00
-                    } else {
-                        0xff
-                    };
-                };
                 let mut i = 0;
                 for line in content.lines() {
                     assert_eq!(columns, line.len(), "line: {}", &line);
@@ -268,7 +256,6 @@ impl CartParts {
                     width: columns,
                     height: rows,
                 });
-                // sprites = Some(gfx.to_image(write_color));
             }
         }
         // gff
@@ -419,7 +406,7 @@ impl CartLoaderSettings {
 impl Default for CartLoaderSettings {
     fn default() -> Self {
         CartLoaderSettings {
-            palette_transparency: 0b0000_0000_0000_0001, // black is transparent by default.
+            palette_transparency: 0b0000_0000_0000_0001, // pixel 0 is transparent by default.
         }
     }
 }
@@ -483,7 +470,7 @@ impl AssetLoader for PngCartLoader {
     async fn load(
         &self,
         reader: &mut dyn Reader,
-        settings: &CartLoaderSettings,
+        _settings: &CartLoaderSettings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();

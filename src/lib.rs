@@ -6,6 +6,7 @@ pub mod error;
 mod ext;
 #[cfg(feature = "level")]
 pub mod level;
+#[cfg(feature = "minibuffer")]
 pub mod minibuffer;
 pub mod pico8;
 mod plugin;

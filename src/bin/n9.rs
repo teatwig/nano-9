@@ -8,6 +8,7 @@ use bevy::{
     prelude::*,
     text::FontSmoothing,
 };
+#[cfg(feature = "minibuffer")]
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::script::ScriptComponent;
 use nano9::{config::Config, pico8::*, *};
@@ -146,7 +147,6 @@ fn main() -> io::Result<()> {
             .set(nano9_plugin.window_plugin()),
     )
     .add_plugins(nano9_plugin)
-    .add_plugins(MinibufferPlugins)
     .add_plugins(FpsOverlayPlugin {
         config: FpsOverlayConfig {
             text_config: TextFont {
@@ -161,7 +161,11 @@ fn main() -> io::Result<()> {
             text_color: Color::WHITE,
             enabled: false,
         },
-    })
+    });
+
+    #[cfg(feature = "minibuffer")]
+    app
+    .add_plugins(MinibufferPlugins)
     .add_acts((
         BasicActs::default(),
         acts::universal::UniversalArgActs::default(),
@@ -176,7 +180,7 @@ fn main() -> io::Result<()> {
         toggle_fps, // inspector::AssetActs::default().add::<Image>(),
     ));
 
-    #[cfg(feature = "inspector")]
+    #[cfg(all(feature = "minibuffer", feature = "inspector"))]
     app.add_acts(bevy_minibuffer_inspector::WorldActs::default());
     #[cfg(all(feature = "level", feature = "user_properties"))]
     app.add_systems(Startup, |reg: Res<AppTypeRegistry>| {
@@ -189,6 +193,7 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "minibuffer")]
 fn toggle_fps(mut config: ResMut<FpsOverlayConfig>) {
     config.enabled = !config.enabled;
 }

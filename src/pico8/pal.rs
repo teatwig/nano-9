@@ -1,34 +1,33 @@
 use bevy::prelude::*;
 
 use bitvec::prelude::*;
-use rand::Rng;
 
 use crate::pico8::{cart::PALETTE, Error};
 
 use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Eq)]
-pub struct Pal {
+pub struct PalMap {
     palette: Vec<[u8; 4]>,
     remap: Vec<u8>,
     pub transparency: BitVec<u8, Lsb0>,
 }
 
-impl Hash for Pal {
+impl Hash for PalMap {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.remap.hash(state);
         self.transparency.hash(state);
     }
 }
-impl PartialEq for Pal {
+impl PartialEq for PalMap {
     fn eq(&self, other: &Self) -> bool {
         self.remap == other.remap && self.transparency == other.transparency
     }
 }
 
-impl Default for Pal {
+impl Default for PalMap {
     fn default() -> Self {
-        let mut pal = Pal::with_capacity(16);
+        let mut pal = PalMap::with_capacity(16);
         for c in &PALETTE {
             pal.palette.push([c[0], c[1], c[2], 0xff]);
         }
@@ -37,7 +36,7 @@ impl Default for Pal {
     }
 }
 
-impl Pal {
+impl PalMap {
     pub fn with_capacity(count: usize) -> Self {
         let palette = Vec::with_capacity(count);
         let remap = (0..count).map(|x| x as u8).collect();

@@ -56,12 +56,12 @@ impl<
     ///
     /// The `write_color` function accepts a color_index and the pixel_index and
     /// writes a Srgba set of u8 pixels.
-    pub fn to_image(&self, mut write_color: impl FnMut(T, usize, &mut [u8])) -> Image {
+    pub fn to_image<E>(&self, mut write_color: impl FnMut(T, usize, &mut [u8]) -> Result<(), E>) -> Result<Image, E> {
         let mut pixel_bytes = vec![0x00; self.width * self.height * 4];
         let mut color_index = T::default();
         for (i, pixel) in self.data.chunks_exact(N).enumerate() {
-            color_index.view_bits_mut::<Lsb0>()[0..N].copy_from_slice(pixel);
-            write_color(color_index, i, &mut pixel_bytes[i * 4..(i + 1) * 4]);
+            color_index.view_bits_mut::<Lsb0>()[0..N].copy_from_bitslice(pixel);
+            write_color(color_index, i, &mut pixel_bytes[i * 4..(i + 1) * 4])?;
         }
         let mut image = Image::new(
             Extent3d {
@@ -76,7 +76,7 @@ impl<
             RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
         );
         image.sampler = ImageSampler::nearest();
-        image
+        Ok(image)
     }
 }
 
