@@ -629,24 +629,24 @@ impl Pico8<'_, '_> {
         match c.into() {
             N9Color::Pen => match self.state.draw_state.pen {
                 PColor::Palette(n) => {
-                    let pal_map = self
+                    let pal = self
                         .images
                         .get(&self.state.palette.handle)
                         .ok_or(Error::NoAsset("palette".into()))?;
 
                     // Strangely. It's not a 1d texture.
-                    Ok(pal_map.get_color_at(n as u32, self.state.palette.row)?)
+                    Ok(pal.get_color_at(n as u32, self.state.palette.row)?)
                 }
                 PColor::Color(c) => Ok(c.into()),
             },
             N9Color::Palette(n) => {
-                let pal_map = self
+                let pal = self
                     .images
                     .get(&self.state.palette.handle)
                     .ok_or(Error::NoAsset("palette".into()))?;
 
                 // Strangely. It's not a 1d texture.
-                Ok(pal_map.get_color_at(n as u32, self.state.palette.row)?)
+                Ok(pal.get_color_at(n as u32, self.state.palette.row)?)
             }
             N9Color::Color(c) => Ok(c.into()),
         }
@@ -744,7 +744,8 @@ impl Pico8<'_, '_> {
         &mut self,
         upper_left: Vec2,
         lower_right: Vec2,
-        color: Option<N9Color>,
+        off_color: Option<N9Color>,
+        on_color: Option<N9Color>,
     ) -> Result<Entity, Error> {
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let size = (lower_right - upper_left) + Vec2::ONE;
@@ -756,8 +757,19 @@ impl Pico8<'_, '_> {
                 if let Some(fill_pat) = &self.state.draw_state.fill_pat {
                     Sprite {
                         anchor: Anchor::TopLeft,
-                        image: self.images.add(fill_pat.to_image(size.x as usize, size.y as usize, |bit, pixel_index, pixel_bytes| {
+                        image: self.images.add(fill_pat.to_image(4, 4, |bit, pixel_index, pixel_bytes| {
+                            let color = if bit {
+                                on_color
+                            } else {
+                                off_color
+                            };
+                            match color {
+                                N9Color::
+
+                            }
                         })),
+                        custom_size: Some(size),
+                        SpriteImageMode::Tiled { tile_x: true, tile_y: true, stretch_value: 1.0 },
                     }
                 } else {
                     Sprite {

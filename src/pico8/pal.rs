@@ -30,6 +30,10 @@ impl PalMap {
         self.remap[original_index] = new_index as u8;
     }
 
+    pub fn map(&self, index: usize) -> usize {
+        self.remap[index]
+    }
+
     pub fn reset(&mut self) {
         let n = self.remap.len() as u8;
         self.remap.clear();
