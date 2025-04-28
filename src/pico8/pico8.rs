@@ -26,6 +26,7 @@ use bitvec::prelude::*;
 use crate::{
     cursor::Cursor,
     pico8::{
+        PALETTE, FillPat,
         audio::{Sfx, SfxChannels},
         rand::Rand8,
         Cart, ClearEvent, Clearable, Gfx, LoadCart, Map, PalMap,
@@ -83,21 +84,29 @@ pub struct GfxHandles {
 impl GfxHandles {
     fn get_or_create(
         &mut self,
-        pal: &PalMap,
+        pal_map: &PalMap,
+        fill_pat: Option<&FillPat>,
         gfx: &Handle<Gfx>,
         gfxs: &Assets<Gfx>,
         images: &mut Assets<Image>,
     ) -> Handle<Image> {
         let mut hasher = DefaultHasher::new();
-        pal.hash(&mut hasher);
+        pal_map.hash(&mut hasher);
+        if let Some(fill_pat) = fill_pat {
+            fill_pat.hash(&mut hasher);
+        }
         gfx.hash(&mut hasher);
         self.map
             .entry(hasher.finish())
             .or_insert_with(|| {
                 let gfx = gfxs.get(gfx).expect("gfx"); //.ok_or(Error::NoSuch("gfx asset".into()))?;
-                let image = gfx.to_image(|i, _, bytes| {
-                    pal.write_color(i, bytes)
-                }).expect("gfx to image");
+                let image = if let Some(fill_pat) = fill_pat {
+                    todo!();
+                } else {
+                    gfx.to_image(|i, _, bytes| {
+                        pal_map.write_color(&PALETTE, i, bytes)
+                    }).expect("gfx to image")
+                };
                 images.add(image)
             })
             .clone()
@@ -111,7 +120,7 @@ pub struct Pico8State {
     pub code: Handle<ScriptAsset>,
     pub(crate) palette: Palette,
     #[reflect(ignore)]
-    pub(crate) pal: PalMap,
+    pub(crate) pal_map: PalMap,
     // XXX: rename to gfx_images?
     #[reflect(ignore)]
     pub(crate) gfx_handles: HashMap<(PalMap, Handle<Gfx>), Handle<Image>>,
@@ -528,7 +537,7 @@ impl Pico8<'_, '_> {
             image: match &sheet.handle {
                 SprAsset::Image(handle) => handle.clone(),
                 SprAsset::Gfx(handle) => self.gfx_handles.get_or_create(
-                    &self.state.pal,
+                    &self.state.pal_map,
                     handle,
                     &self.gfxs,
                     &mut self.images,
@@ -576,7 +585,7 @@ impl Pico8<'_, '_> {
         let image = match &sprites.handle {
             SprAsset::Image(handle) => handle.clone(),
             SprAsset::Gfx(handle) => self.gfx_handles.get_or_create(
-                &self.state.pal,
+                &self.state.pal_map,
                 handle,
                 &self.gfxs,
                 &mut self.images,
@@ -620,24 +629,24 @@ impl Pico8<'_, '_> {
         match c.into() {
             N9Color::Pen => match self.state.draw_state.pen {
                 PColor::Palette(n) => {
-                    let pal = self
+                    let pal_map = self
                         .images
                         .get(&self.state.palette.handle)
                         .ok_or(Error::NoAsset("palette".into()))?;
 
                     // Strangely. It's not a 1d texture.
-                    Ok(pal.get_color_at(n as u32, self.state.palette.row)?)
+                    Ok(pal_map.get_color_at(n as u32, self.state.palette.row)?)
                 }
                 PColor::Color(c) => Ok(c.into()),
             },
             N9Color::Palette(n) => {
-                let pal = self
+                let pal_map = self
                     .images
                     .get(&self.state.palette.handle)
                     .ok_or(Error::NoAsset("palette".into()))?;
 
                 // Strangely. It's not a 1d texture.
-                Ok(pal.get_color_at(n as u32, self.state.palette.row)?)
+                Ok(pal_map.get_color_at(n as u32, self.state.palette.row)?)
             }
             N9Color::Color(c) => Ok(c.into()),
         }
@@ -744,11 +753,19 @@ impl Pico8<'_, '_> {
             .commands
             .spawn((
                 Name::new("rectfill"),
-                Sprite {
-                    color: c,
-                    anchor: Anchor::TopLeft,
-                    custom_size: Some(size),
-                    ..default()
+                if let Some(fill_pat) = &self.state.draw_state.fill_pat {
+                    Sprite {
+                        anchor: Anchor::TopLeft,
+                        image: self.images.add(fill_pat.to_image(size.x as usize, size.y as usize, |bit, pixel_index, pixel_bytes| {
+                        })),
+                    }
+                } else {
+                    Sprite {
+                        color: c,
+                        anchor: Anchor::TopLeft,
+                        custom_size: Some(size),
+                        ..default()
+                    }
                 },
                 Transform::from_xyz(upper_left.x, negate_y(upper_left.y), clearable.suggest_z()),
                 clearable,
@@ -818,7 +835,7 @@ impl Pico8<'_, '_> {
                 &mut self.commands,
                 |handle| {
                     self.gfx_handles.get_or_create(
-                        &self.state.pal,
+                        &self.state.pal_map,
                         handle,
                         &self.gfxs,
                         &mut self.images,
@@ -1424,26 +1441,26 @@ impl Pico8<'_, '_> {
         self.tiled.props(id)
     }
 
-    pub fn pal(&mut self, original_to_new: Option<(usize, usize)>, mode: Option<PalModify>) {
+    pub fn pal_map(&mut self, original_to_new: Option<(usize, usize)>, mode: Option<PalModify>) {
         let mode = mode.unwrap_or_default();
         assert!(matches!(mode, PalModify::Following));
         if let Some((old, new)) = original_to_new {
-            self.state.pal.remap(old, new);
+            self.state.pal_map.remap(old, new);
         } else {
-            // Reset the pal.
-            self.state.pal.reset();
+            // Reset the pal_map.
+            self.state.pal_map.reset();
         }
     }
 
     pub fn palt(&mut self, color_index: Option<usize>, transparent: Option<bool>) {
         if let Some(color_index) = color_index {
             self.state
-                .pal
+                .pal_map
                 .transparency
                 .set(color_index, transparent.unwrap_or(false));
         } else {
-            // Reset the pal.
-            self.state.pal.reset_transparency();
+            // Reset the pal_map.
+            self.state.pal_map.reset_transparency();
         }
     }
 
@@ -1602,7 +1619,7 @@ impl FromWorld for Pico8State {
                 handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
                 row: 0,
             },
-            pal: PalMap::default(),
+            pal_map: PalMap::default(),
             border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
             code: Handle::<ScriptAsset>::default(),
             font: vec![N9Font {

@@ -1,36 +1,16 @@
-use bevy::prelude::*;
-
 use bitvec::prelude::*;
+use crate::pico8::Error;
+use std::hash::Hash;
 
-use crate::pico8::{cart::PALETTE, Error};
-
-use std::hash::{Hash, Hasher};
-
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub struct PalMap {
-    palette: Vec<[u8; 4]>,
     remap: Vec<u8>,
     pub transparency: BitVec<u8, Lsb0>,
-}
-
-impl Hash for PalMap {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.remap.hash(state);
-        self.transparency.hash(state);
-    }
-}
-impl PartialEq for PalMap {
-    fn eq(&self, other: &Self) -> bool {
-        self.remap == other.remap && self.transparency == other.transparency
-    }
 }
 
 impl Default for PalMap {
     fn default() -> Self {
         let mut pal = PalMap::with_capacity(16);
-        for c in &PALETTE {
-            pal.palette.push([c[0], c[1], c[2], 0xff]);
-        }
         pal.transparency.set(0, true);
         pal
     }
@@ -38,11 +18,9 @@ impl Default for PalMap {
 
 impl PalMap {
     pub fn with_capacity(count: usize) -> Self {
-        let palette = Vec::with_capacity(count);
         let remap = (0..count).map(|x| x as u8).collect();
         let transparency = BitVec::repeat(false, count);
         Self {
-            palette,
             remap,
             transparency,
         }
@@ -64,27 +42,27 @@ impl PalMap {
         self.transparency.set(0, true);
     }
 
-    pub fn from_image(image: &Image) -> Self {
-        let size = image.size();
-        let count = (size.x * size.y) as usize;
-        let mut palette = Vec::with_capacity(count);
-        for i in 0..size.x {
-            for j in 0..size.y {
-                let color = image.get_color_at(i, j).unwrap().to_srgba();
-                let rgb = color.to_u8_array();
-                palette.push(rgb);
-            }
-        }
-        let remap = (0..count).map(|x| x as u8).collect();
-        let transparency = BitVec::repeat(false, count);
-        Self {
-            palette,
-            remap,
-            transparency,
-        }
-    }
+    // pub fn from_image(image: &Image) -> Self {
+    //     let size = image.size();
+    //     let count = (size.x * size.y) as usize;
+    //     let mut palette = Vec::with_capacity(count);
+    //     for i in 0..size.x {
+    //         for j in 0..size.y {
+    //             let color = image.get_color_at(i, j).unwrap().to_srgba();
+    //             let rgb = color.to_u8_array();
+    //             palette.push(rgb);
+    //         }
+    //     }
+    //     let remap = (0..count).map(|x| x as u8).collect();
+    //     let transparency = BitVec::repeat(false, count);
+    //     Self {
+    //         palette,
+    //         remap,
+    //         transparency,
+    //     }
+    // }
 
-    pub fn write_color(&self, palette_index: u8, pixel_bytes: &mut [u8]) -> Result<(), Error> {
+    pub fn write_color(&self, palette: &[[u8; 4]], palette_index: u8, pixel_bytes: &mut [u8]) -> Result<(), Error> {
         let pi = *self
             .remap
             .get(palette_index as usize)
@@ -95,10 +73,10 @@ impl PalMap {
             .get(pi)
             .ok_or(Error::NoSuch("transparency bit".into()))?
         {
-            pixel_bytes[0..=2].copy_from_slice(&self.palette[pi][0..=2]);
+            pixel_bytes[0..=2].copy_from_slice(&palette[pi][0..=2]);
             pixel_bytes[3] = 0x00;
         } else {
-            pixel_bytes[0..=3].copy_from_slice(&self.palette[pi]);
+            pixel_bytes[0..=3].copy_from_slice(&palette[pi]);
         }
         Ok(())
     }

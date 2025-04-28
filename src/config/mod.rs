@@ -250,7 +250,7 @@ impl AssetLoader for ConfigLoader {
                     .unwrap_or(pico8::PICO8_PALETTE),
             )
             .await?;
-        let pal = pico8::PalMap::from_image(image.get());
+        let pal_map = pico8::PalMap::default();
         let state = pico8::Pico8State {
             gfx_handles: HashMap::default(),
                 code: load_context.load(&*code_path),
@@ -258,7 +258,7 @@ impl AssetLoader for ConfigLoader {
                     handle: load_context.add_loaded_labeled_asset("palette", image),
                     row: config.palette.and_then(|p| p.row).unwrap_or(0),
                 },
-            pal,
+            pal_map,
                 border: load_context.loader()
                                     .with_settings(pixel_art_settings)
                                     .load(pico8::PICO8_BORDER),

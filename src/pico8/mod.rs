@@ -16,6 +16,8 @@ mod gfx;
 pub(crate) mod rand;
 pub(crate) use gfx::*;
 pub mod p8scii;
+mod fillp;
+pub(crate) use fillp::*;
 // mod gfx2;
 
 pub(crate) fn plugin(app: &mut App) {

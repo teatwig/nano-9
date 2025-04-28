@@ -24,7 +24,7 @@ use bevy_mod_scripting::{
     BMSPlugin,
 };
 
-use crate::{config::*, error::RunState, pico8::fill_input, N9Var, PColor};
+use crate::{config::*, error::RunState, pico8::fill_input, N9Var, PColor, pico8::FillPat};
 
 #[derive(Component)]
 pub struct Nano9Sprite;
@@ -34,6 +34,7 @@ pub struct DrawState {
     pub pen: PColor,
     pub camera_position: Vec2,
     pub print_cursor: Vec2,
+    pub fill_pat: Option<FillPat>,
 }
 
 #[derive(Debug, Clone, Resource, Default)]
@@ -48,6 +49,7 @@ impl Default for DrawState {
             pen: PColor::Palette(6),
             camera_position: Vec2::ZERO,
             print_cursor: Vec2::ZERO,
+            fill_pat: None,
         }
     }
 }

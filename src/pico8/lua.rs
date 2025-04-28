@@ -441,7 +441,7 @@ pub(crate) fn plugin(app: &mut App) {
             "pal",
             |ctx: FunctionCallContext, old: Option<usize>, new: Option<usize>, mode: Option<u8>| {
                 with_pico8(&ctx, move |pico8| {
-                    pico8.pal(
+                    pico8.pal_map(
                         old.zip(new),
                         mode.map(|i| match i {
                             0 => PalModify::Following,
