@@ -42,8 +42,8 @@ impl FillPat {
         }
         let mut image = Image::new(
             Extent3d {
-                width: self.width as u32,
-                height: self.height as u32,
+                width: width as u32,
+                height: height as u32,
                 ..default()
             },
             TextureDimension::D2,

@@ -19,6 +19,7 @@ use bevy_mod_scripting::core::{
 };
 
 use crate::{
+    color::FillColor,
     pico8::{Error, PalModify, Pico8, PropBy, SfxCommand, Spr},
     DropPolicy, N9Color, N9Entity, PColor,
 };
@@ -103,7 +104,7 @@ pub(crate) fn plugin(app: &mut App) {
              y0: f32,
              x1: f32,
              y1: f32,
-             color: Option<N9Color>| {
+             color: Option<FillColor>| {
                 with_pico8(&ctx, |pico8| {
                     // We want to ignore out of bounds errors specifically but possibly not others.
                     // Ok(pico8.pset(x, y, color)?)

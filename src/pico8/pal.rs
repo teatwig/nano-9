@@ -31,7 +31,7 @@ impl PalMap {
     }
 
     pub fn map(&self, index: usize) -> usize {
-        self.remap[index]
+        self.remap[index] as usize
     }
 
     pub fn reset(&mut self) {

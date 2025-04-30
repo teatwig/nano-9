@@ -31,7 +31,7 @@ use crate::{
         rand::Rand8,
         Cart, ClearEvent, Clearable, Gfx, LoadCart, Map, PalMap,
     },
-    DrawState, N9Canvas, N9Color, Nano9Camera, PColor,
+    DrawState, N9Canvas, N9Color, Nano9Camera, PColor, FillColor,
 };
 
 use std::{
@@ -538,6 +538,7 @@ impl Pico8<'_, '_> {
                 SprAsset::Image(handle) => handle.clone(),
                 SprAsset::Gfx(handle) => self.gfx_handles.get_or_create(
                     &self.state.pal_map,
+                    None,
                     handle,
                     &self.gfxs,
                     &mut self.images,
@@ -586,6 +587,7 @@ impl Pico8<'_, '_> {
             SprAsset::Image(handle) => handle.clone(),
             SprAsset::Gfx(handle) => self.gfx_handles.get_or_create(
                 &self.state.pal_map,
+                None,
                 handle,
                 &self.gfxs,
                 &mut self.images,
@@ -625,7 +627,7 @@ impl Pico8<'_, '_> {
     }
 
     // XXX: Should this be here? It's not a Pico8 API.
-    pub fn get_color(&self, c: impl Into<N9Color>) -> Result<Color, Error> {
+    pub(crate) fn get_color(&self, c: impl Into<N9Color>) -> Result<Color, Error> {
         match c.into() {
             N9Color::Pen => match self.state.draw_state.pen {
                 PColor::Palette(n) => {
@@ -744,10 +746,8 @@ impl Pico8<'_, '_> {
         &mut self,
         upper_left: Vec2,
         lower_right: Vec2,
-        off_color: Option<N9Color>,
-        on_color: Option<N9Color>,
+        color: Option<FillColor>,
     ) -> Result<Entity, Error> {
-        let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let size = (lower_right - upper_left) + Vec2::ONE;
         let clearable = Clearable::default();
         let id = self
@@ -758,20 +758,19 @@ impl Pico8<'_, '_> {
                     Sprite {
                         anchor: Anchor::TopLeft,
                         image: self.images.add(fill_pat.to_image(4, 4, |bit, pixel_index, pixel_bytes| {
-                            let color = if bit {
-                                on_color
+                            let c: Option<PColor> = if bit {
+                                color.and_then(|x| x.on())
                             } else {
-                                off_color
+                                color.map(|x| x.off()).or(Some(self.state.draw_state.pen))
                             };
-                            match color {
-                                N9Color::
-
-                            }
-                        })),
+                            Ok::<(), Error>(())
+                        })?),
                         custom_size: Some(size),
-                        SpriteImageMode::Tiled { tile_x: true, tile_y: true, stretch_value: 1.0 },
+                        image_mode: SpriteImageMode::Tiled { tile_x: true, tile_y: true, stretch_value: 1.0 },
+                        ..default()
                     }
                 } else {
+                    let c = self.get_color(color.map(|x| x.off().into()).unwrap_or(N9Color::Pen))?;
                     Sprite {
                         color: c,
                         anchor: Anchor::TopLeft,
@@ -848,6 +847,7 @@ impl Pico8<'_, '_> {
                 |handle| {
                     self.gfx_handles.get_or_create(
                         &self.state.pal_map,
+                        None,
                         handle,
                         &self.gfxs,
                         &mut self.images,
