@@ -763,6 +763,10 @@ impl Pico8<'_, '_> {
                             } else {
                                 color.map(|x| x.off()).or(Some(self.state.draw_state.pen))
                             };
+                            if let Some(c) = c {
+                                // c.map(&self.state.pal_map).write_color(&PALETTE, pixel_bytes);
+                                c.write_color(&PALETTE, &self.state.pal_map, pixel_bytes);
+                            }
                             Ok::<(), Error>(())
                         })?),
                         custom_size: Some(size),
@@ -1494,6 +1498,18 @@ impl Pico8<'_, '_> {
             self.state.draw_state.pen = color;
         }
         (last_pos, last_color)
+    }
+
+    pub fn fillp(&mut self, pattern: Option<u16>) -> u16 {
+        let last: u16 = self.state.draw_state.fill_pat.map(|x| x.into()).unwrap_or(0);
+        if let Some(pattern) = pattern {
+            if pattern == 0 {
+                self.state.draw_state.fill_pat = None;
+            } else {
+                self.state.draw_state.fill_pat = Some(pattern.into());
+            }
+        }
+        last
     }
 }
 

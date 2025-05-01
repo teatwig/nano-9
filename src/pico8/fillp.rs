@@ -11,7 +11,7 @@ use bitvec::prelude::*;
 #[derive(Debug, Deref, DerefMut, Hash, PartialEq, Eq, Clone, Copy, Reflect, Default)]
 pub struct FillPat {
     #[reflect(ignore)]
-    pub data: BitArray<[u8; 2], Lsb0>,
+    pub data: BitArray<[u16; 1], Msb0>,
 }
 
 impl FillPat {
@@ -55,5 +55,20 @@ impl FillPat {
         image.sampler = ImageSampler::nearest();
         Ok(image)
     }
+}
 
+impl From<u16> for FillPat {
+    fn from(x: u16) -> Self {
+        let mut p = FillPat::default();
+        p.data.copy_from_bitslice(x.view_bits());
+        p
+    }
+}
+
+impl From<FillPat> for u16 {
+    fn from(p: FillPat) -> u16 {
+        let mut x: u16 = 0;
+        x.view_bits_mut().copy_from_bitslice(&p.data);
+        x
+    }
 }
