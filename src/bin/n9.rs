@@ -184,8 +184,8 @@ fn main() -> io::Result<()> {
     app.add_acts(bevy_minibuffer_inspector::WorldActs::default());
     #[cfg(all(feature = "level", feature = "user_properties"))]
     app.add_systems(Startup, |reg: Res<AppTypeRegistry>| {
-        bevy_ecs_tiled::map::export_types_filtered(&reg, "all-export-types.json", |name| true);
-        bevy_ecs_tiled::map::export_types_filtered(&reg, "export-types.json", |name| {
+        bevy_ecs_tiled::map::export_types(&reg, "all-export-types.json", |name| true);
+        bevy_ecs_tiled::map::export_types(&reg, "export-types.json", |name| {
             name.contains("bevy_ecs_tilemap::tiles") || name.contains("nano9")
         });
     });

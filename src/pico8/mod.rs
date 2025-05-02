@@ -18,6 +18,8 @@ pub(crate) use gfx::*;
 pub mod p8scii;
 mod fillp;
 pub(crate) use fillp::*;
+mod gfx_handles;
+pub(crate) use gfx_handles::*;
 // mod gfx2;
 
 pub(crate) fn plugin(app: &mut App) {
@@ -27,5 +29,6 @@ pub(crate) fn plugin(app: &mut App) {
         .add_plugins(audio::plugin)
         .add_plugins(rand::plugin)
         .add_plugins(gfx::plugin)
+        .add_plugins(gfx_handles::plugin)
         .add_plugins(cart::plugin);
 }

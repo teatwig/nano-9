@@ -1,0 +1,139 @@
+use bevy::{
+    asset::embedded_asset,
+    ecs::system::SystemParam,
+    image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
+    input::gamepad::GamepadConnectionEvent,
+    prelude::*,
+    render::{
+        render_asset::RenderAssetUsages,
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+    },
+    sprite::Anchor,
+};
+use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
+
+use bevy_mod_scripting::{
+    core::{
+        asset::ScriptAsset,
+        bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
+        docgen::typed_through::{ThroughTypeInfo, TypedThrough},
+        error::InteropError,
+    },
+    lua::mlua::prelude::LuaError,
+};
+use bitvec::prelude::*;
+
+use crate::{
+    cursor::Cursor,
+    pico8::{
+        PALETTE, FillPat,
+        audio::{Sfx, SfxChannels},
+        rand::Rand8,
+        Cart, ClearEvent, Clearable, Gfx, LoadCart, Map, PalMap,
+    },
+    DrawState, N9Canvas, N9Color, Nano9Camera, PColor, FillColor,
+};
+
+use std::{
+    any::TypeId,
+    borrow::Cow,
+    collections::HashMap,
+    f32::consts::PI,
+    hash::{DefaultHasher, Hash, Hasher},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
+
+pub(crate) fn plugin(app: &mut App) {
+    app
+        .init_resource::<GfxHandles>()
+        .add_systems(PostUpdate, |mut gfx_handles: ResMut<GfxHandles>| {
+            gfx_handles.tick();
+        });
+}
+
+#[derive(Debug, Resource)]
+pub struct GfxHandles {
+    map: HashMap<u64, AssetId<Image>>,
+    tick: usize,
+    strong_handles: Vec<Vec<Handle<Image>>>,
+}
+
+impl Default for GfxHandles {
+    fn default() -> Self {
+        GfxHandles {
+            map: HashMap::<u64, AssetId<Image>>::default(),
+            tick: 0,
+            strong_handles: vec![vec![], vec![], vec![]],
+        }
+    }
+}
+
+impl GfxHandles {
+    /// This returns a strong handle if it was created and caches a weak handle.
+    /// Otherwise it returns an extant weak_handle.
+    pub fn get_or_create(
+        &mut self,
+        pal_map: &PalMap,
+        fill_pat: Option<&FillPat>,
+        gfx: &Handle<Gfx>,
+        gfxs: &Assets<Gfx>,
+        images: &mut Assets<Image>,
+    ) -> Handle<Image> {
+        let mut hasher = DefaultHasher::new();
+        pal_map.hash(&mut hasher);
+        if let Some(fill_pat) = fill_pat {
+            fill_pat.hash(&mut hasher);
+        }
+        gfx.hash(&mut hasher);
+        let hash = hasher.finish();
+        let mut strong_handle = None;
+        let handle = self.map
+            .entry(hash)
+            .or_insert_with(|| {
+                let gfx = gfxs.get(gfx).expect("gfx"); //.ok_or(Error::NoSuch("gfx asset".into()))?;
+                let image = if let Some(fill_pat) = fill_pat {
+                    todo!();
+                } else {
+                    gfx.try_to_image(|i, _, bytes| {
+                        pal_map.write_color(&PALETTE, i, bytes)
+                    }).expect("gfx to image")
+                };
+                let handle = images.add(image);
+                let asset_id = handle.id();
+                strong_handle = Some(handle);
+                asset_id
+            })
+            .clone();
+
+        let n = self.strong_handles.len();
+        if let Some(strong_handle) = strong_handle {
+            self.strong_handles[self.tick % n].push(strong_handle.clone());
+            strong_handle
+        } else {
+            if let Some(strong_handle) = images.get_strong_handle(handle) {
+                self.strong_handles[self.tick % n].push(strong_handle.clone());
+                strong_handle
+            } else {
+                self.map.remove(&hash);
+                // Will only recurse once.
+                self.get_or_create(
+                    pal_map,
+                    fill_pat,
+                    gfx,
+                    gfxs,
+                    images)
+            }
+        }
+    }
+
+    pub fn tick(&mut self) {
+        self.tick += 1;
+        let n = self.strong_handles.len();
+        for handle in self.strong_handles[self.tick % n].drain(..) {
+            drop(handle);
+        }
+    }
+}

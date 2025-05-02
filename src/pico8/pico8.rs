@@ -29,7 +29,7 @@ use crate::{
         PALETTE, FillPat,
         audio::{Sfx, SfxChannels},
         rand::Rand8,
-        Cart, ClearEvent, Clearable, Gfx, LoadCart, Map, PalMap,
+        Cart, ClearEvent, Clearable, Gfx, LoadCart, Map, PalMap, GfxHandles,
     },
     DrawState, N9Canvas, N9Color, Nano9Camera, PColor, FillColor,
 };
@@ -74,43 +74,6 @@ pub struct Palette {
     pub handle: Handle<Image>,
     /// Row count
     pub row: u32,
-}
-
-#[derive(Debug, Resource, Default)]
-pub struct GfxHandles {
-    map: HashMap<u64, Handle<Image>>,
-}
-
-impl GfxHandles {
-    fn get_or_create(
-        &mut self,
-        pal_map: &PalMap,
-        fill_pat: Option<&FillPat>,
-        gfx: &Handle<Gfx>,
-        gfxs: &Assets<Gfx>,
-        images: &mut Assets<Image>,
-    ) -> Handle<Image> {
-        let mut hasher = DefaultHasher::new();
-        pal_map.hash(&mut hasher);
-        if let Some(fill_pat) = fill_pat {
-            fill_pat.hash(&mut hasher);
-        }
-        gfx.hash(&mut hasher);
-        self.map
-            .entry(hasher.finish())
-            .or_insert_with(|| {
-                let gfx = gfxs.get(gfx).expect("gfx"); //.ok_or(Error::NoSuch("gfx asset".into()))?;
-                let image = if let Some(fill_pat) = fill_pat {
-                    todo!();
-                } else {
-                    gfx.to_image(|i, _, bytes| {
-                        pal_map.write_color(&PALETTE, i, bytes)
-                    }).expect("gfx to image")
-                };
-                images.add(image)
-            })
-            .clone()
-    }
 }
 
 /// Pico8State's state.
@@ -757,18 +720,47 @@ impl Pico8<'_, '_> {
                 if let Some(fill_pat) = &self.state.draw_state.fill_pat {
                     Sprite {
                         anchor: Anchor::TopLeft,
-                        image: self.images.add(fill_pat.to_image(4, 4, |bit, pixel_index, pixel_bytes| {
-                            let c: Option<PColor> = if bit {
-                                color.and_then(|x| x.on())
-                            } else {
-                                color.map(|x| x.off()).or(Some(self.state.draw_state.pen))
-                            };
-                            if let Some(c) = c {
-                                // c.map(&self.state.pal_map).write_color(&PALETTE, pixel_bytes);
-                                c.write_color(&PALETTE, &self.state.pal_map, pixel_bytes);
+                        // NOTE: Technically we only need a 4x4 image. However, this generates a warning.
+                        //
+                        // ```
+                        // WARN bevy_sprite::texture_slice: One of your tiled
+                        // textures has generated 1089 slices. You might want to
+                        // use higher stretch values to avoid a great
+                        // performance cost
+                        // ```
+                        //
+                        // So we generate an 8x8 to avoid that.
+                        image: self.images.add(
+
+                            {
+        let a = Gfx::<1>::from_vec(8,8,
+        vec![
+            0b00000001,
+            0b00000010,
+            0b00000100,
+            0b00001000,
+            0b00010000,
+            0b00100000,
+            0b01000000,
+            0b10000000,
+        ]);
+        a.to_image(|i, _, pixel_bytes| {
+            pixel_bytes.copy_from_slice(&PALETTE[i as usize]);
+        })
                             }
-                            Ok::<(), Error>(())
-                        })?),
+                            // fill_pat.to_image(8, 8, |bit, pixel_index, pixel_bytes| {
+                            // let c: Option<PColor> = if bit {
+                            //     color.and_then(|x| x.on())
+                            // } else {
+                            //     color.map(|x| x.off()).or(Some(self.state.draw_state.pen))
+                            // };
+                            // if let Some(c) = c {
+                            //     // c.map(&self.state.pal_map).write_color(&PALETTE, pixel_bytes);
+                            //     c.write_color(&PALETTE, &self.state.pal_map, pixel_bytes);
+                            // }
+                            // Ok::<(), Error>(())
+                        // })?
+                        ),
                         custom_size: Some(size),
                         image_mode: SpriteImageMode::Tiled { tile_x: true, tile_y: true, stretch_value: 1.0 },
                         ..default()
@@ -1676,7 +1668,6 @@ pub(crate) fn plugin(app: &mut App) {
         .init_asset::<Pico8State>()
         .init_resource::<Pico8State>()
         .init_resource::<PlayerInputs>()
-        .init_resource::<GfxHandles>()
         .add_observer(
             |trigger: Trigger<UpdateCameraPos>,
              camera: Single<&mut Transform, With<Nano9Camera>>| {

@@ -23,12 +23,15 @@ pub enum PColor {
 }
 
 impl PColor {
-    pub fn map(&self, pal_map: &PalMap) -> PColor {
+
+    /// Map the palette
+    pub fn map_pal(&self, f: impl FnOnce(usize) -> usize) -> PColor {
         match self {
-            PColor::Palette(i) => PColor::Palette(pal_map.map(*i)),
+            PColor::Palette(i) => PColor::Palette(f(*i)),
             x => *x,
         }
     }
+
     pub fn write_color(&self, palette: &[[u8; 4]], pal_map: &PalMap, pixel_bytes: &mut [u8]) -> Result<(), Error> {
         match self {
             PColor::Palette(i) => {

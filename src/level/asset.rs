@@ -5,8 +5,8 @@ use std::ops::Deref;
 #[cfg(feature = "user_properties")]
 use bevy::reflect::TypeRegistryArc;
 
-#[cfg(feature = "user_properties")]
-use bevy_ecs_tiled::properties::load::DeserializedMapProperties;
+// #[cfg(feature = "user_properties")]
+// use bevy_ecs_tiled::properties::load::DeserializedMapProperties;
 
 use crate::level::reader::BytesResourceReader;
 use bevy::{
