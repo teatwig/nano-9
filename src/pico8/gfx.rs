@@ -21,6 +21,17 @@ pub struct Gfx<const N: usize = 4, T: TypePath + Send + Sync + BitStore = u8> {
     pub height: usize,
 }
 
+
+impl<T: TypePath + Send + Sync + Default + BitView<Store = T> + BitStore + Copy> Gfx<1, T>
+{
+    pub fn mirror_horizontal(mut self) -> Self {
+        for elem in self.data.chunks_mut(self.width) {
+            elem.reverse();
+        }
+        self
+    }
+}
+
 impl<const N: usize,
      T: TypePath + Send + Sync + Default + BitView<Store = T> + BitStore + Copy> Gfx<N, T>
 {
@@ -32,6 +43,7 @@ impl<const N: usize,
             height,
         }
     }
+
 
     pub fn from_vec(width: usize, height: usize, vec: Vec<T>) -> Self {
         let gfx = Gfx {

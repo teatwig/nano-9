@@ -70,7 +70,7 @@ impl PalMap {
         let pi = *self
             .remap
             .get(palette_index as usize)
-            .ok_or(Error::NoSuch("palette index".into()))? as usize;
+            .ok_or(Error::NoSuch(format!("palette index {palette_index}").into()))? as usize;
         // PERF: We should just set the 24 or 32 bits in one go, right?
         if *self
             .transparency

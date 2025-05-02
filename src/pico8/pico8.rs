@@ -732,34 +732,34 @@ impl Pico8<'_, '_> {
                         // So we generate an 8x8 to avoid that.
                         image: self.images.add(
 
-                            {
-        let a = Gfx::<1>::from_vec(8,8,
-        vec![
-            0b00000001,
-            0b00000010,
-            0b00000100,
-            0b00001000,
-            0b00010000,
-            0b00100000,
-            0b01000000,
-            0b10000000,
-        ]);
-        a.to_image(|i, _, pixel_bytes| {
-            pixel_bytes.copy_from_slice(&PALETTE[i as usize]);
-        })
-                            }
-                            // fill_pat.to_image(8, 8, |bit, pixel_index, pixel_bytes| {
-                            // let c: Option<PColor> = if bit {
-                            //     color.and_then(|x| x.on())
-                            // } else {
-                            //     color.map(|x| x.off()).or(Some(self.state.draw_state.pen))
-                            // };
-                            // if let Some(c) = c {
-                            //     // c.map(&self.state.pal_map).write_color(&PALETTE, pixel_bytes);
-                            //     c.write_color(&PALETTE, &self.state.pal_map, pixel_bytes);
+                            // {
+                            //     let a = Gfx::<1>::from_vec(8,8,
+                            //                                vec![
+                            //                                    0b10000000,
+                            //                                    0b01000000,
+                            //                                    0b00100000,
+                            //                                    0b00010000,
+                            //                                    0b00001000,
+                            //                                    0b00000100,
+                            //                                    0b00000010,
+                            //                                    0b00000001,
+                            //                                ]);
+                            //     a.mirror_horizontal().to_image(|i, _, pixel_bytes| {
+                            //         pixel_bytes.copy_from_slice(&PALETTE[i as usize]);
+                            //     })
                             // }
-                            // Ok::<(), Error>(())
-                        // })?
+                            fill_pat.to_image(8, 8, |bit, pixel_index, pixel_bytes| {
+                            let c: Option<PColor> = if bit {
+                                color.and_then(|x| x.on())
+                            } else {
+                                color.map(|x| x.off()).or(Some(self.state.draw_state.pen))
+                            };
+                            if let Some(c) = c {
+                                // c.map(&self.state.pal_map).write_color(&PALETTE, pixel_bytes);
+                                c.write_color(&PALETTE, &self.state.pal_map, pixel_bytes);
+                            }
+                            Ok::<(), Error>(())
+                        })?
                         ),
                         custom_size: Some(size),
                         image_mode: SpriteImageMode::Tiled { tile_x: true, tile_y: true, stretch_value: 1.0 },
