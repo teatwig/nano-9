@@ -461,7 +461,7 @@ impl Sfx {
         let note_end = n - 4;
         let notes = data[0..note_end]
             .chunks(2)
-            .map(|pair| Pico8Note((pair[1] as u16) << 8 | pair[0] as u16))
+            .map(|pair| Pico8Note(((pair[1] as u16) << 8) | pair[0] as u16))
             .collect();
         // let editor = data[note_end + 0];
         let speed = data[note_end + 1];

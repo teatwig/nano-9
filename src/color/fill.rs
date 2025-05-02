@@ -1,17 +1,16 @@
 use bevy::prelude::*;
-use std::{any::TypeId, sync::Arc};
+use std::any::TypeId;
 
-use crate::ValueExt;
 use bevy_mod_scripting::{
     core::docgen::typed_through::{ThroughTypeInfo, TypedThrough},
     core::{
         bindings::{
-            function::from::FromScript, script_value::ScriptValue, IntoScript, WorldAccessGuard,
+            function::from::FromScript, script_value::ScriptValue, WorldAccessGuard,
         },
         error::InteropError,
     },
     lua::mlua::{
-        self, prelude::LuaError, FromLua, Lua, UserData, UserDataFields, UserDataMethods, Value,
+        UserData,
     },
     GetTypeDependencies,
 };

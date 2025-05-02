@@ -7,7 +7,7 @@ use bevy_mod_scripting::{
     core::docgen::typed_through::{ThroughTypeInfo, TypedThrough},
     core::{
         bindings::{
-            function::from::FromScript, script_value::ScriptValue, IntoScript, WorldAccessGuard,
+            function::from::FromScript, script_value::ScriptValue, WorldAccessGuard,
         },
         error::InteropError,
     },

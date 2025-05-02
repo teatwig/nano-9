@@ -18,7 +18,7 @@ impl FillPat {
 
     /// Get a fill.
     pub fn get(&self, x: usize, y: usize) -> bool {
-        self.data.get((x % 4) + (y % 4) * 4).as_deref().map(|x| *x).unwrap_or(false)
+        self.data.get((x % 4) + (y % 4) * 4).as_deref().copied().unwrap_or(false)
     }
 
     /// Set fill.

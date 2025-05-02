@@ -1,49 +1,14 @@
-use bevy::{
-    asset::embedded_asset,
-    ecs::system::SystemParam,
-    image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
-    input::gamepad::GamepadConnectionEvent,
-    prelude::*,
-    render::{
-        render_asset::RenderAssetUsages,
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
-    },
-    sprite::Anchor,
-};
-use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
+use bevy::prelude::*;
 
-use bevy_mod_scripting::{
-    core::{
-        asset::ScriptAsset,
-        bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
-        docgen::typed_through::{ThroughTypeInfo, TypedThrough},
-        error::InteropError,
-    },
-    lua::mlua::prelude::LuaError,
-};
 use bitvec::prelude::*;
 
-use crate::{
-    cursor::Cursor,
-    pico8::{
-        PALETTE, FillPat,
-        audio::{Sfx, SfxChannels},
-        rand::Rand8,
-        Cart, ClearEvent, Clearable, Gfx, LoadCart, Map, PalMap,
-    },
-    DrawState, N9Canvas, N9Color, Nano9Camera, PColor, FillColor,
-};
+use crate::pico8::{
+        PALETTE, FillPat, Gfx, PalMap,
+    };
 
 use std::{
-    any::TypeId,
-    borrow::Cow,
     collections::HashMap,
-    f32::consts::PI,
     hash::{DefaultHasher, Hash, Hasher},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
 };
 
 pub(crate) fn plugin(app: &mut App) {
@@ -90,7 +55,7 @@ impl GfxHandles {
         gfx.hash(&mut hasher);
         let hash = hasher.finish();
         let mut strong_handle = None;
-        let handle = self.map
+        let handle = *self.map
             .entry(hash)
             .or_insert_with(|| {
                 let gfx = gfxs.get(gfx).expect("gfx"); //.ok_or(Error::NoSuch("gfx asset".into()))?;
@@ -105,27 +70,24 @@ impl GfxHandles {
                 let asset_id = handle.id();
                 strong_handle = Some(handle);
                 asset_id
-            })
-            .clone();
+            });
 
         let n = self.strong_handles.len();
         if let Some(strong_handle) = strong_handle {
             self.strong_handles[self.tick % n].push(strong_handle.clone());
             strong_handle
+        } else if let Some(strong_handle) = images.get_strong_handle(handle) {
+            self.strong_handles[self.tick % n].push(strong_handle.clone());
+            strong_handle
         } else {
-            if let Some(strong_handle) = images.get_strong_handle(handle) {
-                self.strong_handles[self.tick % n].push(strong_handle.clone());
-                strong_handle
-            } else {
-                self.map.remove(&hash);
-                // Will only recurse once.
-                self.get_or_create(
-                    pal_map,
-                    fill_pat,
-                    gfx,
-                    gfxs,
-                    images)
-            }
+            self.map.remove(&hash);
+            // Will only recurse once.
+            self.get_or_create(
+                pal_map,
+                fill_pat,
+                gfx,
+                gfxs,
+                images)
         }
     }
 

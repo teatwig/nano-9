@@ -11,7 +11,7 @@ use bevy_mod_scripting::{
         error::InteropError,
     },
     lua::mlua::{
-        self, prelude::LuaError, FromLua, Lua, UserData, UserDataFields, UserDataMethods, Value,
+        self, prelude::LuaError, FromLua, Lua, UserData, Value,
     },
     GetTypeDependencies,
 };

@@ -26,7 +26,7 @@ use bitvec::prelude::*;
 use crate::{
     cursor::Cursor,
     pico8::{
-        PALETTE, FillPat,
+        PALETTE,
         audio::{Sfx, SfxChannels},
         rand::Rand8,
         Cart, ClearEvent, Clearable, Gfx, LoadCart, Map, PalMap, GfxHandles,
@@ -39,7 +39,7 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     f32::consts::PI,
-    hash::{DefaultHasher, Hash, Hasher},
+    hash::Hasher,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
