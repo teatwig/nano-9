@@ -465,8 +465,8 @@ impl Sfx {
             .collect();
         // let editor = data[note_end + 0];
         let speed = data[note_end + 1];
-        let start = data[note_end + 2];
-        let end = data[note_end + 3];
+        let _start = data[note_end + 2];
+        let _end = data[note_end + 3];
 
         Self {
             notes,

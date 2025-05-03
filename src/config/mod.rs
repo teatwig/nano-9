@@ -2,7 +2,7 @@
 use crate::level::{self, tiled::*};
 use crate::{call, level::asset::TiledSet, pico8};
 use bevy::{
-    asset::{embedded_asset, io::Reader, AssetLoader, LoadContext},
+    asset::{AssetPath, embedded_asset, io::Reader, AssetLoader, LoadContext},
     image::{ImageLoaderSettings, ImageSampler},
     prelude::*,
 };
@@ -10,7 +10,7 @@ use bevy_mod_scripting::core::{
     bindings::script_value::ScriptValue, event::ScriptCallbackEvent, script::ScriptComponent,
 };
 use serde::Deserialize;
-use std::{collections::HashMap, ffi::OsStr, io, ops::Deref, path::PathBuf};
+use std::{ffi::OsStr, io, ops::Deref, path::PathBuf};
 
 pub const DEFAULT_CANVAS_SIZE: UVec2 = UVec2::splat(128);
 pub const DEFAULT_SCREEN_SIZE: UVec2 = UVec2::splat(512);
@@ -252,7 +252,6 @@ impl AssetLoader for ConfigLoader {
             .await?;
         let pal_map = pico8::PalMap::default();
         let state = pico8::Pico8State {
-            gfx_handles: HashMap::default(),
                 code: load_context.load(&*code_path),
                 palette: pico8::Palette {
                     handle: load_context.add_loaded_labeled_asset("palette", image),
@@ -293,10 +292,9 @@ impl AssetLoader for ConfigLoader {
                 }).collect::<Result<Vec<_>, _>>()?.into(),
                 audio_banks: config.audio_banks.into_iter().map(|bank| pico8::AudioBank(match bank {
                     AudioBank::P8 { p8, count } => {
-                        todo!()
-                            // (0..count).map(|i|
-                            //                pico8::Audio::Sfx(load_context.load(&AssetPath::from_path(&p8).with_label(&format!("sfx{i}"))))
-                            // ).collect::<Vec<_>>()
+                            (0..count).map(|i|
+                                           pico8::Audio::Sfx(load_context.load(AssetPath::from_path(&p8).into_owned().with_label(format!("sfx{i}"))))
+                            ).collect::<Vec<_>>()
                     }
                     AudioBank::Paths { paths } => {
                         paths.into_iter().map(|p| pico8::Audio::AudioSource(load_context.load(p))).collect::<Vec<_>>()

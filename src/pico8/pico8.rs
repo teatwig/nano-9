@@ -37,9 +37,7 @@ use crate::{
 use std::{
     any::TypeId,
     borrow::Cow,
-    collections::HashMap,
     f32::consts::PI,
-    hash::Hasher,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -85,8 +83,6 @@ pub struct Pico8State {
     #[reflect(ignore)]
     pub(crate) pal_map: PalMap,
     // XXX: rename to gfx_images?
-    #[reflect(ignore)]
-    pub(crate) gfx_handles: HashMap<(PalMap, Handle<Gfx>), Handle<Image>>,
     pub(crate) border: Handle<Image>,
     pub(crate) sprite_sheets: Cursor<SpriteSheet>,
     pub(crate) maps: Cursor<Map>,
@@ -731,7 +727,6 @@ impl Pico8<'_, '_> {
                         //
                         // So we generate an 8x8 to avoid that.
                         image: self.images.add(
-
                             // {
                             //     let a = Gfx::<1>::from_vec(8,8,
                             //                                vec![
@@ -748,7 +743,7 @@ impl Pico8<'_, '_> {
                             //         pixel_bytes.copy_from_slice(&PALETTE[i as usize]);
                             //     })
                             // }
-                            fill_pat.to_image(8, 8, |bit, pixel_index, pixel_bytes| {
+                            fill_pat.to_image(8, 8, |bit, _pixel_index, pixel_bytes| {
                             let c: Option<PColor> = if bit {
                                 color.and_then(|x| x.on())
                             } else {
@@ -756,7 +751,7 @@ impl Pico8<'_, '_> {
                             };
                             if let Some(c) = c {
                                 // c.map(&self.state.pal_map).write_color(&PALETTE, pixel_bytes);
-                                c.write_color(&PALETTE, &self.state.pal_map, pixel_bytes);
+                                let _ = c.write_color(&PALETTE, &self.state.pal_map, pixel_bytes);
                             }
                             Ok::<(), Error>(())
                         })?
@@ -1634,7 +1629,6 @@ impl FromWorld for Pico8State {
         };
 
         Pico8State {
-            gfx_handles: HashMap::default(),
             palette: Palette {
                 handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
                 row: 0,

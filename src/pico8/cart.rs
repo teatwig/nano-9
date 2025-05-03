@@ -11,7 +11,7 @@ use bevy_mod_scripting::core::asset::ScriptAsset;
 use bitvec::prelude::*;
 use pico8_decompress::*;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 
 pub(crate) fn plugin(app: &mut App) {
     app.register_type::<Cart>()
@@ -132,7 +132,6 @@ fn load_cart(
                     row: 0,
                 },
                 pal_map: PalMap::default(),
-                gfx_handles: HashMap::default(),
                 border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
                 maps: vec![P8Map {
                     entries: cart.map.clone(),
@@ -391,25 +390,8 @@ pub(crate) fn to_byte(a: u8, b: u8) -> Option<u8> {
     Some((a << 4) | b)
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-struct CartLoaderSettings {
-    // Which color indices are transparent?
-    palette_transparency: u16,
-}
-
-impl CartLoaderSettings {
-    fn is_transparent(&self, palette_index: usize) -> bool {
-        ((0b1 << palette_index) & self.palette_transparency) != 0
-    }
-}
-
-impl Default for CartLoaderSettings {
-    fn default() -> Self {
-        CartLoaderSettings {
-            palette_transparency: 0b0000_0000_0000_0001, // pixel 0 is transparent by default.
-        }
-    }
-}
+#[derive(Clone, Serialize, Deserialize, Default)]
+struct CartLoaderSettings { }
 
 #[derive(Default)]
 struct P8CartLoader;
@@ -673,15 +655,6 @@ end"#
         );
         assert_eq!(cart.gfx.as_ref().map(|gfx| gfx.width), Some(128));
         assert_eq!(cart.gfx.as_ref().map(|gfx| gfx.height), Some(8));
-    }
-
-    #[test]
-    fn palette_transparency() {
-        let settings = CartLoaderSettings::default();
-        assert!(settings.is_transparent(0));
-        for i in 1..15 {
-            assert!(!settings.is_transparent(i));
-        }
     }
 
     #[test]

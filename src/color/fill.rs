@@ -9,9 +9,6 @@ use bevy_mod_scripting::{
         },
         error::InteropError,
     },
-    lua::mlua::{
-        UserData,
-    },
     GetTypeDependencies,
 };
 use super::PColor;
@@ -26,7 +23,7 @@ pub enum FillColor {
 impl FillColor {
     pub fn on(&self) -> Option<PColor> {
         match self {
-            FillColor::One { off } => None,
+            FillColor::One { off: _ } => None,
             FillColor::Two { off: _, on } => Some(*on),
         }
     }

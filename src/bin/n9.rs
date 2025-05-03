@@ -24,8 +24,8 @@ fn usage(mut output: impl io::Write) -> io::Result<()> {
 }
 
 fn main() -> io::Result<()> {
-    let args = env::args();
-    let Some(arg) = args.skip(1).next() else {
+    let mut args = env::args();
+    let Some(arg) = args.nth(1) else {
         usage(std::io::stderr())?;
         process::exit(2);
     };
