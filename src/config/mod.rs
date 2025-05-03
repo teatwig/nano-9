@@ -2,7 +2,7 @@
 use crate::level::{self, tiled::*};
 use crate::{call, level::asset::TiledSet, pico8};
 use bevy::{
-    asset::{AssetPath, embedded_asset, io::Reader, AssetLoader, LoadContext},
+    asset::{embedded_asset, io::Reader, AssetLoader, AssetPath, LoadContext},
     image::{ImageLoaderSettings, ImageSampler},
     prelude::*,
 };

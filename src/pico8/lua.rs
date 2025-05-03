@@ -470,12 +470,9 @@ pub(crate) fn plugin(app: &mut App) {
                 with_pico8(&ctx, move |pico8| Ok(pico8.color(color)))
             },
         )
-        .register(
-            "fillp",
-            |ctx: FunctionCallContext, pattern: Option<u16>| {
-                with_pico8(&ctx, move |pico8| Ok(pico8.fillp(pattern)))
-            },
-        )
+        .register("fillp", |ctx: FunctionCallContext, pattern: Option<u16>| {
+            with_pico8(&ctx, move |pico8| Ok(pico8.fillp(pattern)))
+        })
         .register(
             "_cursor",
             |ctx: FunctionCallContext, x: Option<f32>, y: Option<f32>, color: Option<PColor>| {

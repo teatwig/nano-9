@@ -1,5 +1,5 @@
-use bitvec::prelude::*;
 use crate::pico8::Error;
+use bitvec::prelude::*;
 use std::hash::Hash;
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
@@ -66,11 +66,15 @@ impl PalMap {
     //     }
     // }
 
-    pub fn write_color(&self, palette: &[[u8; 4]], palette_index: u8, pixel_bytes: &mut [u8]) -> Result<(), Error> {
-        let pi = *self
-            .remap
-            .get(palette_index as usize)
-            .ok_or(Error::NoSuch(format!("palette index {palette_index}").into()))? as usize;
+    pub fn write_color(
+        &self,
+        palette: &[[u8; 4]],
+        palette_index: u8,
+        pixel_bytes: &mut [u8],
+    ) -> Result<(), Error> {
+        let pi = *self.remap.get(palette_index as usize).ok_or(Error::NoSuch(
+            format!("palette index {palette_index}").into(),
+        ))? as usize;
         // PERF: We should just set the 24 or 32 bits in one go, right?
         if *self
             .transparency

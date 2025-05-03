@@ -24,7 +24,7 @@ use bevy_mod_scripting::{
     BMSPlugin,
 };
 
-use crate::{config::*, error::RunState, pico8::fill_input, N9Var, PColor, pico8::FillPat};
+use crate::{config::*, error::RunState, pico8::fill_input, pico8::FillPat, N9Var, PColor};
 
 #[derive(Component)]
 pub struct Nano9Sprite;

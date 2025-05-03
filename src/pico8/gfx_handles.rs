@@ -1,8 +1,6 @@
 use bevy::prelude::*;
 
-use crate::pico8::{
-        PALETTE, FillPat, Gfx, PalMap,
-    };
+use crate::pico8::{FillPat, Gfx, PalMap, PALETTE};
 
 use std::{
     collections::HashMap,
@@ -10,11 +8,12 @@ use std::{
 };
 
 pub(crate) fn plugin(app: &mut App) {
-    app
-        .init_resource::<GfxHandles>()
-        .add_systems(PostUpdate, |mut gfx_handles: ResMut<GfxHandles>| {
+    app.init_resource::<GfxHandles>().add_systems(
+        PostUpdate,
+        |mut gfx_handles: ResMut<GfxHandles>| {
             gfx_handles.tick();
-        });
+        },
+    );
 }
 
 /// Keep a weak map of (Gfx, PalMap) -> AssetId<Image>.
@@ -58,22 +57,19 @@ impl GfxHandles {
         gfx.hash(&mut hasher);
         let hash = hasher.finish();
         let mut strong_handle = None;
-        let handle = *self.map
-            .entry(hash)
-            .or_insert_with(|| {
-                let gfx = gfxs.get(gfx).expect("gfx"); //.ok_or(Error::NoSuch("gfx asset".into()))?;
-                let image = if let Some(fill_pat) = fill_pat {
-                    todo!();
-                } else {
-                    gfx.try_to_image(|i, _, bytes| {
-                        pal_map.write_color(&PALETTE, i, bytes)
-                    }).expect("gfx to image")
-                };
-                let handle = images.add(image);
-                let asset_id = handle.id();
-                strong_handle = Some(handle);
-                asset_id
-            });
+        let handle = *self.map.entry(hash).or_insert_with(|| {
+            let gfx = gfxs.get(gfx).expect("gfx"); //.ok_or(Error::NoSuch("gfx asset".into()))?;
+            let image = if let Some(fill_pat) = fill_pat {
+                todo!();
+            } else {
+                gfx.try_to_image(|i, _, bytes| pal_map.write_color(&PALETTE, i, bytes))
+                    .expect("gfx to image")
+            };
+            let handle = images.add(image);
+            let asset_id = handle.id();
+            strong_handle = Some(handle);
+            asset_id
+        });
 
         let n = self.strong_handles.len();
         if let Some(strong_handle) = strong_handle {
@@ -85,12 +81,7 @@ impl GfxHandles {
         } else {
             self.map.remove(&hash);
             // Will only recurse once.
-            self.get_or_create(
-                pal_map,
-                fill_pat,
-                gfx,
-                gfxs,
-                images)
+            self.get_or_create(pal_map, fill_pat, gfx, gfxs, images)
         }
     }
 

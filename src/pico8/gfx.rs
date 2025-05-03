@@ -21,9 +21,7 @@ pub struct Gfx<const N: usize = 4, T: TypePath + Send + Sync + BitStore = u8> {
     pub height: usize,
 }
 
-
-impl<T: TypePath + Send + Sync + Default + BitView<Store = T> + BitStore + Copy> Gfx<1, T>
-{
+impl<T: TypePath + Send + Sync + Default + BitView<Store = T> + BitStore + Copy> Gfx<1, T> {
     pub fn mirror_horizontal(mut self) -> Self {
         for elem in self.data.chunks_mut(self.width) {
             elem.reverse();
@@ -32,8 +30,10 @@ impl<T: TypePath + Send + Sync + Default + BitView<Store = T> + BitStore + Copy>
     }
 }
 
-impl<const N: usize,
-     T: TypePath + Send + Sync + Default + BitView<Store = T> + BitStore + Copy> Gfx<N, T>
+impl<
+        const N: usize,
+        T: TypePath + Send + Sync + Default + BitView<Store = T> + BitStore + Copy,
+    > Gfx<N, T>
 {
     /// Create an indexed image.
     pub fn new(width: usize, height: usize) -> Self {
@@ -43,7 +43,6 @@ impl<const N: usize,
             height,
         }
     }
-
 
     pub fn from_vec(width: usize, height: usize, vec: Vec<T>) -> Self {
         let gfx = Gfx {
@@ -76,7 +75,10 @@ impl<const N: usize,
     ///
     /// The `write_color` function accepts a color_index and the pixel_index and
     /// writes a Srgba set of u8 pixels.
-    pub fn try_to_image<E>(&self, mut write_color: impl FnMut(T, usize, &mut [u8]) -> Result<(), E>) -> Result<Image, E> {
+    pub fn try_to_image<E>(
+        &self,
+        mut write_color: impl FnMut(T, usize, &mut [u8]) -> Result<(), E>,
+    ) -> Result<Image, E> {
         let mut pixel_bytes = vec![0x00; self.width * self.height * 4];
         let mut color_index = T::default();
         for (i, pixel) in self.data.chunks_exact(N).enumerate() {
@@ -103,8 +105,8 @@ impl<const N: usize,
         self.try_to_image::<Error>(move |color_index, pixel_index, pixel_bytes| {
             write_color(color_index, pixel_index, pixel_bytes);
             Ok(())
-        }).unwrap()
-
+        })
+        .unwrap()
     }
 }
 
@@ -112,10 +114,7 @@ impl<const N: usize,
 mod test {
     use super::*;
 
-    const BIT1_PALETTE: [[u8; 4]; 2] = [
-        [0x00, 0x00, 0x00, 0xff],
-        [0xff, 0xff, 0xff, 0xff],
-    ];
+    const BIT1_PALETTE: [[u8; 4]; 2] = [[0x00, 0x00, 0x00, 0xff], [0xff, 0xff, 0xff, 0xff]];
 
     #[test]
     fn ex0() {
@@ -130,22 +129,19 @@ mod test {
         let mut a = Gfx::<4>::new(8, 8);
         assert_eq!(0, a.get(0, 0));
         a.set(0, 0, 15);
-        let _ = a.to_image(|_, _, _| { });
+        let _ = a.to_image(|_, _, _| {});
     }
 
     #[test]
     fn create_1bit_image() {
-        let a = Gfx::<1>::from_vec(8,8,
-        vec![
-            0b00000001,
-            0b00000010,
-            0b00000100,
-            0b00001000,
-            0b00010000,
-            0b00100000,
-            0b01000000,
-            0b10000000,
-        ]);
+        let a = Gfx::<1>::from_vec(
+            8,
+            8,
+            vec![
+                0b00000001, 0b00000010, 0b00000100, 0b00001000, 0b00010000, 0b00100000, 0b01000000,
+                0b10000000,
+            ],
+        );
         let image = a.to_image(|i, _, pixel_bytes| {
             pixel_bytes.copy_from_slice(&BIT1_PALETTE[i as usize]);
         });
@@ -153,7 +149,5 @@ mod test {
         assert_eq!(color, Srgba::BLACK);
         let color: Srgba = image.get_color_at(0, 7).unwrap().into();
         assert_eq!(color, Srgba::WHITE);
-
-
     }
 }

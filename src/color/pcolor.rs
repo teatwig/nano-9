@@ -1,7 +1,10 @@
 use bevy::prelude::*;
 use std::{any::TypeId, sync::Arc};
 
-use crate::{ValueExt, pico8::{Error, PalMap}};
+use crate::{
+    pico8::{Error, PalMap},
+    ValueExt,
+};
 use bevy_mod_scripting::{
     core::docgen::typed_through::{ThroughTypeInfo, TypedThrough},
     core::{
@@ -10,9 +13,7 @@ use bevy_mod_scripting::{
         },
         error::InteropError,
     },
-    lua::mlua::{
-        self, prelude::LuaError, FromLua, Lua, Value,
-    },
+    lua::mlua::{self, prelude::LuaError, FromLua, Lua, Value},
     GetTypeDependencies,
 };
 
@@ -23,7 +24,6 @@ pub enum PColor {
 }
 
 impl PColor {
-
     /// Map the palette
     pub fn map_pal(&self, f: impl FnOnce(usize) -> usize) -> PColor {
         match self {
@@ -32,11 +32,14 @@ impl PColor {
         }
     }
 
-    pub fn write_color(&self, palette: &[[u8; 4]], pal_map: &PalMap, pixel_bytes: &mut [u8]) -> Result<(), Error> {
+    pub fn write_color(
+        &self,
+        palette: &[[u8; 4]],
+        pal_map: &PalMap,
+        pixel_bytes: &mut [u8],
+    ) -> Result<(), Error> {
         match self {
-            PColor::Palette(i) => {
-                pal_map.write_color(palette, *i as u8, pixel_bytes)
-            }
+            PColor::Palette(i) => pal_map.write_color(palette, *i as u8, pixel_bytes),
             PColor::Color(c) => {
                 let arr = c.to_u8_array();
                 pixel_bytes.copy_from_slice(&arr);

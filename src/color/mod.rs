@@ -1,7 +1,7 @@
-mod pcolor;
-mod n9color;
 mod fill;
+mod n9color;
+mod pcolor;
 
-pub use pcolor::*;
-pub use n9color::*;
 pub use fill::*;
+pub use n9color::*;
+pub use pcolor::*;

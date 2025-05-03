@@ -391,7 +391,7 @@ pub(crate) fn to_byte(a: u8, b: u8) -> Option<u8> {
 }
 
 #[derive(Clone, Serialize, Deserialize, Default)]
-struct CartLoaderSettings { }
+struct CartLoaderSettings {}
 
 #[derive(Default)]
 struct P8CartLoader;

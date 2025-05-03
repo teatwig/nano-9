@@ -26,12 +26,11 @@ use bitvec::prelude::*;
 use crate::{
     cursor::Cursor,
     pico8::{
-        PALETTE,
         audio::{Sfx, SfxChannels},
         rand::Rand8,
-        Cart, ClearEvent, Clearable, Gfx, LoadCart, Map, PalMap, GfxHandles,
+        Cart, ClearEvent, Clearable, Gfx, GfxHandles, LoadCart, Map, PalMap, PALETTE,
     },
-    DrawState, N9Canvas, N9Color, Nano9Camera, PColor, FillColor,
+    DrawState, FillColor, N9Canvas, N9Color, Nano9Camera, PColor,
 };
 
 use std::{
@@ -744,24 +743,30 @@ impl Pico8<'_, '_> {
                             //     })
                             // }
                             fill_pat.to_image(8, 8, |bit, _pixel_index, pixel_bytes| {
-                            let c: Option<PColor> = if bit {
-                                color.and_then(|x| x.on())
-                            } else {
-                                color.map(|x| x.off()).or(Some(self.state.draw_state.pen))
-                            };
-                            if let Some(c) = c {
-                                // c.map(&self.state.pal_map).write_color(&PALETTE, pixel_bytes);
-                                let _ = c.write_color(&PALETTE, &self.state.pal_map, pixel_bytes);
-                            }
-                            Ok::<(), Error>(())
-                        })?
+                                let c: Option<PColor> = if bit {
+                                    color.and_then(|x| x.on())
+                                } else {
+                                    color.map(|x| x.off()).or(Some(self.state.draw_state.pen))
+                                };
+                                if let Some(c) = c {
+                                    // c.map(&self.state.pal_map).write_color(&PALETTE, pixel_bytes);
+                                    let _ =
+                                        c.write_color(&PALETTE, &self.state.pal_map, pixel_bytes);
+                                }
+                                Ok::<(), Error>(())
+                            })?,
                         ),
                         custom_size: Some(size),
-                        image_mode: SpriteImageMode::Tiled { tile_x: true, tile_y: true, stretch_value: 1.0 },
+                        image_mode: SpriteImageMode::Tiled {
+                            tile_x: true,
+                            tile_y: true,
+                            stretch_value: 1.0,
+                        },
                         ..default()
                     }
                 } else {
-                    let c = self.get_color(color.map(|x| x.off().into()).unwrap_or(N9Color::Pen))?;
+                    let c =
+                        self.get_color(color.map(|x| x.off().into()).unwrap_or(N9Color::Pen))?;
                     Sprite {
                         color: c,
                         anchor: Anchor::TopLeft,
@@ -1488,7 +1493,12 @@ impl Pico8<'_, '_> {
     }
 
     pub fn fillp(&mut self, pattern: Option<u16>) -> u16 {
-        let last: u16 = self.state.draw_state.fill_pat.map(|x| x.into()).unwrap_or(0);
+        let last: u16 = self
+            .state
+            .draw_state
+            .fill_pat
+            .map(|x| x.into())
+            .unwrap_or(0);
         if let Some(pattern) = pattern {
             if pattern == 0 {
                 self.state.draw_state.fill_pat = None;

@@ -1,6 +1,6 @@
 use bevy::{
-    prelude::*,
     image::ImageSampler,
+    prelude::*,
     render::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
@@ -15,10 +15,13 @@ pub struct FillPat {
 }
 
 impl FillPat {
-
     /// Get a fill.
     pub fn get(&self, x: usize, y: usize) -> bool {
-        self.data.get((x % 4) + (y % 4) * 4).as_deref().copied().unwrap_or(false)
+        self.data
+            .get((x % 4) + (y % 4) * 4)
+            .as_deref()
+            .copied()
+            .unwrap_or(false)
     }
 
     /// Set fill.
@@ -30,7 +33,12 @@ impl FillPat {
     ///
     /// The `write_color` function accepts a color_index and the pixel_index and
     /// writes a Srgba set of u8 pixels.
-    pub fn to_image<E>(&self, width: usize, height: usize, mut write_color: impl FnMut(bool, usize, &mut [u8]) -> Result<(), E>) -> Result<Image, E> {
+    pub fn to_image<E>(
+        &self,
+        width: usize,
+        height: usize,
+        mut write_color: impl FnMut(bool, usize, &mut [u8]) -> Result<(), E>,
+    ) -> Result<Image, E> {
         let mut pixel_bytes = vec![0x00; width * height * 4];
         let mut i = 0;
         for y in 0..height {

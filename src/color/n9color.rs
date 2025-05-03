@@ -1,14 +1,12 @@
+use super::PColor;
 use bevy::prelude::*;
 use std::{any::TypeId, sync::Arc};
-use super::PColor;
 
 use crate::ValueExt;
 use bevy_mod_scripting::{
     core::docgen::typed_through::{ThroughTypeInfo, TypedThrough},
     core::{
-        bindings::{
-            function::from::FromScript, script_value::ScriptValue, WorldAccessGuard,
-        },
+        bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
         error::InteropError,
     },
     lua::mlua::{

@@ -164,9 +164,7 @@ fn main() -> io::Result<()> {
     });
 
     #[cfg(feature = "minibuffer")]
-    app
-    .add_plugins(MinibufferPlugins)
-    .add_acts((
+    app.add_plugins(MinibufferPlugins).add_acts((
         BasicActs::default(),
         acts::universal::UniversalArgActs::default(),
         acts::tape::TapeActs::default(),
