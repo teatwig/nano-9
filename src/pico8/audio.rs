@@ -459,19 +459,40 @@ impl Sfx {
     pub fn from_u8(data: &[u8]) -> Self {
         let n = data.len();
         let note_end = n - 4;
-        let notes = data[0..note_end]
+        let mut notes: Vec<_> = data[0..note_end]
             .chunks(2)
             .map(|pair| Pico8Note(((pair[1] as u16) << 8) | pair[0] as u16))
             .collect();
-        // let editor = data[note_end + 0];
+        let _editor = data[note_end + 0];
         let speed = data[note_end + 1];
-        let _start = data[note_end + 2];
-        let _end = data[note_end + 3];
+        let start = data[note_end + 2];
+        let end = data[note_end + 3];
+        // eprintln!("start {_start} end {_end}");
 
+        let loop_maybe = if end == 0 {
+            if start > 0 {
+                // Treat start as a length limiter.
+                notes.truncate(start as usize);
+            }
+            None
+        } else if end < start {
+            // Start from a certain note.
+            notes.drain(0..start as usize);
+            None
+        } else if end > start {
+            // Now we have a loop.
+            Some(Loop::Unstoppable {
+                start: Some(start),
+                end: Some(end),
+            })
+        } else {
+            // start == end, no loop
+            None
+        };
         Self {
             notes,
             speed,
-            loop_maybe: None,
+            loop_maybe,
         }
     }
 
