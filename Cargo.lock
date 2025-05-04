@@ -1068,7 +1068,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting"
-version = "0.11.1"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e217946be7886f2fb50cc70955271edae508fb7838cbe31b9301f062ed1be3e3"
 dependencies = [
  "bevy",
  "bevy_mod_scripting_core",
@@ -1079,7 +1081,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting_core"
-version = "0.11.1"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97524ea0e6fd0bb54105e01eb143c1dcb6dad6e6fb897c1f6425ab1c2b99a1bc"
 dependencies = [
  "bevy",
  "bevy_mod_debugdump",
@@ -1099,7 +1103,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting_derive"
-version = "0.11.1"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ff9f59d2acb456af685165c02a8f8ef91da1522af0caa6eab825436f13ccb2b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1108,7 +1114,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting_functions"
-version = "0.11.1"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2faf119d7cbd8bb391e463f0bacd5ab9800af005a964701965bab79ba855cd2c"
 dependencies = [
  "bevy",
  "bevy_mod_scripting_core",
@@ -1122,7 +1130,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_scripting_lua"
-version = "0.11.1"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3bc16bdc621963a7d37e874f8653ec0de97dff01e3fc21c00f495fa8ebb7d036"
 dependencies = [
  "bevy",
  "bevy_mod_scripting_core",
@@ -1399,6 +1409,8 @@ dependencies = [
 [[package]]
 name = "bevy_system_reflection"
 version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "775adbef1c623779f2a5545fa34a10996ab8498e352632d4b8a6e379e7612e00"
 dependencies = [
  "bevy",
  "dot-writer",
@@ -4081,6 +4093,7 @@ dependencies = [
 [[package]]
 name = "pico8_decompress"
 version = "0.1.0"
+source = "git+https://github.com/shanecelis/pico8_decompress.git#b2a7c9e247ca8165fac65297ae82e51666b2c1ce"
 dependencies = [
  "png",
  "thiserror 2.0.12",
@@ -6483,3 +6496,11 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "bevy_mod_scripting"
+version = "0.11.1"
+
+[[patch.unused]]
+name = "pico8_decompress"
+version = "0.1.0"
