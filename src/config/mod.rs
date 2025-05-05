@@ -1,6 +1,6 @@
 #[cfg(feature = "level")]
 use crate::level::{self, tiled::*};
-use crate::{call, level::asset::TiledSet, pico8};
+use crate::{call, level::asset::TiledSet, pico8::{self, image::pixel_art_settings}};
 use bevy::{
     asset::{embedded_asset, io::Reader, AssetLoader, AssetPath, LoadContext},
     image::{ImageLoaderSettings, ImageSampler},
@@ -35,6 +35,7 @@ pub struct Config {
     pub license: Option<String>,
     pub screen: Option<Screen>,
     pub palette: Option<Palette>,
+    // pub nearest_sampling: Option<bool>,
     #[serde(default, rename = "font")]
     pub fonts: Vec<Font>,
     #[serde(default, rename = "sprite_sheet")]
@@ -170,11 +171,6 @@ impl AssetLoader for ConfigLoader {
         }
         dbg!(&layouts);
         let code_path = config.code.unwrap_or_else(|| "main.lua".into());
-
-        let pixel_art_settings = |settings: &mut ImageLoaderSettings| {
-            // Use `nearest` image sampling to preserve the pixel art style.
-            settings.sampler = ImageSampler::nearest();
-        };
 
         let mut sprite_sheets = vec![];
         for (i, sheet) in config.sprite_sheets.into_iter().enumerate() {
@@ -399,10 +395,6 @@ pub fn update_asset(
 //         let asset_server = world.resource::<AssetServer>();
 //         // insert the right Pico8State, right?
 //         // It's available to load.
-//         let pixel_art_settings = |settings: &mut ImageLoaderSettings| {
-//             // Use `nearest` image sampling to preserve the pixel art style.
-//             settings.sampler = ImageSampler::nearest();
-//         };
 //         let state = pico8::Pico8State {
 //                 code: asset_server.load(&code_path),
 //                 palette: pico8::Palette {
@@ -676,6 +668,18 @@ sprite_size = [8, 8]
         assert_eq!(config.sprite_sheets.len(), 1);
         assert_eq!(config.sprite_sheets[0].path, Path::new("sprites.png"));
         assert_eq!(config.sprite_sheets[0].sprite_size, Some(UVec2::splat(8)));
+    }
+
+    #[test]
+    fn test_palete_0() {
+        let config: Config = toml::from_str(
+            r#"
+[palette]
+path = "sprites.png"
+"#,
+        )
+        .unwrap();
+        assert_eq!(config.palette, Some(Palette { path: "sprites.png".into(), row: None }));
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::pico8::{FillPat, Gfx, PalMap, PALETTE};
+use crate::pico8::{FillPat, Gfx, PalMap, Palette};
 
 use std::{
     collections::HashMap,
@@ -43,6 +43,7 @@ impl GfxHandles {
     /// Otherwise it returns an extant weak_handle.
     pub fn get_or_create(
         &mut self,
+        palette: &Palette,
         pal_map: &PalMap,
         fill_pat: Option<&FillPat>,
         gfx: &Handle<Gfx>,
@@ -62,7 +63,7 @@ impl GfxHandles {
             let image = if let Some(fill_pat) = fill_pat {
                 todo!();
             } else {
-                gfx.try_to_image(|i, _, bytes| pal_map.write_color(&PALETTE, i, bytes))
+                gfx.try_to_image(|i, _, bytes| pal_map.write_color(&palette.data, i, bytes))
                     .expect("gfx to image")
             };
             let handle = images.add(image);
@@ -81,7 +82,7 @@ impl GfxHandles {
         } else {
             self.map.remove(&hash);
             // Will only recurse once.
-            self.get_or_create(pal_map, fill_pat, gfx, gfxs, images)
+            self.get_or_create(palette, pal_map, fill_pat, gfx, gfxs, images)
         }
     }
 

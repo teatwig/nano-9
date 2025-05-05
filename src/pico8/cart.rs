@@ -1,11 +1,10 @@
 use crate::{
     error::RunState,
-    pico8::{audio::*, *},
+    pico8::{audio::*, image::pixel_art_settings, *},
     DrawState,
 };
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
-    image::{ImageLoaderSettings, ImageSampler},
 };
 use bevy_mod_scripting::core::asset::ScriptAsset;
 use bitvec::prelude::*;
@@ -105,10 +104,6 @@ fn load_cart(
     for load_cart in reader.read() {
         if let Some(cart) = carts.get(&load_cart.0) {
             // It's available to load.
-            let pixel_art_settings = |settings: &mut ImageLoaderSettings| {
-                // Use `nearest` image sampling to preserve the pixel art style.
-                settings.sampler = ImageSampler::nearest();
-            };
             let sprite_sheets: Vec<_> = cart
                 .gfx
                 .as_ref()

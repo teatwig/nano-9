@@ -22,6 +22,7 @@ pub mod p8scii;
 pub(crate) use fillp::*;
 mod gfx_handles;
 pub(crate) use gfx_handles::*;
+pub(crate) mod image;
 // mod gfx2;
 
 pub(crate) fn plugin(app: &mut App) {

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 #[derive(Debug, Clone, Reflect)]
 pub struct Palette {
-    data: Vec<[u8; 4]>,
+    pub data: Vec<[u8; 4]>,
 }
 
 impl Palette {

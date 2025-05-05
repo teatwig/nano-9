@@ -26,6 +26,7 @@ use bitvec::prelude::*;
 use crate::{
     cursor::Cursor,
     pico8::{
+        image::pixel_art_settings,
         audio::{Sfx, SfxChannels},
         rand::Rand8,
         Cart, ClearEvent, Clearable, Gfx, GfxHandles, LoadCart, Map, PalMap, PALETTE, Palette,
@@ -488,6 +489,7 @@ impl Pico8<'_, '_> {
             image: match &sheet.handle {
                 SprAsset::Image(handle) => handle.clone(),
                 SprAsset::Gfx(handle) => self.gfx_handles.get_or_create(
+                    &self.state.palette,
                     &self.state.pal_map,
                     None,
                     handle,
@@ -537,6 +539,7 @@ impl Pico8<'_, '_> {
         let image = match &sprites.handle {
             SprAsset::Image(handle) => handle.clone(),
             SprAsset::Gfx(handle) => self.gfx_handles.get_or_create(
+                &self.state.palette,
                 &self.state.pal_map,
                 None,
                 handle,
@@ -837,6 +840,7 @@ impl Pico8<'_, '_> {
                 &mut self.commands,
                 |handle| {
                     self.gfx_handles.get_or_create(
+                        &self.state.palette,
                         &self.state.pal_map,
                         None,
                         handle,
@@ -1139,6 +1143,7 @@ impl Pico8<'_, '_> {
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
         );
+        image.sampler = ImageSampler::nearest();
         let c = a - min;
         let d = b - min;
         for (x, y) in
@@ -1198,7 +1203,7 @@ impl Pico8<'_, '_> {
             None,
         );
 
-        let image = Image::new(
+        let mut image = Image::new(
             Extent3d {
                 width: size.x,
                 height: size.y,
@@ -1209,6 +1214,7 @@ impl Pico8<'_, '_> {
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::RENDER_WORLD,
         );
+        image.sampler = ImageSampler::nearest();
         let handle = self.images.add(image);
         let clearable = Clearable::default();
         let offset = 0.5;
@@ -1259,7 +1265,7 @@ impl Pico8<'_, '_> {
             None,
         );
 
-        let image = Image::new(
+        let mut image = Image::new(
             Extent3d {
                 width: size.x,
                 height: size.y,
@@ -1270,6 +1276,7 @@ impl Pico8<'_, '_> {
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
         );
+        image.sampler = ImageSampler::nearest();
 
         let offset = 0.5;
         let handle = self.images.add(image);
@@ -1325,7 +1332,7 @@ impl Pico8<'_, '_> {
             None,
         );
 
-        let image = Image::new(
+        let mut image = Image::new(
             Extent3d {
                 width: size.x,
                 height: size.y,
@@ -1336,6 +1343,7 @@ impl Pico8<'_, '_> {
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::RENDER_WORLD,
         );
+        image.sampler = ImageSampler::nearest();
         let handle = self.images.add(image);
         let clearable = Clearable::default();
         let id = self
@@ -1387,7 +1395,7 @@ impl Pico8<'_, '_> {
             None,
         );
 
-        let image = Image::new(
+        let mut image = Image::new(
             Extent3d {
                 width: size.x,
                 height: size.y,
@@ -1399,6 +1407,7 @@ impl Pico8<'_, '_> {
             RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
         );
 
+        image.sampler = ImageSampler::nearest();
         let handle = self.images.add(image);
         let clearable = Clearable::default();
         let id = self
@@ -1627,11 +1636,6 @@ impl Command for AudioCommand {
 impl FromWorld for Pico8State {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
-
-        let pixel_art_settings = |settings: &mut ImageLoaderSettings| {
-            // Use `nearest` image sampling to preserve the pixel art style.
-            settings.sampler = ImageSampler::nearest();
-        };
 
         Pico8State {
             palette: Palette::from_slice(&PALETTE),
