@@ -16,10 +16,10 @@ pub(crate) fn plugin(app: &mut App) {
     );
 }
 
-/// Keep a weak map of (Gfx, PalMap) -> AssetId<Image>.
+/// A weak map of (Gfx, PalMap) -> AssetId<Image>
 ///
 /// It hands out strong handles and internally persists a strong handle for
-/// three ticks (or frames). This permits the standard drawing scheme of `cls();
+/// three ticks or frames. This permits the standard drawing scheme of `cls();
 /// spr(1)` to not cause asset churn.
 #[derive(Debug, Resource)]
 pub struct GfxHandles {

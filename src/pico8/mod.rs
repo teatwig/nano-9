@@ -10,6 +10,8 @@ pub mod audio;
 mod map;
 pub use map::*;
 pub(crate) mod lua;
+mod pal_map;
+pub(crate) use pal_map::*;
 mod pal;
 pub(crate) use pal::*;
 mod gfx;

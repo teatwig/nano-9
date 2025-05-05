@@ -28,7 +28,7 @@ use crate::{
     pico8::{
         audio::{Sfx, SfxChannels},
         rand::Rand8,
-        Cart, ClearEvent, Clearable, Gfx, GfxHandles, LoadCart, Map, PalMap, PALETTE,
+        Cart, ClearEvent, Clearable, Gfx, GfxHandles, LoadCart, Map, PalMap, PALETTE, Palette,
     },
     DrawState, FillColor, N9Canvas, N9Color, Nano9Camera, PColor,
 };
@@ -64,13 +64,6 @@ pub struct AudioBank(pub Vec<Audio>);
 pub enum Audio {
     Sfx(Handle<Sfx>),
     AudioSource(Handle<AudioSource>),
-}
-
-#[derive(Debug, Clone, Reflect)]
-pub struct Palette {
-    pub handle: Handle<Image>,
-    /// Row count
-    pub row: u32,
 }
 
 /// Pico8State's state.
@@ -589,24 +582,26 @@ impl Pico8<'_, '_> {
         match c.into() {
             N9Color::Pen => match self.state.draw_state.pen {
                 PColor::Palette(n) => {
-                    let pal = self
-                        .images
-                        .get(&self.state.palette.handle)
-                        .ok_or(Error::NoAsset("palette".into()))?;
+                    Ok(self.state.palette.get_color(n).into())
+                    // let pal = self
+                    //     .images
+                    //     .get(&self.state.palette.handle)
+                    //     .ok_or(Error::NoAsset("palette".into()))?;
 
-                    // Strangely. It's not a 1d texture.
-                    Ok(pal.get_color_at(n as u32, self.state.palette.row)?)
+                    // // Strangely. It's not a 1d texture.
+                    // Ok(pal.get_color_at(n as u32, self.state.palette.row)?)
                 }
                 PColor::Color(c) => Ok(c.into()),
             },
             N9Color::Palette(n) => {
-                let pal = self
-                    .images
-                    .get(&self.state.palette.handle)
-                    .ok_or(Error::NoAsset("palette".into()))?;
+                Ok(self.state.palette.get_color(n).into())
+                // let pal = self
+                //     .images
+                //     .get(&self.state.palette.handle)
+                //     .ok_or(Error::NoAsset("palette".into()))?;
 
-                // Strangely. It's not a 1d texture.
-                Ok(pal.get_color_at(n as u32, self.state.palette.row)?)
+                // // Strangely. It's not a 1d texture.
+                // Ok(pal.get_color_at(n as u32, self.state.palette.row)?)
             }
             N9Color::Color(c) => Ok(c.into()),
         }
@@ -1639,10 +1634,10 @@ impl FromWorld for Pico8State {
         };
 
         Pico8State {
-            palette: Palette {
-                handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
-                row: 0,
-            },
+            palette: Palette::from_slice(&PALETTE),
+            //     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
+            //     row: 0,
+            // },
             pal_map: PalMap::default(),
             border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
             code: Handle::<ScriptAsset>::default(),

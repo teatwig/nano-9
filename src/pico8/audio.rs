@@ -1,4 +1,4 @@
-//! Shows how to create a custom [`Decodable`] type by implementing a Sine wave.
+//! Sfx audio
 
 use crate::pico8::cart::{to_byte, to_nybble};
 use bevy::{
@@ -320,7 +320,6 @@ impl Pico8Note {
 //     fn from(value: u8) -> Self {
 //         Pico8Note::new(value, 5.0 / 7.0, WaveForm::Sine, Effect::None)
 //     }
-
 // }
 
 impl TryFrom<&str> for Sfx {
@@ -468,7 +467,6 @@ impl Sfx {
         let start = data[note_end + 2];
         let end = data[note_end + 3];
         // eprintln!("start {_start} end {_end}");
-
         let loop_maybe = if end == 0 {
             if start > 0 {
                 // Treat start as a length limiter.
@@ -746,18 +744,6 @@ fn add_channels(mut commands: Commands) {
         .collect();
     commands.insert_resource(SfxChannels(channels));
 }
-
-// fn main() {
-//     let mut app = App::new();
-//     // register the audio source so that it can be used
-//     app.add_plugins(DefaultPlugins.set(AudioPlugin {
-//         global_volume: GlobalVolume::new(0.2),
-//         ..default()
-//     }))
-//     .add_audio_source::<Sfx>()
-//     .add_systems(Startup, setup)
-//     .run();
-// }
 
 // fn setup(mut assets: ResMut<Assets<Sfx>>, mut commands: Commands) {
 //         // .take(duration)

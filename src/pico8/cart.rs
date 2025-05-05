@@ -127,10 +127,10 @@ fn load_cart(
                 .into_iter()
                 .collect();
             let state = Pico8State {
-                palette: Palette {
-                    handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
-                    row: 0,
-                },
+                palette: Palette::from_slice(&PALETTE),
+                //     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
+                //     row: 0,
+                // },
                 pal_map: PalMap::default(),
                 border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
                 maps: vec![P8Map {
