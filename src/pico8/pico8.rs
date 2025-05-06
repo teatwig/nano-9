@@ -246,6 +246,9 @@ impl From<Error> for LuaError {
 
 #[derive(SystemParam)]
 pub struct Pico8<'w, 's> {
+    // TODO: Turn these image operations into triggers so that the Pico8 system
+    // parameter will not preclude users from accessing images in their rust
+    // systems.
     images: ResMut<'w, Assets<Image>>,
     pub state: ResMut<'w, Pico8State>,
     commands: Commands<'w, 's>,
@@ -525,6 +528,7 @@ impl Pico8<'_, '_> {
         flip: Option<BVec2>,
         turns: Option<f32>,
     ) -> Result<Entity, Error> {
+        let pos = self.apply_camera_delta(pos);
         let x = pos.x;
         let y = pos.y;
         let flip = flip.unwrap_or_default();
@@ -585,7 +589,7 @@ impl Pico8<'_, '_> {
         match c.into() {
             N9Color::Pen => match self.state.draw_state.pen {
                 PColor::Palette(n) => {
-                    Ok(self.state.palette.get_color(n).into())
+                    self.state.palette.get_color(n).map(|c| c.into())
                     // let pal = self
                     //     .images
                     //     .get(&self.state.palette.handle)
@@ -597,7 +601,7 @@ impl Pico8<'_, '_> {
                 PColor::Color(c) => Ok(c.into()),
             },
             N9Color::Palette(n) => {
-                Ok(self.state.palette.get_color(n).into())
+                self.state.palette.get_color(n).map(|c| c.into())
                 // let pal = self
                 //     .images
                 //     .get(&self.state.palette.handle)
@@ -698,12 +702,24 @@ impl Pico8<'_, '_> {
         })
     }
 
+    #[inline]
+    fn apply_camera_delta(&self, a: Vec2) -> Vec2 {
+        self.state.draw_state.camera_position_delta.map(|d| a + d).unwrap_or(a)
+    }
+
+    #[inline]
+    fn apply_camera_delta_ivec2(&self, a: IVec2) -> IVec2 {
+        self.state.draw_state.camera_position_delta.map(|d| a + d.as_ivec2()).unwrap_or(a)
+    }
+
     pub fn rectfill(
         &mut self,
         upper_left: Vec2,
         lower_right: Vec2,
         color: Option<FillColor>,
     ) -> Result<Entity, Error> {
+        let upper_left = self.apply_camera_delta(upper_left);
+        let lower_right = self.apply_camera_delta(lower_right);
         let size = (lower_right - upper_left) + Vec2::ONE;
         let clearable = Clearable::default();
         let id = self
@@ -776,6 +792,7 @@ impl Pico8<'_, '_> {
                 clearable,
             ))
             .id();
+        self.state.draw_state.mark_drawn();
         Ok(id)
     }
 
@@ -785,6 +802,8 @@ impl Pico8<'_, '_> {
         lower_right: Vec2,
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
+        let upper_left = self.apply_camera_delta(upper_left);
+        let lower_right = self.apply_camera_delta(lower_right);
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let size = (lower_right - upper_left) + Vec2::ONE;
         let clearable = Clearable::default();
@@ -809,6 +828,7 @@ impl Pico8<'_, '_> {
                 clearable,
             ))
             .id();
+        self.state.draw_state.mark_drawn();
         Ok(id)
     }
 
@@ -820,6 +840,7 @@ impl Pico8<'_, '_> {
         mask: Option<u8>,
         map_index: Option<usize>,
     ) -> Result<Entity, Error> {
+        screen_start = self.apply_camera_delta(screen_start);
         let map_index = map_index.unwrap_or(0);
         if cfg!(feature = "negate-y") {
             screen_start.y = -screen_start.y;
@@ -880,7 +901,7 @@ impl Pico8<'_, '_> {
         let mut text: &str = text.as_ref();
         // warn!("PRINTING {}", &text);
         // info!("print {:?} start, {:?}", &text, &self.state.draw_state.print_cursor);
-        let pos = pos.unwrap_or_else(|| {
+        let pos = pos.map(|p| self.apply_camera_delta(p)).unwrap_or_else(|| {
             Vec2::new(
                 self.state.draw_state.print_cursor.x,
                 self.state.draw_state.print_cursor.y,
@@ -931,6 +952,7 @@ impl Pico8<'_, '_> {
         }
         // info!("print end, {:?}", &self.state.draw_state.print_cursor);
         // XXX: Need the font width somewhere.
+        self.state.draw_state.mark_drawn();
         Ok(pos.x + len * CHAR_WIDTH)
     }
 
@@ -1120,7 +1142,14 @@ impl Pico8<'_, '_> {
     pub fn camera(&mut self, pos: Option<Vec2>) -> Vec2 {
         if let Some(pos) = pos {
             let last = std::mem::replace(&mut self.state.draw_state.camera_position, pos);
-            self.commands.trigger(UpdateCameraPos(pos));
+            if let Some(ref mut delta) = &mut self.state.draw_state.camera_position_delta {
+                // Do not move the camera. Something has already been drawn.
+                // Accumulate the delta.
+                *delta += last - pos;
+            } else {
+                // We haven't drawn anything yet. Move the actual camera.
+                self.commands.trigger(UpdateCameraPos(pos));
+            }
             last
         } else {
             self.state.draw_state.camera_position
@@ -1128,6 +1157,8 @@ impl Pico8<'_, '_> {
     }
 
     pub fn line(&mut self, a: IVec2, b: IVec2, color: Option<N9Color>) -> Result<Entity, Error> {
+        let a = self.apply_camera_delta_ivec2(a);
+        let b = self.apply_camera_delta_ivec2(b);
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let min = a.min(b);
         let delta = b - a;
@@ -1185,6 +1216,7 @@ impl Pico8<'_, '_> {
         r: impl Into<UVec2>,
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
+        let pos = self.apply_camera_delta_ivec2(pos);
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let r: UVec2 = r.into();
         let size: UVec2 = r * UVec2::splat(2) + UVec2::ONE;
@@ -1236,6 +1268,7 @@ impl Pico8<'_, '_> {
                 clearable,
             ))
             .id();
+        self.state.draw_state.mark_drawn();
         Ok(id)
     }
 
@@ -1245,6 +1278,7 @@ impl Pico8<'_, '_> {
         r: impl Into<UVec2>,
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
+        let pos = self.apply_camera_delta_ivec2(pos);
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let r: UVec2 = r.into();
         let size: UVec2 = r * UVec2::splat(2) + UVec2::ONE;
@@ -1299,6 +1333,7 @@ impl Pico8<'_, '_> {
                 clearable,
             ))
             .id();
+        self.state.draw_state.mark_drawn();
         Ok(id)
     }
 
@@ -1308,6 +1343,8 @@ impl Pico8<'_, '_> {
         lower_right: IVec2,
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
+        let upper_left = self.apply_camera_delta_ivec2(upper_left);
+        let lower_right = self.apply_camera_delta_ivec2(lower_right);
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         // let min = a.min(b);
         let size: UVec2 = ((lower_right - upper_left) + IVec2::ONE)
@@ -1365,6 +1402,7 @@ impl Pico8<'_, '_> {
                 clearable,
             ))
             .id();
+        self.state.draw_state.mark_drawn();
         Ok(id)
     }
 
@@ -1374,6 +1412,8 @@ impl Pico8<'_, '_> {
         lower_right: IVec2,
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
+        let upper_left = self.apply_camera_delta_ivec2(upper_left);
+        let lower_right = self.apply_camera_delta_ivec2(lower_right);
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let size: UVec2 = ((lower_right - upper_left) + IVec2::ONE)
             .try_into()
@@ -1429,6 +1469,7 @@ impl Pico8<'_, '_> {
                 clearable,
             ))
             .id();
+        self.state.draw_state.mark_drawn();
         Ok(id)
     }
 
@@ -1487,7 +1528,7 @@ impl Pico8<'_, '_> {
     pub fn cursor(&mut self, pos: Option<Vec2>, color: Option<PColor>) -> (Vec2, PColor) {
         let last_pos = self.state.draw_state.print_cursor;
         let last_color = self.state.draw_state.pen;
-        if let Some(pos) = pos {
+        if let Some(pos) = pos.map(|p| self.apply_camera_delta(p)) {
             self.state.draw_state.print_cursor = pos;
         }
         if let Some(color) = color {

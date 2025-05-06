@@ -24,7 +24,7 @@ use bevy_mod_scripting::{
     BMSPlugin,
 };
 
-use crate::{config::*, error::RunState, pico8::fill_input, pico8::FillPat, N9Var, PColor};
+use crate::{config::*, error::RunState, pico8::{Pico8State, fill_input}, pico8::FillPat, N9Var, PColor};
 
 #[derive(Component)]
 pub struct Nano9Sprite;
@@ -33,8 +33,18 @@ pub struct Nano9Sprite;
 pub struct DrawState {
     pub pen: PColor,
     pub camera_position: Vec2,
+    pub camera_position_delta: Option<Vec2>,
     pub print_cursor: Vec2,
     pub fill_pat: Option<FillPat>,
+}
+
+impl DrawState {
+    /// Mark ourselves as having drawn something this frame.
+    pub fn mark_drawn(&mut self) {
+        if self.camera_position_delta.is_none() {
+            self.camera_position_delta = Some(Vec2::ZERO);
+        }
+    }
 }
 
 #[derive(Debug, Clone, Resource, Default)]
@@ -49,9 +59,14 @@ impl Default for DrawState {
             pen: PColor::Palette(6),
             camera_position: Vec2::ZERO,
             print_cursor: Vec2::ZERO,
+            camera_position_delta: None,
             fill_pat: None,
         }
     }
+}
+
+fn reset_camera_delta(mut state: ResMut<Pico8State>) {
+    state.draw_state.camera_position_delta = None;
 }
 
 pub fn setup_canvas(mut canvas: Option<ResMut<N9Canvas>>, mut assets: ResMut<Assets<Image>>) {
@@ -392,9 +407,10 @@ impl Plugin for Nano9Plugin {
                 event_handler::<call::Draw, LuaScriptingPlugin>,
             )
                 .chain(),
-        );
+        ).add_systems(Last, reset_camera_delta);
 
-        // bevy_ecs_ldtk will add this plugin, so let's not add that if it's present.
+        // bevy_ecs_ldtk will add this plugin, so let's not add that if it's
+        // present.
         #[cfg(not(feature = "level"))]
         app.add_plugins(bevy_ecs_tilemap::TilemapPlugin);
 
