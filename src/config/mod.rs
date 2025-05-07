@@ -1,6 +1,6 @@
 #[cfg(feature = "level")]
 use crate::level::{self, tiled::*};
-use crate::{call, level::asset::TiledSet, pico8::{self, image::pixel_art_settings}};
+use crate::{call, level::asset::TiledSet, pico8::{self, image::pixel_art_settings, Gfx}};
 use bevy::{
     asset::{embedded_asset, io::Reader, AssetLoader, AssetPath, LoadContext},
     image::{ImageLoaderSettings, ImageSampler},
@@ -112,6 +112,10 @@ pub enum ConfigLoaderError {
     Message(String),
     #[error("Could not load dependency: {0}")]
     Load(#[from] bevy::asset::LoadDirectError),
+    #[error("Could not read asset: {0}")]
+    AssetBytes(#[from] bevy::asset::ReadAssetBytesError),
+    #[error("Decoding error: {0}")]
+    Decoding(#[from] png::DecodingError),
 }
 
 #[derive(Default)]
@@ -227,7 +231,18 @@ impl AssetLoader for ConfigLoader {
                     };
                 let handle = if sheet.indexed {
                     // We're going to read it and return it as a Gfx.
-                    todo!()
+                    //
+                    // The sprites kept disappearing and I don't know why, so
+                    // I'm leaving this messy until I sort it out. The commented
+                    // out one would be preferrable.
+
+                    // let bytes = load_context.read_asset_bytes(&*sheet.path).await?;
+                    // pico8::SprAsset::Gfx(
+                    //     load_context.add_labeled_asset(format!("spritesheet{i}"), Gfx::from_png(&bytes)?))
+                    let mut labeled = load_context.begin_labeled_asset();
+                    let bytes = labeled.read_asset_bytes(&*sheet.path).await?;
+                    let handle = load_context.add_loaded_labeled_asset(format!("spritesheet{i}"), labeled.finish(Gfx::from_png(&bytes)?, None));
+                    pico8::SprAsset::Gfx(handle)
                 } else {
                     pico8::SprAsset::Image(
                         load_context
