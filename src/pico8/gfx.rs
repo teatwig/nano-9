@@ -30,6 +30,64 @@ impl<T: TypePath + Send + Sync + Default + BitView<Store = T> + BitStore + Copy>
     }
 }
 
+
+#[derive(thiserror::Error, Debug)]
+pub enum PngError {
+    #[error("Not an indexed png")]
+    NotIndexed,
+    #[error("Unexpected bit-depth of {expected} but was {actual}")]
+    BitDepth { expected: u8, actual: u8 },
+    #[error("Cannot convert bit-depth for pixel {pixel_index} with value {pixel_value}")]
+    BitDepthConversion { pixel_index: usize, pixel_value: u8 },
+}
+
+impl <const N: usize> Gfx<N, u8> {
+    pub fn from_png(bytes: &[u8]) -> Result<Self, png::DecodingError> {
+        let cursor = std::io::Cursor::new(bytes);
+        let decoder = png::Decoder::new(cursor);
+        let mut reader = decoder.read_info()?;
+        let info = reader.info();
+        let dest_bit_depth = N;
+        if info.color_type == png::ColorType::Indexed {
+            let mut buf = vec![0; reader.output_buffer_size()];
+            let info = reader.next_frame(&mut buf).unwrap();
+            let width = info.width as usize;
+            let height = info.height as usize;
+            let src_bit_depth = info.bit_depth as usize;
+            // eprintln!("buf {:?}", &buf);
+            let mut data = BitVec::from_vec(buf);
+            if src_bit_depth > dest_bit_depth {
+                // Let's try and truncate the index to fit what we're using.
+
+                // i is the pixel index.
+                for i in 0..width * height {
+                    let a = i * src_bit_depth;
+                    let b = a + dest_bit_depth;
+                    let c = i * dest_bit_depth;
+                    // Check the high bits of the pixel before overwriting them.
+                    if data[a + dest_bit_depth..(a + src_bit_depth - dest_bit_depth)].any() {
+                        let mut pixel_value: u8 = 0;
+                        pixel_value.view_bits_mut::<Lsb0>().copy_from_bitslice(&data[a..a + src_bit_depth]);
+                        return Err(png::DecodingError::IoError(std::io::Error::other(PngError::BitDepthConversion { pixel_index: i, pixel_value })));
+                    }
+                    data.copy_within(a..b, c);
+                }
+                data.truncate(width * height * dest_bit_depth);
+            } else if src_bit_depth < dest_bit_depth {
+                // This works similarly to the first, but it will start with the
+                // last pixel to avoid overwriting the source information.
+                todo!("Convert to a bigger bit depth");
+            }
+            Ok(Gfx {
+                data,
+                width,
+                height })
+        } else {
+            Err(png::DecodingError::IoError(std::io::Error::other(PngError::NotIndexed)))
+        }
+    }
+}
+
 impl<
         const N: usize,
         T: TypePath + Send + Sync + Default + BitView<Store = T> + BitStore + Copy,
@@ -53,6 +111,7 @@ impl<
         assert!(width * height * N <= gfx.data.len());
         gfx
     }
+
 
     /// Get a color index.
     pub fn get(&self, x: usize, y: usize) -> T {
@@ -132,13 +191,20 @@ mod test {
         let _ = a.to_image(|_, _, _| {});
     }
 
+    #[rustfmt::skip]
     #[test]
     fn create_1bit_image() {
         let a = Gfx::<1>::from_vec(
             8,
             8,
             vec![
-                0b00000001, 0b00000010, 0b00000100, 0b00001000, 0b00010000, 0b00100000, 0b01000000,
+                0b00000001,
+                0b00000010,
+                0b00000100,
+                0b00001000,
+                0b00010000,
+                0b00100000,
+                0b01000000,
                 0b10000000,
             ],
         );
@@ -146,8 +212,8 @@ mod test {
             pixel_bytes.copy_from_slice(&BIT1_PALETTE[i as usize]);
         });
         let color: Srgba = image.get_color_at(0, 0).unwrap().into();
-        assert_eq!(color, Srgba::BLACK);
-        let color: Srgba = image.get_color_at(0, 7).unwrap().into();
         assert_eq!(color, Srgba::WHITE);
+        let color: Srgba = image.get_color_at(0, 7).unwrap().into();
+        assert_eq!(color, Srgba::BLACK);
     }
 }

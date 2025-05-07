@@ -3596,6 +3596,7 @@ dependencies = [
  "keyseq",
  "ldtk_rust",
  "pico8_decompress",
+ "png",
  "rand",
  "serde",
  "serde_json",

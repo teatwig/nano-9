@@ -16,7 +16,7 @@ mod pal;
 pub(crate) use pal::*;
 mod gfx;
 pub(crate) mod rand;
-pub(crate) use gfx::*;
+pub use gfx::*;
 mod fillp;
 pub mod p8scii;
 pub(crate) use fillp::*;

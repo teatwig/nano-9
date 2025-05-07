@@ -74,6 +74,8 @@ pub struct SpriteSheet {
     pub path: PathBuf,
     pub sprite_size: Option<UVec2>,
     pub sprite_counts: Option<UVec2>,
+    #[serde(default)]
+    pub indexed: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -211,6 +213,8 @@ impl AssetLoader for ConfigLoader {
                     "Can not load {:?} file without 'level' feature.",
                     &sheet.path
                 );
+            } else if sheet.path.extension() == Some(OsStr::new("p8")) {
+                todo!()
             } else {
                 let layout =
                     if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
@@ -221,13 +225,18 @@ impl AssetLoader for ConfigLoader {
                     } else {
                         None
                     };
-                sprite_sheets.push(pico8::SpriteSheet {
-                    handle: pico8::SprAsset::Image(
+                let handle = if sheet.indexed {
+                    // We're going to read it and return it as a Gfx.
+                    todo!()
+                } else {
+                    pico8::SprAsset::Image(
                         load_context
                             .loader()
                             .with_settings(pixel_art_settings)
-                            .load(&*sheet.path),
-                    ),
+                            .load(&*sheet.path))
+                };
+                sprite_sheets.push(pico8::SpriteSheet {
+                    handle,
                     sprite_size: sheet.sprite_size.unwrap_or(UVec2::splat(8)),
                     flags: vec![],
                     layout: layout.unwrap_or(Handle::default()),
