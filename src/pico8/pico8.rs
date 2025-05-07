@@ -483,6 +483,7 @@ impl Pico8<'_, '_> {
         flip: Option<BVec2>,
         sheet_index: Option<usize>,
     ) -> Result<Entity, Error> {
+        let screen_pos = self.apply_camera_delta(screen_pos);
         let x = screen_pos.x;
         let y = screen_pos.y;
         let flip = flip.unwrap_or_default();
