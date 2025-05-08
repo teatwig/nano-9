@@ -129,7 +129,7 @@ pub(crate) fn plugin(app: &mut App) {
                 })
             },
         )
-        // sspr( sx, sy, sw, sh, dx, dy, [dw,] [dh,] [flip_x,] [flip_y], [sheet_index] )
+        // sspr( sx, sy, sw, sh, dx, dy, [dw,] [dh,] [flip_x,] [flip_y,] [sheet_index] )
         .register(
             "sspr",
             |ctx: FunctionCallContext,
@@ -159,7 +159,7 @@ pub(crate) fn plugin(app: &mut App) {
                 Ok(())
             },
         )
-        // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
+        // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y,] [turns])
         .register(
             "spr",
             |ctx: FunctionCallContext,
@@ -242,6 +242,7 @@ pub(crate) fn plugin(app: &mut App) {
         .register(
             "sfx",
             |ctx: FunctionCallContext,
+            // TODO: Need to be able to specify which audio bank.
              n: i8,
              channel: Option<u8>,
              offset: Option<u8>,
@@ -253,13 +254,6 @@ pub(crate) fn plugin(app: &mut App) {
                             -1 => Ok(SfxCommand::Stop),
                             n if n >= 0 => Ok(SfxCommand::Play(n as u8)),
                             x => {
-                                // Maybe we should let Lua errors pass through.
-                                // Err(LuaError::BadArgument {
-                                //     to: Some("sfx".into()),
-                                //     pos: 0,
-                                //     name: Some("n".into()),
-                                //     cause: std::sync::Arc::new(
-                                // })
                                 Err(Error::InvalidArgument(
                                     format!("sfx: expected n to be -2, -1 or >= 0 but was {x}")
                                         .into(),

@@ -433,14 +433,10 @@ pub fn init_when<T: Asset>(
         let asset_just_changed = reader
             .read()
             .inspect(|e| info!("asset event {e:?}"))
-            .any(|e| {
-                matches!(
-                    e, //AssetEvent::LoadedWithDependencies { .. } |
-                    AssetEvent::Added { .. } | AssetEvent::Modified { .. }
-                )
-            });
+            .any(|e| matches!(e, AssetEvent::Added { .. } | AssetEvent::Modified { .. }));
         match **state {
             RunState::Run => {
+                // Return true once if the script asset has changed.
                 let result = *asset_change | asset_just_changed;
                 *asset_change = false;
                 result
@@ -468,6 +464,36 @@ pub fn on_asset_change<T: Asset>() -> impl FnMut(EventReader<AssetEvent<T>>) -> 
                     AssetEvent::Added { .. } | AssetEvent::Modified { .. }
                 )
             })
+    }
+}
+
+/// Puts pico8 in run state when ready and pauses it when it is unloaded.
+pub fn run_pico8_when_ready(mut reader: EventReader<AssetEvent<Pico8State>>, mut next_state: ResMut<NextState<RunState>>) {
+    for e in reader.read() {
+        match e {
+            AssetEvent::LoadedWithDependencies { .. } => {
+                info!("Goto run state");
+                next_state.set(RunState::Run);
+            }
+            AssetEvent::Unused { .. } => {
+                info!("Goto pause state");
+                next_state.set(RunState::Pause);
+            }
+            _ => ()
+        }
+
+    }
+}
+
+pub fn on_asset_loaded<T: Asset>() -> impl FnMut(EventReader<AssetEvent<T>>) -> bool + Clone {
+    // The events need to be consumed, so that there are no false positives on subsequent
+    // calls of the run condition. Simply checking `is_empty` would not be enough.
+    // PERF: note that `count` is efficient (not actually looping/iterating),
+    // due to Bevy having a specialized implementation for events.
+    move |mut reader: EventReader<AssetEvent<T>>| {
+        reader
+            .read()
+            .any(|e| matches!(e, AssetEvent::LoadedWithDependencies { .. }))
     }
 }
 

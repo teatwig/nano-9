@@ -1641,8 +1641,11 @@ impl Command for AudioCommand {
                                         .entity(available_channel)
                                         .insert((AudioPlayer(sfx), PlaybackSettings::REMOVE));
                                 }
-                                Audio::AudioSource(_source) => {
-                                    todo!();
+                                Audio::AudioSource(source) => {
+                                    let mut commands = world.commands();
+                                    commands
+                                        .entity(available_channel)
+                                        .insert((AudioPlayer(source), PlaybackSettings::REMOVE));
                                 }
                             }
                         } else {
@@ -1661,8 +1664,10 @@ impl Command for AudioCommand {
                                     .entity(chan)
                                     .insert((AudioPlayer(sfx.clone()), PlaybackSettings::REMOVE));
                             }
-                            Audio::AudioSource(_source) => {
-                                todo!()
+                            Audio::AudioSource(source) => {
+                                commands
+                                    .entity(chan)
+                                    .insert((AudioPlayer(source), PlaybackSettings::REMOVE));
                             }
                         }
                     }

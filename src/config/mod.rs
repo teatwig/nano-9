@@ -372,10 +372,10 @@ pub fn update_asset(
                 info!("Insert Pico8State {:?}.", state);
                 commands.insert_resource(state.clone());
                 commands.spawn(ScriptComponent(vec!["main.lua".into()]));
-                commands.send_event(
-                    // writer.send(
-                    ScriptCallbackEvent::new_for_all(call::Init, vec![ScriptValue::Unit]), //);
-                );
+                // commands.send_event(
+                //     // writer.send(
+                //     ScriptCallbackEvent::new_for_all(call::Init, vec![ScriptValue::Unit]), //);
+                // );
             } else {
                 error!("Pico8State not available.");
             }

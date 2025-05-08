@@ -1,5 +1,5 @@
 use bevy::{color::palettes::css, core::FrameCount, prelude::*, window::RequestRedraw};
-use bevy_mod_scripting::core::event::ScriptErrorEvent;
+use bevy_mod_scripting::core::{asset::ScriptAsset, event::ScriptErrorEvent};
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_state::<RunState>()
@@ -7,8 +7,10 @@ pub(crate) fn plugin(app: &mut App) {
         .add_systems(Update, add_messages);
 
     if app.is_plugin_added::<WindowPlugin>() {
-        app.add_systems(OnEnter(RunState::Messages), show::<ErrorMessages>)
-            .add_systems(OnExit(RunState::Messages), hide::<ErrorMessages>);
+        app
+            .add_systems(PreUpdate, try_to_run_after_error)
+            .add_systems(OnEnter(RunState::Messages), show::<ErrorMessages>)
+            .add_systems(OnExit(RunState::Messages), (clear_messages, hide::<ErrorMessages>));
     }
 }
 
@@ -128,25 +130,28 @@ pub fn add_messages(
     });
 }
 
-// pub fn clear_messages(
-//     r: EventReader<ScriptErrorEvent>,
-//     query: Query<Entity, With<ErrorMessages>>,
-//     frame_count: Res<FrameCount>,
-//     state: Res<State<RunState>>,
-//     mut next_state: ResMut<NextState<RunState>>,
-//     mut commands: Commands,
-// ) {
-//     if r.is_empty() {
-//         return;
-//     }
-//     // if let RunState::Messages { frame } = **state {
-//     //     if frame == frame_count.0 {
-//     //         // Don't clear messages when some were delivered this frame.
-//     //         return;
-//     //     }
-//     // }
-//     let id = query.single();
-//     commands.entity(id).despawn_descendants();
+/// Clear any error messages.
+pub fn clear_messages(
+    query: Query<Entity, With<ErrorMessages>>,
+    mut commands: Commands,
+) {
+    let id = query.single();
+    commands.entity(id).despawn_descendants();
+}
 
-//     next_state.set(RunState::None);
-// }
+fn try_to_run_after_error(mut reader: EventReader<AssetEvent<ScriptAsset>>,
+                     state: Res<State<RunState>>,
+                     mut next_state: ResMut<NextState<RunState>>) {
+    if *state != RunState::Messages {
+        return;
+    }
+    for e in reader.read() {
+        match e {
+            AssetEvent::Modified { .. } => {
+                info!("Goto run state from error state.");
+                next_state.set(RunState::Run);
+            }
+            _ => ()
+        }
+    }
+}
