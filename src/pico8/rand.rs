@@ -19,13 +19,13 @@ impl Rand8<'_> {
         let (ref mut rng, ref mut _seed) = *self.rand;
         match value {
             ScriptValue::Integer(x) => {
-                ScriptValue::from(x as f64 * (rng.next_u64() as f64) / (u64::MAX as f64))
+                ScriptValue::from(x as f64 * (rng.next_u64().saturating_sub(1) as f64) / (u64::MAX as f64))
                 // ScriptValue::from(rng.next_u64() as i64 % (x + 1)),
             }
             ScriptValue::Float(x) => {
-                ScriptValue::from(x * (rng.next_u64() as f64) / (u64::MAX as f64))
+                ScriptValue::from(x * (rng.next_u64().saturating_sub(1) as f64) / (u64::MAX as f64))
             }
-            ScriptValue::Unit => ScriptValue::from((rng.next_u64() as f64) / (u64::MAX as f64)),
+            ScriptValue::Unit => ScriptValue::from((rng.next_u64().saturating_sub(1) as f64) / (u64::MAX as f64)),
             ScriptValue::List(mut x) => {
                 if x.is_empty() {
                     ScriptValue::Unit
