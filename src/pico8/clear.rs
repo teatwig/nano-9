@@ -3,6 +3,7 @@ use std::{
     fmt,
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
+use crate::pico8::Pico8State;
 
 static DRAW_COUNTER: DrawCounter = DrawCounter::new(1);
 ///
@@ -115,6 +116,7 @@ fn handle_clear_event(
     mut events: EventReader<ClearEvent>,
     mut query: Query<(Entity, &mut Clearable, &mut Transform)>,
     mut commands: Commands,
+    mut state: ResMut<Pico8State>,
 ) {
     if let Some(ceiling) = events.read().map(|e| e.draw_ceiling).max() {
         let (less_than, mut greater_than): (Vec<_>, Vec<_>) = query
@@ -135,6 +137,12 @@ fn handle_clear_event(
             clearable.draw_count = 0;
             transform.translation.z = i as f32 / MAX_EXPECTED_CLEARABLES;
             i += 1;
+        }
+
+        if i == 1 {
+            // If there aren't any more clearables, we can let the camera
+            // move.
+            state.draw_state.camera_position_delta = None;
         }
         DRAW_COUNTER.set(1);
     }

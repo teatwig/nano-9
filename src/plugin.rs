@@ -66,12 +66,12 @@ impl Default for DrawState {
     }
 }
 
-fn reset_camera_delta(mut events: EventReader<ClearEvent>, mut state: ResMut<Pico8State>) {
-    for _ in events.read() {
-        // info!("reset camera delta");
-        state.draw_state.camera_position_delta = None;
-    }
-}
+// fn reset_camera_delta(mut events: EventReader<ClearEvent>, mut state: ResMut<Pico8State>) {
+//     for _ in events.read() {
+//         // info!("reset camera delta");
+//         state.draw_state.camera_position_delta = None;
+//     }
+// }
 
 pub fn setup_canvas(mut canvas: Option<ResMut<N9Canvas>>, mut assets: ResMut<Assets<Image>>) {
     if let Some(ref mut canvas) = canvas {
@@ -411,7 +411,7 @@ impl Plugin for Nano9Plugin {
                 event_handler::<call::Draw, LuaScriptingPlugin>,
             )
                 .chain(),
-        ).add_systems(PostUpdate, reset_camera_delta);
+        );
 
         // bevy_ecs_ldtk will add this plugin, so let's not add that if it's
         // present.
