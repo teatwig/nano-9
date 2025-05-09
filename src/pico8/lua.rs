@@ -181,8 +181,20 @@ pub(crate) fn plugin(app: &mut App) {
 
                 // We get back an entity. Not doing anything with it here yet.
                 let n = Spr::from_script(n, ctx.world()?)?;
-                let _id = with_pico8(&ctx, move |pico8| pico8.spr(n, pos, size, flip, turns))?;
-                Ok(())
+                let id = with_pico8(&ctx, move |pico8| pico8.spr(n, pos, size, flip, turns))?;
+
+                let entity = N9Entity {
+                    entity: id,
+                    drop: DropPolicy::Nothing,
+                };
+                let world = ctx.world()?;
+                let reference = {
+                    let allocator = world.allocator();
+                    let mut allocator = allocator.write();
+                    ReflectReference::new_allocated(entity, &mut allocator)
+                };
+                ReflectReference::into_script_ref(reference, world)
+                // Ok(())
             },
         )
         // map( celx, cely, sx, sy, celw, celh, [layer] )
@@ -369,14 +381,25 @@ pub(crate) fn plugin(app: &mut App) {
              y0: Option<i32>,
              r: Option<u32>,
              c: Option<N9Color>| {
-                let _ = with_pico8(&ctx, move |pico8| {
+                let id = with_pico8(&ctx, move |pico8| {
                     pico8.circfill(
                         IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
                         UVec2::splat(r.unwrap_or(4)),
                         c,
                     )
                 })?;
-                Ok(())
+
+                let entity = N9Entity {
+                    entity: id,
+                    drop: DropPolicy::Nothing,
+                };
+                let world = ctx.world()?;
+                let reference = {
+                    let allocator = world.allocator();
+                    let mut allocator = allocator.write();
+                    ReflectReference::new_allocated(entity, &mut allocator)
+                };
+                ReflectReference::into_script_ref(reference, world)
             },
         )
         .register(

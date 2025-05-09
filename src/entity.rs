@@ -1,8 +1,9 @@
 use bevy::prelude::*;
 
-use crate::pico8::Clearable;
+use crate::pico8::{negate_y, Clearable};
 use bevy_mod_scripting::{
     core::bindings::{
+        ScriptValue,
         function::{from::Val, namespace::NamespaceBuilder, script_function::FunctionCallContext},
         ThreadWorldContainer, WorldContainer,
     },
@@ -56,6 +57,36 @@ pub(crate) fn plugin(app: &mut App) {
                     }
                 })?;
                 Ok(this)
+            },
+        )
+        .register(
+            "pos",
+            |ctx: FunctionCallContext, this: Val<N9Entity>, x: Option<f32>, y: Option<f32>, z: Option<f32>| {
+                let world = ctx.world()?;
+                let pos = world.with_global_access(|world| {
+                    if x.is_some() || y.is_some() || z.is_some() {
+                        world.get_mut::<Transform>(this.entity).map(|mut transform| {
+                            let last = transform.translation;
+                            if let Some(x) = x {
+                                transform.translation.x = x;
+                            }
+                            if let Some(y) = y {
+                                transform.translation.y = negate_y(y);
+                            }
+                            if let Some(z) = z {
+                                transform.translation.z = z;
+                            }
+                            last
+                        })
+                    } else {
+                        world.get::<Transform>(this.entity).map(|transform| transform.translation)
+                    }
+                })?;
+                if let Some(pos) = pos {
+                    Ok(Some(vec![pos.x, negate_y(pos.y), pos.z]))
+                } else {
+                    Ok(None)
+                }
             },
         )
         .register(
