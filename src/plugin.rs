@@ -45,6 +45,16 @@ impl DrawState {
             self.camera_position_delta = Some(Vec2::ZERO);
         }
     }
+
+    #[inline]
+    pub fn apply_camera_delta(&self, a: Vec2) -> Vec2 {
+        self.camera_position_delta.map(|d| a + d).unwrap_or(a)
+    }
+
+    #[inline]
+    pub fn apply_camera_delta_ivec2(&self, a: IVec2) -> IVec2 {
+        self.camera_position_delta.map(|d| a + d.as_ivec2()).unwrap_or(a)
+    }
 }
 
 #[derive(Debug, Clone, Resource, Default)]
@@ -64,6 +74,7 @@ impl Default for DrawState {
             fill_pat: None,
         }
     }
+
 }
 
 // fn reset_camera_delta(mut events: EventReader<ClearEvent>, mut state: ResMut<Pico8State>) {

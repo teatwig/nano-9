@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::pico8::{negate_y, Clearable};
+use crate::pico8::{negate_y, Clearable, Pico8State};
 use bevy_mod_scripting::{
     core::bindings::{
         ScriptValue,
@@ -64,14 +64,17 @@ pub(crate) fn plugin(app: &mut App) {
             |ctx: FunctionCallContext, this: Val<N9Entity>, x: Option<f32>, y: Option<f32>, z: Option<f32>| {
                 let world = ctx.world()?;
                 let pos = world.with_global_access(|world| {
+                    let camera_position_delta = world.get_resource::<Pico8State>()
+                        .and_then(|state| state.draw_state.camera_position_delta);
                     if x.is_some() || y.is_some() || z.is_some() {
                         world.get_mut::<Transform>(this.entity).map(|mut transform| {
                             let last = transform.translation;
                             if let Some(x) = x {
-                                transform.translation.x = x;
+                                transform.translation.x = camera_position_delta.map(|d| x + d.x).unwrap_or(x);
                             }
                             if let Some(y) = y {
-                                transform.translation.y = negate_y(y);
+                                transform.translation.y = negate_y(camera_position_delta.map(|d| y + d.y).unwrap_or(y));
+                                // transform.translation.y = camera_position_delta.map(|d| negate_y(y) + d.y).unwrap_or_else(|| negate_y(y));
                             }
                             if let Some(z) = z {
                                 transform.translation.z = z;
