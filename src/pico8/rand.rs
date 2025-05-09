@@ -18,7 +18,10 @@ impl Rand8<'_> {
         let value = value.unwrap_or(ScriptValue::Unit);
         let (ref mut rng, ref mut _seed) = *self.rand;
         match value {
-            ScriptValue::Integer(x) => ScriptValue::from(rng.next_u64() as i64 % (x + 1)),
+            ScriptValue::Integer(x) => {
+                ScriptValue::from(x as f64 * (rng.next_u64() as f64) / (u64::MAX as f64))
+                // ScriptValue::from(rng.next_u64() as i64 % (x + 1)),
+            }
             ScriptValue::Float(x) => {
                 ScriptValue::from(x * (rng.next_u64() as f64) / (u64::MAX as f64))
             }
