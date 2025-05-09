@@ -24,7 +24,7 @@ use bevy_mod_scripting::{
     BMSPlugin,
 };
 
-use crate::{config::*, error::RunState, pico8::{Pico8State, fill_input}, pico8::FillPat, N9Var, PColor};
+use crate::{config::*, error::RunState, pico8::{Pico8State, fill_input, ClearEvent}, pico8::FillPat, N9Var, PColor};
 
 #[derive(Component)]
 pub struct Nano9Sprite;
@@ -56,6 +56,7 @@ pub struct N9Canvas {
 impl Default for DrawState {
     fn default() -> Self {
         DrawState {
+            // XXX: Pico-8 should be 6 here, but that's not true in general.
             pen: PColor::Palette(6),
             camera_position: Vec2::ZERO,
             print_cursor: Vec2::ZERO,
@@ -65,8 +66,11 @@ impl Default for DrawState {
     }
 }
 
-fn reset_camera_delta(mut state: ResMut<Pico8State>) {
-    state.draw_state.camera_position_delta = None;
+fn reset_camera_delta(mut events: EventReader<ClearEvent>, mut state: ResMut<Pico8State>) {
+    for _ in events.read() {
+        // info!("reset camera delta");
+        state.draw_state.camera_position_delta = None;
+    }
 }
 
 pub fn setup_canvas(mut canvas: Option<ResMut<N9Canvas>>, mut assets: ResMut<Assets<Image>>) {
@@ -407,7 +411,7 @@ impl Plugin for Nano9Plugin {
                 event_handler::<call::Draw, LuaScriptingPlugin>,
             )
                 .chain(),
-        ).add_systems(Last, reset_camera_delta);
+        ).add_systems(PostUpdate, reset_camera_delta);
 
         // bevy_ecs_ldtk will add this plugin, so let's not add that if it's
         // present.
