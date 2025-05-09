@@ -691,7 +691,7 @@ impl Pico8<'_, '_> {
         Ok(match &sheet.handle {
             SprAsset::Gfx(handle) => {
                 let gfx = self.gfxs.get(handle).ok_or(Error::NoSuch("Gfx".into()))?;
-                PColor::Palette(gfx.get(pos.x as usize, pos.y as usize) as usize)
+                PColor::Palette(gfx.get(pos.x as usize, pos.y as usize).ok_or(Error::NoSuch("image position".into()))? as usize)
             }
             SprAsset::Image(handle) => {
                 let image = self
@@ -932,7 +932,7 @@ impl Pico8<'_, '_> {
                     // higher. So we can't let bevy render it one go. Bummer.
                     builder.spawn((
                         Text2d::new(line),
-                        Transform::from_xyz(0.0, negate_y(y), z),
+                        Transform::from_xyz(0.0, negate_y(y), 0.0),
                         TextColor(c),
                         TextFont {
                             font: self.state.font.handle.clone(),
@@ -1148,6 +1148,7 @@ impl Pico8<'_, '_> {
                 // Accumulate the delta.
                 *delta += last - pos;
             } else {
+                // info!("Update actual camera position");
                 // We haven't drawn anything yet. Move the actual camera.
                 self.commands.trigger(UpdateCameraPos(pos));
             }

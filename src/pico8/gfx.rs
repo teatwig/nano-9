@@ -114,20 +114,24 @@ impl<
 
 
     /// Get a color index.
-    pub fn get(&self, x: usize, y: usize) -> T {
+    pub fn get(&self, x: usize, y: usize) -> Option<T> {
         let start = x * N + y * N * self.width;
-        let slice = &self.data[start..start + N];
-        let mut result = T::default();
-        let bits = result.view_bits_mut::<Lsb0>();
-        bits[0..N].copy_from_bitslice(slice);
-        result
+        self.data.get(start..start + N).map(|slice| {
+            let mut result = T::default();
+            let bits = result.view_bits_mut::<Lsb0>();
+            bits[0..N].copy_from_bitslice(slice);
+            result
+        })
     }
 
-    /// Set a color index.
-    pub fn set(&mut self, x: usize, y: usize, color_index: T) {
+    /// Set a color index. Returns true if set.
+    pub fn set(&mut self, x: usize, y: usize, color_index: T) -> bool {
         let bits = color_index.view_bits::<Lsb0>();
         let start = x * N + y * N * self.width;
-        self.data[start..start + N].copy_from_bitslice(&bits[0..N]);
+        self.data.get_mut(start..start + N).map(|slice| {
+            slice.copy_from_bitslice(&bits[0..N]);
+            true
+        }).unwrap_or(false)
     }
 
     /// Create an image.
