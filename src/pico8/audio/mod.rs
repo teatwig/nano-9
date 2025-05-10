@@ -19,6 +19,9 @@ use std::{
     },
 };
 
+mod command;
+pub use command::*;
+
 const SAMPLE_RATE: u32 = 22_050;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -728,8 +731,10 @@ impl Decodable for Sfx {
 }
 
 pub(crate) fn plugin(app: &mut App) {
-    app.register_type::<Sfx>()
+    app
+        .register_type::<Sfx>()
         .register_type::<Loop>()
+        .add_plugins(command::plugin)
         .add_systems(PreStartup, add_channels)
         .add_audio_source::<Sfx>();
 }

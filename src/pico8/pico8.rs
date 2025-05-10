@@ -1,5 +1,6 @@
 use bevy::{
     asset::embedded_asset,
+    audio::PlaybackMode,
     ecs::system::SystemParam,
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
     input::gamepad::GamepadConnectionEvent,
@@ -27,7 +28,7 @@ use crate::{
     cursor::Cursor,
     pico8::{
         image::pixel_art_settings,
-        audio::{Sfx, SfxChannels},
+        audio::{Sfx, SfxChannels, AudioBank, AudioCommand, SfxDest},
         rand::Rand8,
         Cart, ClearEvent, Clearable, Gfx, GfxHandles, LoadCart, Map, PalMap, PALETTE, Palette,
     },
@@ -56,15 +57,6 @@ const ANALOG_STICK_THRESHOLD: f32 = 0.1;
 pub struct N9Font {
     pub handle: Handle<Font>,
     pub height: Option<f32>,
-}
-
-#[derive(Clone, Debug, Deref, DerefMut, Reflect)]
-pub struct AudioBank(pub Vec<Audio>);
-
-#[derive(Debug, Clone, Reflect)]
-pub enum Audio {
-    Sfx(Handle<Sfx>),
-    AudioSource(Handle<AudioSource>),
 }
 
 /// Pico8State's state.
@@ -685,20 +677,20 @@ impl Pico8<'_, '_> {
         Ok(())
     }
 
-    pub fn sget(&mut self, pos: UVec2, sheet_index: Option<usize>) -> Result<PColor, Error> {
+    pub fn sget(&mut self, pos: UVec2, sheet_index: Option<usize>) -> Result<Option<PColor>, Error> {
         let sheet_index = sheet_index.unwrap_or(0);
         let sheet = &self.state.sprite_sheets.inner[sheet_index];
         Ok(match &sheet.handle {
             SprAsset::Gfx(handle) => {
                 let gfx = self.gfxs.get(handle).ok_or(Error::NoSuch("Gfx".into()))?;
-                PColor::Palette(gfx.get(pos.x as usize, pos.y as usize).ok_or(Error::NoSuch("image position".into()))? as usize)
+                gfx.get(pos.x as usize, pos.y as usize).map(|i| PColor::Palette(i as usize))
             }
             SprAsset::Image(handle) => {
                 let image = self
                     .images
                     .get_mut(handle)
                     .ok_or(Error::NoAsset("canvas".into()))?;
-                PColor::Color(image.get_color_at(pos.x, pos.y)?.into())
+                Some(PColor::Color(image.get_color_at(pos.x, pos.y)?.into()))
             }
         })
     }
@@ -973,7 +965,7 @@ impl Pico8<'_, '_> {
         match n {
             SfxCommand::Release => {
                 if let Some(chan) = channel {
-                    let chan = self.sfx_channels[chan as usize];
+                    // let chan = self.sfx_channels[chan as usize];
                     self.commands
                         .queue(AudioCommand::Release(SfxDest::Channel(chan)));
                 } else {
@@ -982,11 +974,11 @@ impl Pico8<'_, '_> {
             }
             SfxCommand::Stop => {
                 if let Some(chan) = channel {
-                    let chan = self.sfx_channels[chan as usize];
+                    // let chan = self.sfx_channels[chan as usize];
                     self.commands
-                        .queue(AudioCommand::Stop(SfxDest::Channel(chan)));
+                        .queue(AudioCommand::Stop(SfxDest::Channel(chan), Some(PlaybackMode::Remove)));
                 } else {
-                    self.commands.queue(AudioCommand::Stop(SfxDest::All));
+                    self.commands.queue(AudioCommand::Stop(SfxDest::All, Some(PlaybackMode::Remove)));
                 }
             }
             SfxCommand::Play(n) => {
@@ -996,11 +988,51 @@ impl Pico8<'_, '_> {
                     .clone();
 
                 if let Some(chan) = channel {
-                    let chan = self.sfx_channels[chan as usize];
+                    // let chan = self.sfx_channels[chan as usize];
                     self.commands
-                        .queue(AudioCommand::Play(sfx, SfxDest::Channel(chan)));
+                        .queue(AudioCommand::Play(sfx, SfxDest::Channel(chan), PlaybackSettings::REMOVE));
                 } else {
-                    self.commands.queue(AudioCommand::Play(sfx, SfxDest::Any));
+                    self.commands.queue(AudioCommand::Play(sfx, SfxDest::Any, PlaybackSettings::REMOVE));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    // music( n, [facems,] [channelmask,] )
+    pub fn music(
+        &mut self,
+        n: impl Into<SfxCommand>,
+        fade_ms: Option<u32>,
+        channel_mask: Option<u8>,
+        bank: Option<u8>,
+    ) -> Result<(), Error> {
+        let n = n.into();
+        let bank = bank.unwrap_or(0);
+        match n {
+            SfxCommand::Release => {
+                panic!("Music does not accept a release command.");
+            }
+            SfxCommand::Stop => {
+                // if let Some(chan) = channel {
+                //     let chan = self.sfx_channels[chan as usize];
+                //     self.commands
+                //         .queue(AudioCommand::Stop(SfxDest::Channel(chan), Some(PlaybackMode::Loop)));
+                // } else {
+                    self.commands.queue(AudioCommand::Stop(SfxDest::All, Some(PlaybackMode::Loop)));
+                // }
+            }
+            SfxCommand::Play(n) => {
+                let sfx = self.state.audio_banks.inner[bank as usize]
+                    .get(n as usize)
+                    .ok_or(Error::NoAsset(format!("music {n}").into()))?
+                    .clone();
+
+                if let Some(mask) = channel_mask {
+                    self.commands
+                        .queue(AudioCommand::Play(sfx, SfxDest::ChannelMask(mask), PlaybackSettings::LOOP));
+                } else {
+                    self.commands.queue(AudioCommand::Play(sfx, SfxDest::Any, PlaybackSettings::LOOP));
                 }
             }
         }
@@ -1565,122 +1597,6 @@ pub enum PalModify {
     Secondary,
 }
 
-enum SfxDest {
-    Any,
-    All,
-    Channel(Entity),
-}
-
-enum AudioCommand {
-    Stop(SfxDest),
-    Play(Audio, SfxDest),
-    Release(SfxDest),
-}
-
-#[derive(Component)]
-struct SfxRelease(Arc<AtomicBool>);
-
-impl Command for AudioCommand {
-    fn apply(self, world: &mut World) {
-        match self {
-            AudioCommand::Stop(sfx_channel) => {
-                match sfx_channel {
-                    SfxDest::All => {
-                        // TODO: Consider using smallvec for channels.
-                        let channels: Vec<Entity> = (*world.resource::<SfxChannels>()).clone();
-                        for chan in channels {
-                            if let Some(ref mut sink) = world.get_mut::<AudioSink>(chan) {
-                                sink.stop();
-                            }
-                        }
-                    }
-                    SfxDest::Channel(chan) => {
-                        if let Some(ref mut sink) = world.get_mut::<AudioSink>(chan) {
-                            sink.stop();
-                        }
-                    }
-                    SfxDest::Any => {
-                        warn!("Cannot stop 'any' channels.");
-                    }
-                }
-            }
-            AudioCommand::Release(sfx_channel) => match sfx_channel {
-                SfxDest::Channel(channel) => {
-                    if let Some(sfx_release) = world.get::<SfxRelease>(channel) {
-                        sfx_release.0.store(true, Ordering::Relaxed);
-                    } else {
-                        warn!("Released a channel that did not have a sfx loop.");
-                    }
-                }
-                SfxDest::Any => {}
-                SfxDest::All => {}
-            },
-            AudioCommand::Play(audio, sfx_channel) => {
-                match sfx_channel {
-                    SfxDest::Any => {
-                        if let Some(available_channel) = world
-                            .resource::<SfxChannels>()
-                            .iter()
-                            .find(|id| {
-                                world
-                                    .get::<AudioSink>(**id)
-                                    .map(|s| s.is_paused() || s.empty())
-                                    .unwrap_or(true)
-                            })
-                            .copied()
-                        {
-                            match audio {
-                                Audio::Sfx(sfx) => {
-                                    let (sfx, release) = Sfx::get_stoppable_handle(sfx, world);
-                                    let mut commands = world.commands();
-                                    if let Some(release) = release {
-                                        commands
-                                            .entity(available_channel)
-                                            .insert(SfxRelease(release));
-                                    }
-                                    commands
-                                        .entity(available_channel)
-                                        .insert((AudioPlayer(sfx), PlaybackSettings::REMOVE));
-                                }
-                                Audio::AudioSource(source) => {
-                                    let mut commands = world.commands();
-                                    commands
-                                        .entity(available_channel)
-                                        .insert((AudioPlayer(source), PlaybackSettings::REMOVE));
-                                }
-                            }
-                        } else {
-                            // The channels may be busy. If we log it, it can be
-                            // noisy in the log despite it not having much of an
-                            // effect to the game, so we're not going to log it.
-
-                            // warn!("Channels busy.");
-                        }
-                    }
-                    SfxDest::Channel(chan) => {
-                        let mut commands = world.commands();
-                        match audio {
-                            Audio::Sfx(sfx) => {
-                                commands
-                                    .entity(chan)
-                                    .insert((AudioPlayer(sfx.clone()), PlaybackSettings::REMOVE));
-                            }
-                            Audio::AudioSource(source) => {
-                                commands
-                                    .entity(chan)
-                                    .insert((AudioPlayer(source), PlaybackSettings::REMOVE));
-                            }
-                        }
-                    }
-                    SfxDest::All => {
-                        warn!("Cannot play on all channels.");
-                    }
-                }
-            }
-        }
-    }
-}
-
 impl FromWorld for Pico8State {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
@@ -1713,8 +1629,6 @@ pub(crate) fn plugin(app: &mut App) {
     app.register_type::<Pico8State>()
         .register_type::<N9Font>()
         .register_type::<Palette>()
-        .register_type::<Audio>()
-        .register_type::<AudioBank>()
         .register_type::<SpriteSheet>()
         .init_asset::<Pico8State>()
         .init_resource::<Pico8State>()

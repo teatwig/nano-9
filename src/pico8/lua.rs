@@ -258,7 +258,8 @@ pub(crate) fn plugin(app: &mut App) {
              n: i8,
              channel: Option<u8>,
              offset: Option<u8>,
-             length: Option<u8>| {
+             length: Option<u8>,
+             bank: Option<u8>| {
                 with_pico8(&ctx, move |pico8| {
                     pico8.sfx(
                         match n {
@@ -275,7 +276,35 @@ pub(crate) fn plugin(app: &mut App) {
                         channel,
                         offset,
                         length,
-                        None,
+                        bank,
+                    )
+                })
+            },
+        )
+        .register(
+            "music",
+            |ctx: FunctionCallContext,
+            // TODO: Need to be able to specify which audio bank.
+             n: i8,
+             fade_ms: Option<u32>,
+             channel_mask: Option<u8>,
+             bank: Option<u8>| {
+                with_pico8(&ctx, move |pico8| {
+                    pico8.music(
+                        match n {
+                            -2 => Ok(SfxCommand::Release),
+                            -1 => Ok(SfxCommand::Stop),
+                            n if n >= 0 => Ok(SfxCommand::Play(n as u8)),
+                            x => {
+                                Err(Error::InvalidArgument(
+                                    format!("sfx: expected n to be -2, -1 or >= 0 but was {x}")
+                                        .into(),
+                                ))
+                            }
+                        }?,
+                        fade_ms,
+                        channel_mask,
+                        bank,
                     )
                 })
             },

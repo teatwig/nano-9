@@ -307,14 +307,14 @@ impl AssetLoader for ConfigLoader {
                         Err(ConfigLoaderError::Message(format!("The map path {:?} did not have an extension.", &map.path)))
                     }
                 }).collect::<Result<Vec<_>, _>>()?.into(),
-                audio_banks: config.audio_banks.into_iter().map(|bank| pico8::AudioBank(match bank {
+                audio_banks: config.audio_banks.into_iter().map(|bank| pico8::audio::AudioBank(match bank {
                     AudioBank::P8 { p8, count } => {
                             (0..count).map(|i|
-                                           pico8::Audio::Sfx(load_context.load(AssetPath::from_path(&p8).into_owned().with_label(format!("sfx{i}"))))
+                                           pico8::audio::Audio::Sfx(load_context.load(AssetPath::from_path(&p8).into_owned().with_label(format!("sfx{i}"))))
                             ).collect::<Vec<_>>()
                     }
                     AudioBank::Paths { paths } => {
-                        paths.into_iter().map(|p| pico8::Audio::AudioSource(load_context.load(p))).collect::<Vec<_>>()
+                        paths.into_iter().map(|p| pico8::audio::Audio::AudioSource(load_context.load(p))).collect::<Vec<_>>()
                     }
                 })).collect::<Vec<_>>().into(),
                 sprite_sheets: sprite_sheets.into(),
@@ -455,16 +455,16 @@ pub fn update_asset(
 //                         Err(ConfigLoaderError::Message(format!("The map path {:?} did not have an extension.", &map.path)))
 //                     }
 //                 }).collect::<Result<Vec<_>, _>>().expect("load map").into(),
-//                 audio_banks: self.audio_banks.into_iter().map(|bank| pico8::AudioBank(match bank {
+//                 audio_banks: self.audio_banks.into_iter().map(|bank| pico8::audio::AudioBank(match bank {
 //                     AudioBank::P8 { p8, count } => {
 //                         let asset_path = AssetPath::from_path(&p8);
 //                             (0..count).map(|i| {
 //                                 let label = format!("sfx{i}");
-//                                 pico8::Audio::Sfx(asset_server.load(&asset_path.clone().with_label(&label)))
+//                                 pico8::audio::Audio::Sfx(asset_server.load(&asset_path.clone().with_label(&label)))
 //                             }).collect::<Vec<_>>()
 //                     }
 //                     AudioBank::Paths { paths } => {
-//                         paths.into_iter().map(|p| pico8::Audio::AudioSource(asset_server.load(p))).collect::<Vec<_>>()
+//                         paths.into_iter().map(|p| pico8::audio::Audio::AudioSource(asset_server.load(p))).collect::<Vec<_>>()
 //                     }
 //                 })).collect::<Vec<_>>().into(),
 

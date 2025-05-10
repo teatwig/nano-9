@@ -182,15 +182,15 @@ mod test {
     #[test]
     fn ex0() {
         let mut a = Gfx::<4>::new(8, 8);
-        assert_eq!(0, a.get(0, 0));
+        assert_eq!(0, a.get(0, 0).unwrap());
         a.set(0, 0, 15);
-        assert_eq!(15, a.get(0, 0));
+        assert_eq!(15, a.get(0, 0).unwrap());
     }
 
     #[test]
     fn create_image() {
         let mut a = Gfx::<4>::new(8, 8);
-        assert_eq!(0, a.get(0, 0));
+        assert_eq!(0, a.get(0, 0).unwrap());
         a.set(0, 0, 15);
         let _ = a.to_image(|_, _, _| {});
     }

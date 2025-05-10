@@ -223,11 +223,6 @@ function poke(addr, value)
     debug_print("POKE NOT IMPLEMENTED", addr, value)
 end
 
--- empty commands
-function music(n, fadems, channelmask)
-    debug_print("MUSIC NOT IMPLEMENTED", nfadems, channelmask)
-end
-
 function menuitem(index, label, callback)
     debug_print("MENUITEM NOT IMPLEMENTED", nfadems, channelmask)
 end
