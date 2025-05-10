@@ -97,18 +97,16 @@ impl Command for AudioCommand {
                                 }
                             }
                             if let Some(ref mut sink) = world.get_mut::<AudioSink>(chan) {
-                                info!("pausing {mode:?}");
-                                sink.pause();
+                                sink.stop();
                             }
-                            // let mut commands = world.commands();
-                            // commands.entity(chan).remove::<AudioPlayer>();
+                            let mut commands = world.commands();
 
-                            // commands.entity(chan).remove::<(
-                            //     AudioPlayer<T>,
-                            //     AudioSink,
-                            //     PlaybackSettings,
-                            //     PlaybackRemoveMarker,
-                            // )>();
+                            commands.entity(chan).remove::<(
+                                // AudioPlayer<T>,
+                                AudioSink,
+                                PlaybackSettings,
+                                // PlaybackRemoveMarker,
+                            )>();
                         }
                     }
                     SfxDest::Channel(chan) => {
@@ -129,7 +127,12 @@ impl Command for AudioCommand {
                                     sink.stop();
                                 }
                                 let mut commands = world.commands();
-                                commands.entity(id).remove::<AudioPlayer>();
+                                commands.entity(chan).remove::<(
+                                    // AudioPlayer<T>,
+                                    AudioSink,
+                                    PlaybackSettings,
+                                    // PlaybackRemoveMarker,
+                                )>();
                             } else {
                                 warn!("Could not find audio channel {i}");
                             }
