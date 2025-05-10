@@ -947,6 +947,16 @@ impl Pico8<'_, '_> {
         Ok(pos.x + len * CHAR_WIDTH)
     }
 
+    pub fn exit(&mut self, error: Option<u8>) {
+        self.commands.send_event(match error {
+            Some(n) => {
+                std::num::NonZero::new(n)
+                    .map(AppExit::Error).unwrap_or(AppExit::Success)
+            },
+            None => AppExit::Success,
+        });
+    }
+
     // sfx( n, [channel,] [offset,] [length] )
     pub fn sfx(
         &mut self,

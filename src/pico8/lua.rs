@@ -316,6 +316,16 @@ pub(crate) fn plugin(app: &mut App) {
             },
         )
         .register(
+            "exit",
+            |ctx: FunctionCallContext,
+             error: Option<u8>| {
+                with_pico8(&ctx, move |pico8| {
+                    pico8.exit(error);
+                    Ok(())
+                })
+            },
+        )
+        .register(
             "mset",
             |ctx: FunctionCallContext,
              x: f32,
