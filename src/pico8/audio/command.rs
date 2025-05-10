@@ -127,7 +127,7 @@ impl Command for AudioCommand {
                                     sink.stop();
                                 }
                                 let mut commands = world.commands();
-                                commands.entity(chan).remove::<(
+                                commands.entity(id).remove::<(
                                     // AudioPlayer<T>,
                                     AudioSink,
                                     PlaybackSettings,
