@@ -55,6 +55,10 @@ impl DrawState {
     pub fn apply_camera_delta_ivec2(&self, a: IVec2) -> IVec2 {
         self.camera_position_delta.map(|d| a + d.as_ivec2()).unwrap_or(a)
     }
+
+    pub fn clear_screen(&mut self) {
+        self.print_cursor = Vec2::ZERO;
+    }
 }
 
 #[derive(Debug, Clone, Resource, Default)]

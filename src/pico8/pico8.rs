@@ -30,6 +30,7 @@ use crate::{
     pico8::{
         image::pixel_art_settings,
         keyboard::KeyInput,
+        mouse::MouseInput,
         audio::{Sfx, SfxChannels, AudioBank, AudioCommand, SfxDest},
         rand::Rand8,
         Cart, ClearEvent, Clearable, Gfx, GfxHandles, LoadCart, Map, PalMap, PALETTE, Palette,
@@ -263,6 +264,7 @@ pub struct Pico8<'w, 's> {
     gfx_handles: ResMut<'w, GfxHandles>,
     rand8: Rand8<'w>,
     key_input: ResMut<'w, KeyInput>,
+    mouse_input: ResMut<'w, MouseInput>,
 }
 
 pub(crate) fn fill_input(
@@ -620,6 +622,7 @@ impl Pico8<'_, '_> {
     // cls([n])
     pub fn cls(&mut self, color: Option<N9Color>) -> Result<(), Error> {
         let c = self.get_color(color.unwrap_or(Color::BLACK.into()))?;
+        self.state.draw_state.clear_screen();
         let image = self
             .images
             .get_mut(&self.canvas.handle)
@@ -1617,6 +1620,9 @@ impl Pico8<'_, '_> {
         match n {
             30 => Ok(ScriptValue::Bool(!self.key_input.buffer.is_empty())),
             31 => self.key_input.pop().map(|string_maybe| string_maybe.map(ScriptValue::String).unwrap_or(ScriptValue::Unit)),
+            32 => Ok(ScriptValue::Float(self.mouse_input.position.x as f64)),
+            33 => Ok(ScriptValue::Float(negate_y(self.mouse_input.position.y) as f64)),
+            34 => Ok(ScriptValue::Integer(self.mouse_input.buttons as i64)),
             _ => Err(Error::UnsupportedStat(n))?,
         }
     }
