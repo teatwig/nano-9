@@ -23,6 +23,7 @@ pub(crate) use fillp::*;
 mod gfx_handles;
 pub(crate) use gfx_handles::*;
 pub(crate) mod image;
+pub(crate) mod keyboard;
 // mod gfx2;
 
 pub(crate) fn plugin(app: &mut App) {
@@ -33,5 +34,6 @@ pub(crate) fn plugin(app: &mut App) {
         .add_plugins(rand::plugin)
         .add_plugins(gfx::plugin)
         .add_plugins(gfx_handles::plugin)
+        .add_plugins(keyboard::plugin)
         .add_plugins(cart::plugin);
 }

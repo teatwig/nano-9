@@ -347,6 +347,7 @@ impl AssetLoader for ConfigLoader {
                                                          }
                                                          Font::Default { .. } => { panic!("Must use a path if not default font.") }
                                                      }).collect::<Vec<_>>().into(),
+
             };
         Ok(state)
         //     world.insert_resource(state);

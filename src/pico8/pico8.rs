@@ -3,7 +3,8 @@ use bevy::{
     audio::PlaybackMode,
     ecs::system::SystemParam,
     image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
-    input::gamepad::GamepadConnectionEvent,
+    input::{keyboard::Key,
+            gamepad::GamepadConnectionEvent},
     prelude::*,
     render::{
         render_asset::RenderAssetUsages,
@@ -28,6 +29,7 @@ use crate::{
     cursor::Cursor,
     pico8::{
         image::pixel_art_settings,
+        keyboard::KeyInput,
         audio::{Sfx, SfxChannels, AudioBank, AudioCommand, SfxDest},
         rand::Rand8,
         Cart, ClearEvent, Clearable, Gfx, GfxHandles, LoadCart, Map, PalMap, PALETTE, Palette,
@@ -36,6 +38,7 @@ use crate::{
 };
 
 use std::{
+    collections::VecDeque,
     any::TypeId,
     borrow::Cow,
     f32::consts::PI,
@@ -212,9 +215,9 @@ impl Default for PlayerInputs {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("No such {0:?}")]
+    #[error("no such {0:?}")]
     NoSuch(Cow<'static, str>),
-    #[error("No asset {0:?} loaded")]
+    #[error("no asset {0:?} loaded")]
     NoAsset(Cow<'static, str>),
     #[error("texture access error: {0}")]
     TextureAccess(#[from] TextureAccessError),
@@ -228,6 +231,12 @@ pub enum Error {
     NoChannel(u8),
     #[error("all sfx channels are busy")]
     ChannelsBusy,
+    #[error("unsupported poke at address {0}")]
+    UnsupportedPoke(usize),
+    #[error("unsupported peek at address {0}")]
+    UnsupportedPeek(usize),
+    #[error("unsupported stat at address {0}")]
+    UnsupportedStat(u8),
 }
 
 impl From<Error> for LuaError {
@@ -253,6 +262,7 @@ pub struct Pico8<'w, 's> {
     gfxs: ResMut<'w, Assets<Gfx>>,
     gfx_handles: ResMut<'w, GfxHandles>,
     rand8: Rand8<'w>,
+    key_input: ResMut<'w, KeyInput>,
 }
 
 pub(crate) fn fill_input(
@@ -1586,6 +1596,29 @@ impl Pico8<'_, '_> {
             }
         }
         last
+    }
+
+    pub fn poke(&mut self, addr: usize, value: u8) -> Result<(), Error> {
+        match addr {
+            0x5f2d => { self.key_input.enabled = value != 0; },
+            _ => Err(Error::UnsupportedPoke(addr))?,
+        }
+        Ok(())
+    }
+
+    pub fn peek(&mut self, addr: usize) -> Result<u8, Error> {
+        match addr {
+            // 0x5f2d => self.state.peek_keycodes = if value == 0 { false } else { true },
+            _ => Err(Error::UnsupportedPeek(addr)),
+        }
+    }
+
+    pub fn stat(&mut self, n: u8, value: Option<u8>) -> Result<ScriptValue, Error> {
+        match n {
+            30 => Ok(ScriptValue::Bool(!self.key_input.buffer.is_empty())),
+            31 => self.key_input.pop().map(|string_maybe| string_maybe.map(ScriptValue::String).unwrap_or(ScriptValue::Unit)),
+            _ => Err(Error::UnsupportedStat(n))?,
+        }
     }
 }
 

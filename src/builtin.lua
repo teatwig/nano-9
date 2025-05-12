@@ -214,15 +214,6 @@ function ord(str, index, count)
     end
 end
 
-function stat(val)
-    debug_print("STAT NOT IMPLEMENTED", val)
-    return nil
-end
-
-function poke(addr, value)
-    debug_print("POKE NOT IMPLEMENTED", addr, value)
-end
-
 function menuitem(index, label, callback)
     debug_print("MENUITEM NOT IMPLEMENTED", nfadems, channelmask)
 end

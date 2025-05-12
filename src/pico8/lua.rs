@@ -547,7 +547,32 @@ pub(crate) fn plugin(app: &mut App) {
                     last_color.into_script(ctx.world()?)?,
                 ]))
             },
-        );
+        )
+        .register(
+            "peek",
+            |ctx: FunctionCallContext, addr: usize| {
+                with_pico8(&ctx, move |pico8| {
+                    pico8.peek(addr)
+                })
+            },
+        )
+        .register(
+            "poke",
+            |ctx: FunctionCallContext, addr: usize, value: u8| {
+                with_pico8(&ctx, move |pico8| {
+                    pico8.poke(addr, value)
+                })
+            },
+        )
+        .register(
+            "stat",
+            |ctx: FunctionCallContext, n: u8, value: Option<u8>| {
+                with_pico8(&ctx, move |pico8| {
+                    pico8.stat(n, value)
+                })
+            },
+        )
+        ;
 
     #[cfg(feature = "level")]
     NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
