@@ -35,7 +35,7 @@
 ## Tables
 - [x] add(t, v, [i])
 - [x] all(t)
-- [-] count(t, [v])
+- [/] count(t, [v])
 - [x] del(t, v)
 - [x] deli(t, i)
 - [x] foreach(t, f)
@@ -62,10 +62,11 @@
 - [ ] cstore(destaddr, sourceaddr, len, [filename])
 - [ ] memcpy(dest_addr, source_addr, len)
 - [ ] memset(dest_addr, val, len)
-- [ ] peek(addr, [n])
+- [/] peek(addr, [n])
+
 - [ ] peek2(addr, [n])
 - [ ] peek4(addr, [n])
-- [ ] poke(addr, [value,] [...])
+- [/] poke(addr, [value,] [...])
 - [ ] poke2(addr, [...])
 - [ ] poke4(addr, [...])
 - [ ] reload(destaddr, sourceaddr, len, [filename])
@@ -136,8 +137,9 @@
 
 ## Debugging
 - [ ] assert(cond, [message])
-- [-] printh(str, [filename], [overwrite])
-- [ ] stat(n)
+- [/] printh(str, [filename], [overwrite])
+- [/] stat(n)
+Supports keyboard and some mouse functions.
 - [ ] stop() (undocumented)
 - [ ] trace() (undocumented)
 
