@@ -1,10 +1,10 @@
 use bevy::{asset::StrongHandle, prelude::*};
 
-use crate::pico8::{FillPat, Gfx, PalMap, Palette};
+use crate::pico8::{FillPat, Gfx, PalMap, Palette, Error};
 
 use std::{
     sync::Arc,
-    collections::HashMap,
+    collections::{HashMap, hash_map::Entry},
     hash::{DefaultHasher, Hash, Hasher},
 };
 
@@ -50,7 +50,7 @@ impl GfxHandles {
         gfx: &Handle<Gfx>,
         gfxs: &Assets<Gfx>,
         images: &mut Assets<Image>,
-    ) -> Handle<Image> {
+    ) -> Result<Handle<Image>, Error> {
         let mut hasher = DefaultHasher::new();
         pal_map.hash(&mut hasher);
         if let Some(fill_pat) = fill_pat {
@@ -60,19 +60,23 @@ impl GfxHandles {
         let hash = hasher.finish();
         let other_handle: Option<Handle<Image>> = if self.tick % 2 == 1 { self.a.get(&hash) } else { self.b.get(&hash) }.cloned();
         let map = if self.tick % 2 == 0 { &mut self.a } else { &mut self.b };
-        let handle: &Handle<Image> = map.entry(hash).or_insert_with(|| {
-            other_handle.unwrap_or_else(|| {
-            let gfx = gfxs.get(gfx).expect("gfx"); //.ok_or(Error::NoSuch("gfx asset".into()))?;
-            let image = if let Some(fill_pat) = fill_pat {
-                todo!();
-            } else {
-                gfx.try_to_image(|i, _, bytes| pal_map.write_color(&palette.data, i, bytes))
-                    .expect("gfx to image")
-            };
-            images.add(image)
-            })
-        });
-        handle.clone()
+        let handle: Handle<Image> = match map.entry(hash) {
+            Entry::Occupied(entry) => entry.get().clone(),
+            Entry::Vacant(entry) => {
+                if let Some(handle) = other_handle {
+                    entry.insert(handle).clone()
+                } else {
+                    let gfx = gfxs.get(gfx).ok_or(Error::NoSuch("gfx asset".into()))?;
+                    let image = if let Some(fill_pat) = fill_pat {
+                        todo!();
+                    } else {
+                        gfx.try_to_image(|i, _, bytes| pal_map.write_color(&palette.data, i, bytes))?
+                    };
+                    entry.insert(images.add(image)).clone()
+                }
+            }
+        };
+        Ok(handle)
     }
 
     pub fn tick(&mut self) {

@@ -503,7 +503,7 @@ impl Pico8<'_, '_> {
                     handle,
                     &self.gfxs,
                     &mut self.images,
-                ),
+                )?,
             },
             anchor: Anchor::TopLeft,
             rect: Some(sprite_rect),
@@ -554,7 +554,7 @@ impl Pico8<'_, '_> {
                 handle,
                 &self.gfxs,
                 &mut self.images,
-            ),
+            )?,
         };
         assert!(image.is_strong());
         let mut sprite = {

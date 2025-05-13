@@ -1,4 +1,4 @@
-use crate::pico8::{self, Clearable, Gfx, SprAsset};
+use crate::pico8::{self, Clearable, Gfx, SprAsset, Error};
 use bevy::prelude::*;
 
 #[cfg(feature = "level")]
@@ -34,7 +34,7 @@ impl P8Map {
         mask: Option<u8>,
         sprite_sheets: &[pico8::SpriteSheet],
         commands: &mut Commands,
-        mut gfx_to_image: impl FnMut(&Handle<Gfx>) -> Handle<Image>,
+        mut gfx_to_image: impl FnMut(&Handle<Gfx>) -> Result<Handle<Image>, Error>,
     ) -> Result<Entity, pico8::Error> {
         let map_size = TilemapSize::from(size);
         // Create a tilemap entity a little early.
@@ -113,7 +113,7 @@ impl P8Map {
                 storage: tile_storage,
                 texture: TilemapTexture::Single(match &sprites.handle {
                     SprAsset::Image(handle) => handle.clone(),
-                    SprAsset::Gfx(ref handle) => gfx_to_image(handle),
+                    SprAsset::Gfx(ref handle) => gfx_to_image(handle)?,
                     // self.gfx_handles.get_or_create(&self.state.pal, handle, &self.gfxs, &mut self.images)
                 }),
                 tile_size,
