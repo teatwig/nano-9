@@ -17,24 +17,24 @@ pub(crate) fn plugin(app: &mut App) {
     );
 }
 
-/// A weak map of (Gfx, PalMap) -> AssetId<Image>
+/// A double-buffered map of (Gfx, PalMap) -> AssetId<Image>
 ///
 /// It hands out strong handles and internally persists a strong handle for
 /// three ticks or frames. This permits the standard drawing scheme of `cls();
 /// spr(1)` to not cause asset churn.
 #[derive(Debug, Resource)]
 pub struct GfxHandles {
-    map: HashMap<u64, AssetId<Image>>,
+    a: HashMap<u64, Handle<Image>>,
+    b: HashMap<u64, Handle<Image>>,
     tick: usize,
-    strong_handles: Vec<Vec<Arc<StrongHandle>>>,
 }
 
 impl Default for GfxHandles {
     fn default() -> Self {
         GfxHandles {
-            map: HashMap::<u64, AssetId<Image>>::default(),
+            a: HashMap::<u64, Handle<Image>>::default(),
+            b: HashMap::<u64, Handle<Image>>::default(),
             tick: 0,
-            strong_handles: vec![vec![], vec![], vec![]],
         }
     }
 }
@@ -58,8 +58,10 @@ impl GfxHandles {
         }
         gfx.hash(&mut hasher);
         let hash = hasher.finish();
-        let mut strong_handle = None;
-        let handle = *self.map.entry(hash).or_insert_with(|| {
+        let other_handle: Option<Handle<Image>> = if self.tick % 2 == 1 { self.a.get(&hash) } else { self.b.get(&hash) }.cloned();
+        let map = if self.tick % 2 == 0 { &mut self.a } else { &mut self.b };
+        let handle: &Handle<Image> = map.entry(hash).or_insert_with(|| {
+            other_handle.unwrap_or_else(|| {
             let gfx = gfxs.get(gfx).expect("gfx"); //.ok_or(Error::NoSuch("gfx asset".into()))?;
             let image = if let Some(fill_pat) = fill_pat {
                 todo!();
@@ -67,45 +69,18 @@ impl GfxHandles {
                 gfx.try_to_image(|i, _, bytes| pal_map.write_color(&palette.data, i, bytes))
                     .expect("gfx to image")
             };
-            let handle = images.add(image);
-            let asset_id = handle.id();
-            strong_handle = Some(handle);
-            asset_id
+            images.add(image)
+            })
         });
-
-        if let Some(strong_handle) = strong_handle {
-            assert!(strong_handle.is_strong());
-            self.push(strong_handle.clone().untyped());
-            strong_handle
-        } else if let Some(strong_handle) = images.get_strong_handle(handle) {
-            assert!(strong_handle.is_strong());
-            self.push(strong_handle.clone().untyped());
-            strong_handle
-        } else {
-            self.map.remove(&hash);
-            // Will only recurse once.
-            self.get_or_create(palette, pal_map, fill_pat, gfx, gfxs, images)
-        }
-    }
-
-    fn push(&mut self, handle: UntypedHandle) {
-        let n = self.strong_handles.len();
-        match handle {
-            UntypedHandle::Strong(h) => {
-                self.strong_handles[self.tick % n].push(h);
-            }
-            UntypedHandle::Weak(asset_id) => {
-                warn!("Cannot persist weak handle {asset_id:?}");
-            }
-        }
+        handle.clone()
     }
 
     pub fn tick(&mut self) {
         self.tick += 1;
-        let n = self.strong_handles.len();
-        // for handle in self.strong_handles[self.tick % n].drain(..) {
-        //     drop(handle);
-        // }
-        self.strong_handles[self.tick % n].clear();
+        if self.tick % 2 == 0 {
+            self.a.clear();
+        } else {
+            self.b.clear();
+        }
     }
 }
