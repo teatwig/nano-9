@@ -1,8 +1,9 @@
-use bevy::prelude::*;
+use bevy::{asset::StrongHandle, prelude::*};
 
 use crate::pico8::{FillPat, Gfx, PalMap, Palette};
 
 use std::{
+    sync::Arc,
     collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
 };
@@ -25,7 +26,7 @@ pub(crate) fn plugin(app: &mut App) {
 pub struct GfxHandles {
     map: HashMap<u64, AssetId<Image>>,
     tick: usize,
-    strong_handles: Vec<Vec<Handle<Image>>>,
+    strong_handles: Vec<Vec<Arc<StrongHandle>>>,
 }
 
 impl Default for GfxHandles {
@@ -72,12 +73,13 @@ impl GfxHandles {
             asset_id
         });
 
-        let n = self.strong_handles.len();
         if let Some(strong_handle) = strong_handle {
-            self.strong_handles[self.tick % n].push(strong_handle.clone());
+            assert!(strong_handle.is_strong());
+            self.push(strong_handle.clone().untyped());
             strong_handle
         } else if let Some(strong_handle) = images.get_strong_handle(handle) {
-            self.strong_handles[self.tick % n].push(strong_handle.clone());
+            assert!(strong_handle.is_strong());
+            self.push(strong_handle.clone().untyped());
             strong_handle
         } else {
             self.map.remove(&hash);
@@ -86,11 +88,24 @@ impl GfxHandles {
         }
     }
 
+    fn push(&mut self, handle: UntypedHandle) {
+        let n = self.strong_handles.len();
+        match handle {
+            UntypedHandle::Strong(h) => {
+                self.strong_handles[self.tick % n].push(h);
+            }
+            UntypedHandle::Weak(asset_id) => {
+                warn!("Cannot persist weak handle {asset_id:?}");
+            }
+        }
+    }
+
     pub fn tick(&mut self) {
         self.tick += 1;
         let n = self.strong_handles.len();
-        for handle in self.strong_handles[self.tick % n].drain(..) {
-            drop(handle);
-        }
+        // for handle in self.strong_handles[self.tick % n].drain(..) {
+        //     drop(handle);
+        // }
+        self.strong_handles[self.tick % n].clear();
     }
 }

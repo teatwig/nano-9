@@ -556,6 +556,7 @@ impl Pico8<'_, '_> {
                 &mut self.images,
             ),
         };
+        assert!(image.is_strong());
         let mut sprite = {
             let atlas = TextureAtlas {
                 layout: sprites.layout.clone(),
