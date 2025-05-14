@@ -498,15 +498,20 @@ pub(crate) fn plugin(app: &mut App) {
             "pal",
             |ctx: FunctionCallContext, old: Option<usize>, new: Option<usize>, mode: Option<u8>| {
                 with_pico8(&ctx, move |pico8| {
-                    pico8.pal_map(
-                        old.zip(new),
-                        mode.map(|i| match i {
-                            0 => PalModify::Following,
-                            1 => PalModify::Present,
-                            2 => PalModify::Secondary,
-                            x => panic!("No such palette modify mode {x}"),
-                        }),
-                    );
+                    if old.is_some() && new.is_none() && mode.is_none() {
+                        // Set the palette.
+                        pico8.state.palettes.pos = old.unwrap();
+                    } else {
+                        pico8.pal_map(
+                            old.zip(new),
+                            mode.map(|i| match i {
+                                0 => PalModify::Following,
+                                1 => PalModify::Present,
+                                2 => PalModify::Secondary,
+                                x => panic!("No such palette modify mode {x}"),
+                            }),
+                        );
+                    }
                     Ok(())
                 })
             },

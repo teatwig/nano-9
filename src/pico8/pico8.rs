@@ -68,7 +68,7 @@ pub struct N9Font {
 #[reflect(Resource)]
 pub struct Pico8State {
     pub code: Handle<ScriptAsset>,
-    pub(crate) palette: Palette,
+    pub(crate) palettes: Cursor<Palette>,
     #[reflect(ignore)]
     pub(crate) pal_map: PalMap,
     // XXX: rename to gfx_images?
@@ -499,7 +499,7 @@ impl Pico8<'_, '_> {
             image: match &sheet.handle {
                 SprAsset::Image(handle) => handle.clone(),
                 SprAsset::Gfx(handle) => self.gfx_handles.get_or_create(
-                    &self.state.palette,
+                    &self.state.palettes,
                     &self.state.pal_map,
                     None,
                     handle,
@@ -550,7 +550,7 @@ impl Pico8<'_, '_> {
         let image = match &sprites.handle {
             SprAsset::Image(handle) => handle.clone(),
             SprAsset::Gfx(handle) => self.gfx_handles.get_or_create(
-                &self.state.palette,
+                &self.state.palettes,
                 &self.state.pal_map,
                 None,
                 handle,
@@ -597,26 +597,26 @@ impl Pico8<'_, '_> {
         match c.into() {
             N9Color::Pen => match self.state.draw_state.pen {
                 PColor::Palette(n) => {
-                    self.state.palette.get_color(n).map(|c| c.into())
+                    self.state.palettes.get_color(n).map(|c| c.into())
                     // let pal = self
                     //     .images
-                    //     .get(&self.state.palette.handle)
+                    //     .get(&self.state.palettes.handle)
                     //     .ok_or(Error::NoAsset("palette".into()))?;
 
                     // // Strangely. It's not a 1d texture.
-                    // Ok(pal.get_color_at(n as u32, self.state.palette.row)?)
+                    // Ok(pal.get_color_at(n as u32, self.state.palettes.row)?)
                 }
                 PColor::Color(c) => Ok(c.into()),
             },
             N9Color::Palette(n) => {
-                self.state.palette.get_color(n).map(|c| c.into())
+                self.state.palettes.get_color(n).map(|c| c.into())
                 // let pal = self
                 //     .images
-                //     .get(&self.state.palette.handle)
+                //     .get(&self.state.palettes.handle)
                 //     .ok_or(Error::NoAsset("palette".into()))?;
 
                 // // Strangely. It's not a 1d texture.
-                // Ok(pal.get_color_at(n as u32, self.state.palette.row)?)
+                // Ok(pal.get_color_at(n as u32, self.state.palettes.row)?)
             }
             N9Color::Color(c) => Ok(c.into()),
         }
@@ -764,7 +764,7 @@ impl Pico8<'_, '_> {
                                 if let Some(c) = c {
                                     // c.map(&self.state.pal_map).write_color(&PALETTE, pixel_bytes);
                                     let _ =
-                                        c.write_color(&PALETTE, &self.state.pal_map, pixel_bytes);
+                                        c.write_color(&(*self.state.palettes).data, &self.state.pal_map, pixel_bytes);
                                 }
                                 Ok::<(), Error>(())
                             })?,
@@ -860,7 +860,7 @@ impl Pico8<'_, '_> {
                 &mut self.commands,
                 |handle| {
                     self.gfx_handles.get_or_create(
-                        &self.state.palette,
+                        &self.state.palettes,
                         &self.state.pal_map,
                         None,
                         handle,
@@ -1644,7 +1644,7 @@ impl FromWorld for Pico8State {
         let asset_server = world.resource::<AssetServer>();
 
         Pico8State {
-            palette: Palette::from_slice(&PALETTE),
+            palettes: vec![Palette::from_slice(&PALETTE)].into(),
             //     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
             //     row: 0,
             // },

@@ -122,7 +122,7 @@ fn load_cart(
                 .into_iter()
                 .collect();
             let state = Pico8State {
-                palette: Palette::from_slice(&PALETTE),
+                palettes: vec![Palette::from_slice(&PALETTE)].into(),
                 //     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
                 //     row: 0,
                 // },

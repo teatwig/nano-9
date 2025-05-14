@@ -34,7 +34,8 @@ pub struct Config {
     pub author: Option<String>,
     pub license: Option<String>,
     pub screen: Option<Screen>,
-    pub palette: Option<Palette>,
+    #[serde(default, rename = "palette")]
+    pub palettes: Vec<Palette>,
     // pub nearest_sampling: Option<bool>,
     #[serde(default, rename = "font")]
     pub fonts: Vec<Font>,
@@ -139,7 +140,7 @@ impl AssetLoader for ConfigLoader {
         let mut bytes = Vec::new();
         let _ = reader.read_to_end(&mut bytes).await?;
         let content = std::str::from_utf8(&bytes)?;
-        let config: Config = toml::from_str::<Config>(content)
+        let mut config: Config = toml::from_str::<Config>(content)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?
             .inject_template();
         let code_path = config.code.unwrap_or_else(|| "main.lua".into());
@@ -216,22 +217,24 @@ impl AssetLoader for ConfigLoader {
                 })
             }
         }
-        let image = load_context
-            .loader()
-            .immediate()
-            .with_settings(pixel_art_settings)
-            .load(
-                config
-                    .palette
-                    .as_ref()
-                    .map(|p| p.path.as_str())
-                    .unwrap_or(pico8::PICO8_PALETTE),
-            )
-            .await?;
+        if config.palettes.is_empty() {
+            // XXX: Should we provide a default pico8 palette?
+            config.palettes.push(Palette { path: pico8::PICO8_PALETTE.to_string(), row: None });
+        }
+        let mut palettes = Vec::with_capacity(config.palettes.len());
+        for palette in config.palettes.iter() {
+            let image = load_context
+                .loader()
+                .immediate()
+                .with_settings(pixel_art_settings)
+                .load(&palette.path)
+                .await?;
+            palettes.push(pico8::Palette::from_image(image.get()));
+        };
         let pal_map = pico8::PalMap::default();
         let state = pico8::Pico8State {
                 code: load_context.load(&*code_path),
-                palette: pico8::Palette::from_image(image.get()),
+                palettes: palettes.into(),
             pal_map,
                 border: load_context.loader()
                                     .with_settings(pixel_art_settings)
@@ -397,8 +400,8 @@ impl Config {
                 // screen_size: Some(UVec2::splat(128)),
             });
         }
-        if self.palette.is_none() {
-            self.palette = Some(Palette {
+        if self.palettes.is_empty() {
+            self.palettes.push(Palette {
                 path: pico8::PICO8_PALETTE.into(),
                 row: None,
             });
@@ -422,8 +425,8 @@ impl Config {
                 screen_size: Some(UVec2::new(480, 320)),
             });
         }
-        if self.palette.is_none() {
-            self.palette = Some(Palette {
+        if self.palettes.is_empty() {
+            self.palettes.push(Palette {
                 path: "embedded://nano9/config/gameboy-palettes.png".into(),
                 row: Some(17),
             });
@@ -453,7 +456,7 @@ impl Config {
     }
 
     // pub fn load_config(&self, asset_server: Res<AssetServer>, mut commands: Commands) {
-    //     let palette: Option<Handle<Image>> = self.palette.as_deref().map(|path| asset_server.load(path));
+    //     let palette: Option<Handle<Image>> = self.palettes.as_deref().map(|path| asset_server.load(path));
     //     let sprite_sheets: Vec<pico8::SpriteSheet> = self.sprite_sheets.iter().map(|sprite_sheet| pico8::SpriteSheet {
     //         handle: asset_server.load(&sprite_sheet.path),
     //         sprite_size: sprite_sheet.sprite_size.unwrap_or(UVec2::splat(8)),
