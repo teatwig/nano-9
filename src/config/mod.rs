@@ -38,7 +38,7 @@ pub struct Config {
     // pub nearest_sampling: Option<bool>,
     #[serde(default, rename = "font")]
     pub fonts: Vec<Font>,
-    #[serde(default, rename = "sprite_sheet")]
+    #[serde(default, rename = "image")]
     pub sprite_sheets: Vec<SpriteSheet>,
     pub code: Option<PathBuf>,
     #[serde(default, rename = "audio_bank")]
