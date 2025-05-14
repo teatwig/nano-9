@@ -220,6 +220,8 @@ pub enum Error {
     NoSuch(Cow<'static, str>),
     #[error("no asset {0:?} loaded")]
     NoAsset(Cow<'static, str>),
+    // #[error("invalid {0:?}")]
+    // Invalid(Cow<'static, str>),
     #[error("texture access error: {0}")]
     TextureAccess(#[from] TextureAccessError),
     #[error("no such button: {0}")]
