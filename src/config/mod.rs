@@ -142,39 +142,10 @@ impl AssetLoader for ConfigLoader {
         let config: Config = toml::from_str::<Config>(content)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?
             .inject_template();
-        let mut layouts: Vec<Option<Handle<TextureAtlasLayout>>> = vec![];
-        for (i, sheet) in config.sprite_sheets.iter().enumerate() {
-            if sheet.path.extension() == Some(OsStr::new("tsx")) {
-                #[cfg(feature = "level")]
-                {
-                    let tileset = load_context
-                        .loader()
-                        .immediate()
-                        .load::<TiledSet>(&*sheet.path)
-                        .await?;
-                    layouts.push(Some(load_context.add_labeled_asset(
-                        format!("atlas{i}"),
-                        layout_from_tileset(&tileset.get().0),
-                    )));
-                }
-                #[cfg(not(feature = "level"))]
-                Err(ConfigLoaderError::Message(format!(
-                    "Can not load {:?} file without 'level' feature.",
-                    &sheet.path
-                )))?;
-            } else if let Some((size, counts)) = sheet.sprite_size.zip(sheet.sprite_counts) {
-                layouts.push(Some(load_context.add_labeled_asset(
-                    format!("atlas{i}"),
-                    TextureAtlasLayout::from_grid(size, counts.x, counts.y, None, None),
-                )))
-            } else {
-                layouts.push(None);
-            }
-        }
         let code_path = config.code.unwrap_or_else(|| "main.lua".into());
 
         let mut sprite_sheets = vec![];
-        for (i, sheet) in config.sprite_sheets.into_iter().enumerate() {
+        for (i, mut sheet) in config.sprite_sheets.into_iter().enumerate() {
             // let flags: Vec<u8>;
             if sheet.path.extension() == Some(OsStr::new("tsx")) {
                 #[cfg(feature = "level")]
@@ -217,7 +188,7 @@ impl AssetLoader for ConfigLoader {
                     let bytes = load_context.read_asset_bytes(&*sheet.path).await?;
                     let gfx = Gfx::from_png(&bytes)?;
                     let image_size = UVec2::new(gfx.width as u32, gfx.height as u32);
-                    layout = get_layout(i, image_size, sheet.sprite_size, sheet.sprite_counts, sheet.padding, sheet.offset)?
+                    layout = get_layout(i, image_size, &mut sheet.sprite_size, sheet.sprite_counts, sheet.padding, sheet.offset)?
                         .map(|layout|
                              load_context.add_labeled_asset(format!("atlas{i}"),
                                                             layout));
@@ -230,7 +201,7 @@ impl AssetLoader for ConfigLoader {
                             .with_settings(pixel_art_settings)
                             .load::<Image>(&*sheet.path).await?;
                     let image_size = loaded.get().size();
-                    layout = get_layout(i, image_size, sheet.sprite_size, sheet.sprite_counts, sheet.padding, sheet.offset)?
+                    layout = get_layout(i, image_size, &mut sheet.sprite_size, sheet.sprite_counts, sheet.padding, sheet.offset)?
                         .map(|layout|
                              load_context.add_labeled_asset(format!("atlas{i}"),
                                                             layout));
@@ -333,10 +304,11 @@ impl AssetLoader for ConfigLoader {
     }
 }
 
-fn get_layout(image_index: usize, image_size: UVec2, sprite_size: Option<UVec2>, sprite_counts: Option<UVec2>, padding: Option<UVec2>, offset: Option<UVec2>) -> Result<Option<TextureAtlasLayout>, ConfigLoaderError> {
+fn get_layout(image_index: usize, image_size: UVec2, sprite_size: &mut Option<UVec2>, sprite_counts: Option<UVec2>, padding: Option<UVec2>, offset: Option<UVec2>)
+              -> Result<Option<TextureAtlasLayout>, ConfigLoaderError> {
     if let Some((size, counts)) = sprite_size.zip(sprite_counts) {
         Ok(Some(TextureAtlasLayout::from_grid(size, counts.x, counts.y, padding, offset)))
-    } else if let Some(sprite_size) = sprite_size {
+    } else if let Some(sprite_size) = *sprite_size {
         let counts = image_size / sprite_size;
         let remainders = image_size % sprite_size;
         if remainders == UVec2::ZERO {
@@ -345,10 +317,11 @@ fn get_layout(image_index: usize, image_size: UVec2, sprite_size: Option<UVec2>,
             Err(ConfigLoaderError::InvalidSpriteSize { image_index, image_size, sprite_size })
         }
     } else if let Some(sprite_counts) = sprite_counts {
-        let sprite_size = image_size / sprite_counts;
-        let remainders = image_size % sprite_size;
+        let size = image_size / sprite_counts;
+        *sprite_size = Some(size);
+        let remainders = image_size % sprite_counts;
         if remainders == UVec2::ZERO {
-            Ok(Some(TextureAtlasLayout::from_grid(sprite_size, sprite_counts.x, sprite_counts.y, padding, offset)))
+            Ok(Some(TextureAtlasLayout::from_grid(size, sprite_counts.x, sprite_counts.y, padding, offset)))
         } else {
             Err(ConfigLoaderError::InvalidSpriteCounts { image_index, image_size, sprite_counts })
         }
@@ -366,13 +339,8 @@ pub fn update_asset(
         info!("update asset event {e:?}");
         if let AssetEvent::LoadedWithDependencies { id } = e {
             if let Some(state) = assets.get(*id) {
-                info!("Insert Pico8State {:?}.", state);
                 commands.insert_resource(state.clone());
                 commands.spawn(ScriptComponent(vec!["main.lua".into()]));
-                // commands.send_event(
-                //     // writer.send(
-                //     ScriptCallbackEvent::new_for_all(call::Init, vec![ScriptValue::Unit]), //);
-                // );
             } else {
                 error!("Pico8State not available.");
             }
