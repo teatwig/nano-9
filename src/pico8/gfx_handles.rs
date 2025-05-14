@@ -20,20 +20,30 @@ pub(crate) fn plugin(app: &mut App) {
 /// A double-buffered map of (Gfx, PalMap) -> AssetId<Image>
 ///
 /// It hands out strong handles and internally persists a strong handle for
-/// three ticks or frames. This permits the standard drawing scheme of `cls();
+/// a tick or frame. This permits the standard drawing scheme of `cls();
 /// spr(1)` to not cause asset churn.
+///
+/// In cases where one is not drawing from the same sprite sheet each frame, one
+/// can retain the sprite to avoid churn.
+/// ```lua
+/// function _init()
+///     local s = spr(0):retain()
+///     -- Can set visibility to false so it is retained but not drawn.
+///     s:vis(false)
+///
+/// end
+/// ```
 #[derive(Debug, Resource)]
 pub struct GfxHandles {
-    a: HashMap<u64, Handle<Image>>,
-    b: HashMap<u64, Handle<Image>>,
+    buffers: [HashMap<u64, Handle<Image>>; 2],
     tick: usize,
 }
 
 impl Default for GfxHandles {
     fn default() -> Self {
         GfxHandles {
-            a: HashMap::<u64, Handle<Image>>::default(),
-            b: HashMap::<u64, Handle<Image>>::default(),
+            buffers: [HashMap::<u64, Handle<Image>>::default(),
+                      HashMap::<u64, Handle<Image>>::default()],
             tick: 0,
         }
     }
@@ -58,8 +68,8 @@ impl GfxHandles {
         }
         gfx.hash(&mut hasher);
         let hash = hasher.finish();
-        let other_handle: Option<Handle<Image>> = if self.tick % 2 == 1 { self.a.get(&hash) } else { self.b.get(&hash) }.cloned();
-        let map = if self.tick % 2 == 0 { &mut self.a } else { &mut self.b };
+        let other_handle: Option<Handle<Image>> = self.buffers[(self.tick + 1) % 2].get(&hash).cloned();
+        let map = &mut self.buffers[self.tick % 2];
         let handle: Handle<Image> = match map.entry(hash) {
             Entry::Occupied(entry) => entry.get().clone(),
             Entry::Vacant(entry) => {
@@ -81,10 +91,6 @@ impl GfxHandles {
 
     pub fn tick(&mut self) {
         self.tick += 1;
-        if self.tick % 2 == 0 {
-            self.a.clear();
-        } else {
-            self.b.clear();
-        }
+        self.buffers[self.tick % 2].clear();
     }
 }
