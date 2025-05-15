@@ -406,7 +406,6 @@ impl Config {
                 row: None,
             });
         }
-
         if self.fonts.is_empty() {
             self.fonts.push(Font::Path {
                 path: pico8::PICO8_FONT.into(),
@@ -512,7 +511,7 @@ path = "sprites.png"
 "#,
         )
         .unwrap();
-        assert_eq!(config.palette, Some(Palette { path: "sprites.png".into(), row: None }));
+        assert_eq!(config.palettes, vec![Palette { path: "sprites.png".into(), row: None }]);
     }
 
     #[test]
