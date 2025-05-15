@@ -17,7 +17,7 @@ pub(crate) fn plugin(app: &mut App) {
     );
 }
 
-/// A double-buffered map of (Gfx, PalMap) -> AssetId<Image>
+/// A double-buffered map of (Gfx, PalMap) -> Handle<Image>
 ///
 /// It hands out strong handles and internally persists a strong handle for
 /// a tick or frame. This permits the standard drawing scheme of `cls();
