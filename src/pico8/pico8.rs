@@ -895,11 +895,7 @@ impl Pico8<'_, '_> {
         pos: Option<Vec2>,
         color: Option<N9Color>,
     ) -> Result<f32, Error> {
-        const CHAR_WIDTH: f32 = 4.0;
-        const NEWLINE_HEIGHT: f32 = 6.0;
         let mut text: &str = text.as_ref();
-        // warn!("PRINTING {}", &text);
-        // info!("print {:?} start, {:?}", &text, &self.state.draw_state.print_cursor);
         let pos = pos.map(|p| self.state.draw_state.apply_camera_delta(p)).unwrap_or_else(|| {
             Vec2::new(
                 self.state.draw_state.print_cursor.x,
@@ -914,45 +910,39 @@ impl Pico8<'_, '_> {
         } else {
             true
         };
+        // XXX: this is byte count, not char count.
         let len = text.len() as f32;
+        let font_size = 5.0;
+        // Empirically derived the char_width from the font size using these
+        // good values for the Pico-8 font:
+        //
+        // (font_size, char_width)
+        //  5, 4
+        // 10, 8
+        let char_width = font_size * 4.0 / 5.0;
         let z = clearable.suggest_z();
         self.commands
             .spawn((
                 Name::new("print"),
                 Transform::from_xyz(pos.x, negate_y(pos.y), z),
+                Text2d::new(text),
                 Visibility::default(),
+                TextFont {
+                    font: self.state.font.handle.clone(),
+                    font_smoothing: bevy::text::FontSmoothing::None,
+                    font_size,
+                },
+                Anchor::TopLeft,
                 clearable,
-            ))
-            .with_children(|builder| {
-                let mut y = 0.0;
-                for line in text.lines() {
-                    // Our font has a different height than we want. It's one pixel
-                    // higher. So we can't let bevy render it one go. Bummer.
-                    builder.spawn((
-                        Text2d::new(line),
-                        Transform::from_xyz(0.0, negate_y(y), 0.0),
-                        TextColor(c),
-                        TextFont {
-                            font: self.state.font.handle.clone(),
-                            font_smoothing: bevy::text::FontSmoothing::None,
-                            font_size: 6.0,
-                        },
-                        // Anchor::TopLeft is (-0.5, 0.5).
-                        Anchor::Custom(Vec2::new(-0.5, 0.3)),
-                    ));
-                    y += NEWLINE_HEIGHT;
-                }
-            });
+            ));
         if add_newline {
             self.state.draw_state.print_cursor.x = pos.x;
-            self.state.draw_state.print_cursor.y = pos.y + NEWLINE_HEIGHT;
+            self.state.draw_state.print_cursor.y = pos.y + font_size + 1.0;
         } else {
-            self.state.draw_state.print_cursor.x = pos.x + CHAR_WIDTH * len;
+            self.state.draw_state.print_cursor.x = pos.x + char_width * len;
         }
-        // info!("print end, {:?}", &self.state.draw_state.print_cursor);
-        // XXX: Need the font width somewhere.
         self.state.draw_state.mark_drawn();
-        Ok(pos.x + len * CHAR_WIDTH)
+        Ok(pos.x + len * char_width)
     }
 
     pub fn exit(&mut self, error: Option<u8>) {
