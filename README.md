@@ -97,10 +97,10 @@ for maps which are heavier than sprites.
 ### Why a library?
 
 Why not just offer an application like Pico-8? Because I don't mean to
-substitute Pico-8's reach; I want to extend it and introduce users to Bevy. A
-case I imagine is this: someone creates a Pico-8 game, but they yearn to do
-something that is not possible with Pico-8 itself. Like what? There are so many
-things:
+substitute Pico-8's reach; I want to extend it on the one hand and introduce
+users to Bevy on the other. A case I imagine is this: someone creates a Pico-8
+game, but they yearn to do something that is not possible with Pico-8 itself.
+Like what? There are so many things:
 
 - Maybe use a full screen shader that creates a CRT effect, 
 - maybe embed an arcade game in their actual game that is in fact a
@@ -127,7 +127,7 @@ end
 ```
 
 Here is the Nano-9 code. Note: that it does not have the `+=` operator of
-Pico-8. It's just Lua.
+Pico-8. It's vanilla Lua code.
 
 ``` lua
 x = 0
@@ -152,7 +152,8 @@ available.
 ### Can I use this to port my game to a console?
 
 Hopefully, yes. Whatever consoles Bevy supports, Nano-9 should support too.
-(However, I am not certain that bevy_mod_scripting supports WASM builds with
+(However, bevy_mod_scripting currently [does not support
+WASM](https://github.com/makspll/bevy_mod_scripting/issues/166) builds with
 Lua.)
 
 Some game developers have the technical wherewithal to rebuild their game in
@@ -176,18 +177,6 @@ If you like the ones provided by Pico-8, use it! Here are some tools I like:
 - I like [Bfxr](https://www.bfxr.net) for sound effects.
 - I like [Tiled](http://www.mapeditor.org) for map editing.
 
-### Why does `print()` create a tree of entities?
-
-The Pico-8 TTF font this project uses has its height one pixel higher than
-necessary; it's 7 pixels high. However, Pico-8 renders its text with 6 pixels of
-vertical spacing between lines. If one renders multi-line text naively with
-Bevy's `Text::new(multi_line_string)` component, it will not look like Pico-8;
-it will be off by 1 pixel each line, which for a small 128x128 display is a lot!
-I tried to muck with the font in [FontForge](https://fontforge.org/en-US/) but
-it was beyond my ability. So instead of using one `Text` component, Nano-9
-creates a `Text` for each line under a root entity. It would be great to fix the
-font for our use.
-
 ### Isn't this against Pico-8's purposefully constrained design philosophy?
 
 Yes.
@@ -203,17 +192,51 @@ had a blast with it.
 If you can't afford Pico-8, you can still play with it and learn it using the
 [educational edition](https://www.pico-8-edu.com).
 
-### Why not support `peek()` and `poke()`?
+### What parts of `peek()`, `poke()`, and `stat()` are supported?
 
-Pico-8 has easter-egg like features where if one tickles the right part of
-memory, one _can_ access the keyboard keys or the mouse position, which are not
-explicitly available via the API. While I think that is fun for a fantasy
-console, I am not intent on replicating all that behavior. Instead I would
-suggest that people extend the Lua API to provide access to whatever new
-facilities they need.
+Nearly none currently. 
 
-If someone were to make a handful of useful `peek()` or `poke()` cases work, I
-would consider such a pull request.
+Pico-8 provides a memory-mapped interface for its more
+esoteric features. For instance one _can_ access the keyboard keys or the mouse
+position, which are not explicitly available via the API.
+
+| Start   | End     | Purpose                                             |
+|---------|---------|-----------------------------------------------------|
+| 0x0     | 0x0fff  | Sprite sheet (0-127)*                               |
+| 0x1000  | 0x1fff  | Sprite sheet (128-255)* / Map (rows 32-63) (shared) |
+| 0x2000  | 0x2fff  | Map (rows 0-31)                                     |
+| 0x3000  | 0x30ff  | Sprite flags                                        |
+| 0x3100  | 0x31ff  | Music                                               |
+| 0x3200  | 0x42ff  | Sound effects                                       |
+| 0x4300  | 0x55ff  | General use (or work RAM)                           |
+| 0x5600  | 0x5dff  | General use / custom font (0.2.2+)                  |
+| 0x5e00  | 0x5eff  | Persistent cart data (64 numbers = 256 bytes)       |
+| 0x5f00  | 0x5f3f  | Draw state                                          |
+| 0x5f40  | 0x5f7f  | Hardware state                                      |
+| 0x5f80  | 0x5fff  | GPIO pins (128 bytes)                               |
+| 0x6000  | 0x7fff  | Screen data (8k)*                                   |
+| 0x8000  | 0xffff  | General use / extended map (0.2.4+)                 |
+
+Nano-9 does not in general support this memory-mapped interface. The interface
+forces strong assumptions about how many sprites, maps, sound effects, and
+music. Because Nano-9 breaks many of these assumptions, there is an impediment
+to realizing them in a cogent way. For instance Nano-9 supports Pico-8 sound
+effects but it also supports Ogg sound files. It's not clear how to support one
+and possibly declaim the other.
+
+Nano-9's Rust API for `peek()`, `poke()`, `stat()` return an error when
+unsupported memory addresses or stat flags are given, which are currently most
+of them.
+
+#### What is supported?
+
+Reading keyboard keys and mouse position and buttons are partially supported.
+
+#### What is likely to be supported in the future?
+
+The general use and persistent card data are likely to be supported in the future.
+
+The more popular the memory-mapped feature is, the more likely it'll be supported.
 
 ## Compatibility
 
@@ -235,3 +258,7 @@ Many thanks to the tireless work of [Maksymilian
 Mozolewski](https://github.com/makspll) for
 [bevy_mod_scripting](https://github.com/makspll/bevy_mod_scripting) without
 which this project would not have been made.
+
+Many thanks to the whole [Bevy team](https://bevyengine.org/community/people/)
+for creating an exciting new open source game engine that has been a joy to work
+with.
