@@ -10,7 +10,10 @@ use bevy_mod_scripting::core::asset::ScriptAsset;
 use bitvec::prelude::*;
 use pico8_decompress::*;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{
+    borrow::Cow,
+    path::PathBuf,
+};
 
 pub(crate) fn plugin(app: &mut App) {
     app.register_type::<Cart>()
@@ -41,6 +44,8 @@ pub enum CartLoaderError {
     LoadDirect(#[from] bevy::asset::LoadDirectError),
     #[error("Decompression error: {0}")]
     Decompression(String),
+    #[error("Read bytes error: {0}")]
+    ReadBytes(#[from] bevy::asset::ReadAssetBytesError),
 }
 
 #[allow(dead_code)]
@@ -405,7 +410,35 @@ impl AssetLoader for P8CartLoader {
         reader.read_to_end(&mut bytes).await?;
         let content = String::from_utf8(bytes)?;
         let parts = CartParts::from_str(&content, settings)?;
-        let code = parts.lua;
+        let mut code  = parts.lua;
+        #[cfg(feature = "pico8-to-lua")]
+        {
+
+            let mut include_paths = vec![];
+            // Patch the includes.
+            let mut include_patch = pico8_to_lua::patch_includes(&code, |path| {
+                include_paths.push(path.to_string());
+                "".into()
+            });
+            if pico8_to_lua::was_patched(&include_patch) {
+                // There are included files, let's read them all then add them.
+                let mut path_contents = std::collections::HashMap::new();
+                for path in include_paths.into_iter() {
+                    let contents = load_context.read_asset_bytes(&path).await?;
+                    path_contents.insert(path, String::from_utf8(contents)?);
+                }
+
+                include_patch = pico8_to_lua::patch_includes(&code, |path| path_contents.remove(path).unwrap());
+            }
+
+            // Patch the code.
+            let result = pico8_to_lua::patch_lua(include_patch);
+            if pico8_to_lua::was_patched(&result) {
+                code = result.to_string();
+                std::fs::write("cart-patched.lua", &code).unwrap();
+                info!("WROTE PATCHED CODE to cart-patched.lua");
+            }
+        }
         // cart.lua = Some(load_context.add_labeled_asset("lua".into(), ScriptAsset { bytes: code.into_bytes() }));
         let gfx = parts.gfx.clone();
         let mut code_path: PathBuf = load_context.path().into();

@@ -1025,6 +1025,7 @@ impl Pico8<'_, '_> {
     ) -> Result<(), Error> {
         let n = n.into();
         let bank = bank.unwrap_or(0);
+        return Ok(());
         match n {
             SfxCommand::Release => {
                 panic!("Music does not accept a release command.");
@@ -1039,7 +1040,8 @@ impl Pico8<'_, '_> {
                 // }
             }
             SfxCommand::Play(n) => {
-                let sfx = self.state.audio_banks.inner[bank as usize]
+                let sfx = self.state.audio_banks.inner.get(bank as usize)
+                                                      .ok_or(Error::NoSuch(format!("audio bank {bank}").into()))?
                     .get(n as usize)
                     .ok_or(Error::NoAsset(format!("music {n}").into()))?
                     .clone();

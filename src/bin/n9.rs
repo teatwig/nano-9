@@ -161,7 +161,9 @@ fn main() -> io::Result<()> {
             text_color: Color::WHITE,
             enabled: false,
         },
-    });
+    })
+        .add_systems(PreUpdate, run_pico8_when_ready)
+        ;
 
     #[cfg(feature = "minibuffer")]
     app.add_plugins(MinibufferPlugins).add_acts((
