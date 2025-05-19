@@ -3,6 +3,7 @@ use bevy::{
     image::ImageSampler,
     prelude::*,
     reflect::Reflect,
+    asset::AssetPath,
     render::{
         camera::{ScalingMode, Viewport},
         render_asset::RenderAssetUsages,
@@ -14,7 +15,7 @@ use bevy::{
 
 use bevy_mod_scripting::{
     core::{
-        asset::{Language, ScriptAsset, ScriptAssetSettings},
+        asset::{Language, ScriptAsset, ScriptAssetSettings, AssetPathToScriptIdMapper},
         bindings::{function::namespace::NamespaceBuilder, script_value::ScriptValue},
         callback_labels,
         event::ScriptCallbackEvent,
@@ -390,12 +391,21 @@ impl Plugin for Nano9Plugin {
         })
         .insert_resource({
             let mut settings = ScriptAssetSettings::default();
+            // settings
+            //     .extension_to_language_map
+            //     .insert("p8#lua", Language::Lua);
             settings
                 .extension_to_language_map
-                .insert("p8#lua", Language::Lua);
+                .insert("p8", Language::Lua);
+            // settings
+            //     .extension_to_language_map
+            //     .insert("png#lua", Language::Lua);
             settings
                 .extension_to_language_map
-                .insert("png#lua", Language::Lua);
+                .insert("png", Language::Lua);
+            // settings.script_id_mapper = AssetPathToScriptIdMapper {
+            //     map: (|path: &AssetPath| path.to_string().into()),
+            // };
             settings
         })
         .insert_resource(N9Canvas {

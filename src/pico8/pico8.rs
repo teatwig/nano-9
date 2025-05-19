@@ -916,6 +916,7 @@ impl Pico8<'_, '_> {
                 Transform::from_xyz(pos.x, negate_y(pos.y), z),
                 Text2d::new(text),
                 Visibility::default(),
+                TextColor(c),
                 TextFont {
                     font: self.state.font.handle.clone(),
                     font_smoothing: bevy::text::FontSmoothing::None,

@@ -18,7 +18,7 @@ const FONT_SIZE: f32 = 24.0;
 const PADDING: Val = Val::Px(5.);
 const LEFT_PADDING: Val = Val::Px(10.);
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States, Reflect)]
 pub enum RunState {
     #[default]
     Uninit,

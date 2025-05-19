@@ -11,7 +11,7 @@ use bevy::{
 #[cfg(feature = "minibuffer")]
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::script::ScriptComponent;
-use nano9::{config::Config, pico8::*, *};
+use nano9::{config::Config, pico8::*, *, error::RunState};
 use std::{borrow::Cow, env, ffi::OsStr, fs, io, path::PathBuf, process};
 
 #[allow(dead_code)]
@@ -116,9 +116,10 @@ fn main() -> io::Result<()> {
         };
         app.add_systems(
             Startup,
-            move |asset_server: Res<AssetServer>, mut commands: Commands, mut pico8: Pico8| {
+            move |asset_server: Res<AssetServer>, mut commands: Commands, mut pico8: Pico8| { //, script_settings: Res<ScriptAssetSettings>| {
                 let asset_path = AssetPath::from_path(&path).with_source(&source);
                 pico8.state.code = asset_server.load(&asset_path);
+                // let script_path = script_settings.script_id_mapper.map(pico8.state.code.path());
                 // commands.spawn(ScriptComponent(vec![asset_path.to_string().into()]));
                 commands.spawn(ScriptComponent(vec![asset_path
                     .path()
@@ -176,7 +177,9 @@ fn main() -> io::Result<()> {
     ));
 
     #[cfg(all(feature = "minibuffer", feature = "inspector"))]
-    app.add_acts(bevy_minibuffer_inspector::WorldActs::default());
+    app.add_acts((bevy_minibuffer_inspector::WorldActs::default(),
+                  bevy_minibuffer_inspector::StateActs::default().add::<RunState>(),
+    ));
     #[cfg(all(feature = "level", feature = "user_properties"))]
     app.add_systems(Startup, |reg: Res<AppTypeRegistry>| {
         bevy_ecs_tiled::map::export_types(&reg, "all-export-types.json", |name| true);

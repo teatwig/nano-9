@@ -5,7 +5,7 @@ use bevy::{
     asset::{embedded_asset, io::Reader, AssetLoader, AssetPath, LoadContext},
     prelude::*,
 };
-use bevy_mod_scripting::core::script::ScriptComponent;
+use bevy_mod_scripting::core::{asset::ScriptAssetSettings, script::ScriptComponent};
 use serde::Deserialize;
 use std::{ffi::OsStr, io, ops::Deref, path::PathBuf};
 
@@ -104,7 +104,7 @@ pub enum ConfigLoaderError {
     #[error("Could not load config file: {0}")]
     Utf8(#[from] std::str::Utf8Error),
     /// An [IO](std::io) Error
-    #[error("Could not load Tiled file: {0}")]
+    #[error("io error: {0}")]
     Io(#[from] std::io::Error),
     #[error("{0}")]
     Message(String),
@@ -181,17 +181,17 @@ impl AssetLoader for ConfigLoader {
             } else if sheet.path.extension() == Some(OsStr::new("p8")) {
                 todo!()
             } else {
-                let mut layout = None;
-                let handle = if sheet.indexed {
+                let (handle, layout_maybe) = if sheet.indexed {
                     let bytes = load_context.read_asset_bytes(&*sheet.path).await?;
                     let gfx = Gfx::from_png(&bytes)?;
                     let image_size = UVec2::new(gfx.width as u32, gfx.height as u32);
-                    layout = get_layout(i, image_size, &mut sheet.sprite_size, sheet.sprite_counts, sheet.padding, sheet.offset)?
+                    let layout = get_layout(i, image_size, &mut sheet.sprite_size, sheet.sprite_counts, sheet.padding, sheet.offset)?
                         .map(|layout|
                              load_context.add_labeled_asset(format!("atlas{i}"),
                                                             layout));
-                    pico8::SprAsset::Gfx(
-                        load_context.add_labeled_asset(format!("spritesheet{i}"), gfx))
+                    (pico8::SprAsset::Gfx(
+                        load_context.add_labeled_asset(format!("spritesheet{i}"), gfx)),
+                     layout)
                 } else {
                     let loaded = load_context
                             .loader()
@@ -199,18 +199,19 @@ impl AssetLoader for ConfigLoader {
                             .with_settings(pixel_art_settings)
                             .load::<Image>(&*sheet.path).await?;
                     let image_size = loaded.get().size();
-                    layout = get_layout(i, image_size, &mut sheet.sprite_size, sheet.sprite_counts, sheet.padding, sheet.offset)?
+                    let layout = get_layout(i, image_size, &mut sheet.sprite_size, sheet.sprite_counts, sheet.padding, sheet.offset)?
                         .map(|layout|
                              load_context.add_labeled_asset(format!("atlas{i}"),
                                                             layout));
 
-                    pico8::SprAsset::Image(load_context.add_loaded_labeled_asset(format!("spritesheet{i}"), loaded))
+                    (pico8::SprAsset::Image(load_context.add_loaded_labeled_asset(format!("spritesheet{i}"), loaded)),
+                     layout)
                 };
                 sprite_sheets.push(pico8::SpriteSheet {
                     handle,
                     sprite_size: sheet.sprite_size.unwrap_or(UVec2::splat(8)),
                     flags: vec![],
-                    layout: layout.unwrap_or(Handle::default()),
+                    layout: layout_maybe.unwrap_or(Handle::default()),
                 })
             }
         }
@@ -334,13 +335,19 @@ pub fn update_asset(
     mut reader: EventReader<AssetEvent<pico8::Pico8State>>,
     assets: Res<Assets<pico8::Pico8State>>,
     mut commands: Commands,
+    script_settings: Res<ScriptAssetSettings>,
 ) {
     for e in reader.read() {
         info!("update asset event {e:?}");
         if let AssetEvent::LoadedWithDependencies { id } = e {
             if let Some(state) = assets.get(*id) {
                 commands.insert_resource(state.clone());
-                commands.spawn(ScriptComponent(vec!["main.lua".into()]));
+                let path: &AssetPath<'static> = state.code.path().unwrap();
+                let script_path = (script_settings.script_id_mapper.map)(path);
+                info!("add script component path {}", &script_path);
+                // commands.spawn(ScriptComponent(vec!["main.lua".into()]));
+                // commands.spawn(ScriptComponent(vec![path.to_string().into()]));
+                commands.spawn(ScriptComponent(vec![script_path.into()]));
             } else {
                 error!("Pico8State not available.");
             }
@@ -476,7 +483,7 @@ mod test {
     fn test_config_0() {
         let config: Config = toml::from_str(
             r#"
-sprite_sheet = []
+image = []
 "#,
         )
         .unwrap();
@@ -488,7 +495,7 @@ sprite_sheet = []
     fn test_config_1() {
         let config: Config = toml::from_str(
             r#"
-[[sprite_sheet]]
+[[image]]
 path = "sprites.png"
 sprite_size = [8, 8]
 "#,
@@ -503,7 +510,7 @@ sprite_size = [8, 8]
     fn test_palete_0() {
         let config: Config = toml::from_str(
             r#"
-[palette]
+[[palette]]
 path = "sprites.png"
 "#,
         )
@@ -517,7 +524,7 @@ path = "sprites.png"
             r#"
 [screen]
 canvas_size = [128,128]
-[[sprite_sheet]]
+[[image]]
 path = "sprites.png"
 sprite_size = [8, 8]
 "#,
