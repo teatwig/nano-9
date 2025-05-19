@@ -60,14 +60,14 @@ pub struct CartParts {
     pub music: Vec<MusicParts>,
 }
 
-#[derive(Asset, Debug, Reflect)]
-struct Cart {
-    pub lua: Handle<ScriptAsset>,
-    pub gfx: Option<Handle<Gfx>>,
-    pub map: Vec<u8>,
-    pub flags: Vec<u8>,
-    pub sfx: Vec<Handle<Sfx>>,
-}
+// #[derive(Asset, Debug, Reflect)]
+// struct Cart {
+//     pub lua: Handle<ScriptAsset>,
+//     pub gfx: Option<Handle<Gfx>>,
+//     pub map: Vec<u8>,
+//     pub flags: Vec<u8>,
+//     pub sfx: Vec<Handle<Sfx>>,
+// }
 
 pub const PALETTE: [[u8; 4]; 16] = [
     [0x00, 0x00, 0x00, 0xff], //black
@@ -330,8 +330,8 @@ impl AssetLoader for P8CartLoader {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let content = String::from_utf8(bytes)?;
-        let parts = CartParts::from_str(&content, settings)?;
-        let mut code  = parts.lua;
+        let mut parts = CartParts::from_str(&content, settings)?;
+        let code: String = std::mem::take(&mut parts.lua);
         #[cfg(feature = "pico8-to-lua")]
         {
             let mut include_paths = vec![];
@@ -366,7 +366,7 @@ impl AssetLoader for P8CartLoader {
             // Patch the code.
             let result = pico8_to_lua::patch_lua(include_patch);
             if pico8_to_lua::was_patched(&result) {
-                code = result.to_string();
+                parts.lua = result.to_string();
                 std::fs::write("cart-patched.lua", &code).unwrap();
                 info!("WROTE PATCHED CODE to cart-patched.lua");
             }
@@ -380,28 +380,25 @@ impl AssetLoader for P8CartLoader {
         //     let path = code_path.as_mut_os_string();
         //     path.push("#lua");
         // }
-        warn!("script asset path {}", code_path.display());
-        let cart = Cart {
-            lua: load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
-                content: code.into_bytes().into_boxed_slice(),
-                asset_path: code_path.into(),
-            }),
-            gfx: gfx.map(|gfx| {
-                load_context.labeled_asset_scope("gfx".into(), move |_load_context| gfx)
-            }),
-            map: parts.map,
-            flags: parts.flags,
-            sfx: parts
-                .sfx
-                .into_iter()
-                .enumerate()
-                .map(|(n, sfx)| {
-                    load_context.labeled_asset_scope(format!("sfx{n}"), move |_load_context| sfx)
-                })
-                .collect(),
-        };
+        // warn!("script asset path {}", code_path.display());
+        // let cart = Cart {
+        //     lua: ,
+        //     gfx: gfx.map(|gfx| {
+        //         load_context.labeled_asset_scope("gfx".into(), move |_load_context| gfx)
+        //     }),
+        //     map: parts.map,
+        //     flags: parts.flags,
+        //     sfx: parts
+        //         .sfx
+        //         .into_iter()
+        //         .enumerate()
+        //         .map(|(n, sfx)| {
+        //             load_context.labeled_asset_scope(format!("sfx{n}"), move |_load_context| sfx)
+        //         })
+        //         .collect(),
+        // };
 
-        to_state(cart, load_context)
+        to_state(parts, load_context)
 
     }
 
@@ -410,7 +407,7 @@ impl AssetLoader for P8CartLoader {
     }
 }
 
-fn to_state(cart: Cart, load_context: &mut LoadContext) -> Result<Pico8State, CartLoaderError> {
+fn to_state(cart: CartParts, load_context: &mut LoadContext) -> Result<Pico8State, CartLoaderError> {
         let layout = load_context.labeled_asset_scope("atlas".into(), move |_load_context| TextureAtlasLayout::from_grid(
                     PICO8_SPRITE_SIZE,
                     PICO8_TILE_COUNT.x,
@@ -419,16 +416,23 @@ fn to_state(cart: Cart, load_context: &mut LoadContext) -> Result<Pico8State, Ca
                     None));
         let sprite_sheets: Vec<_> = cart
             .gfx
-            .as_ref()
             .map(|gfx| SpriteSheet {
-                handle: SprAsset::Gfx(gfx.clone()),
+                handle: SprAsset::Gfx(load_context.labeled_asset_scope("gfx".into(), move |_load_context| gfx)),
                 sprite_size: UVec2::splat(8),
                 flags: cart.flags.clone(),
                 layout,
             })
             .into_iter()
             .collect();
+        let code = cart.lua;
+        let code_path: PathBuf = load_context.path().into();
+
         let state = Pico8State {
+
+            code: load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
+                content: code.into_bytes().into_boxed_slice(),
+                asset_path: code_path.into(),
+            }),
             palettes: vec![Palette::from_slice(&PALETTE)].into(),
             pal_map: PalMap::default(),
             border: load_context.loader()
@@ -441,11 +445,16 @@ fn to_state(cart: Cart, load_context: &mut LoadContext) -> Result<Pico8State, Ca
             .into()]
             .into(),
             audio_banks: vec![AudioBank(
-                cart.sfx.clone().into_iter().map(Audio::Sfx).collect(),
+                cart.sfx
+                .into_iter()
+                .enumerate()
+                .map(|(n, sfx)| {
+                    Audio::Sfx(load_context.labeled_asset_scope(format!("sfx{n}"), move |_load_context| sfx))
+                })
+                .collect(),
             )]
             .into(),
             sprite_sheets: sprite_sheets.into(),
-            code: cart.lua,
             draw_state: DrawState::default(),
             font: vec![N9Font {
                 handle: load_context.load(PICO8_FONT),
@@ -521,7 +530,7 @@ impl AssetLoader for PngCartLoader {
         map.copy_from_slice(&v[0x2000..=0x2fff]);
         let flags = Vec::from(&v[0x3000..=0x30ff]);
 
-        let sfx = v[0x3200..=0x42ff].chunks(68).map(Sfx::from_u8);
+        let sfx = v[0x3200..=0x42ff].chunks(68).map(Sfx::from_u8).collect();
 
         // let content = String::from_utf8(bytes)?;
         // let parts = CartParts::from_str(&content, settings)?;
@@ -531,23 +540,15 @@ impl AssetLoader for PngCartLoader {
         let mut code_path: PathBuf = load_context.path().into();
         // let path = code_path.as_mut_os_string();
         // path.push("#lua");
-        let cart = Cart {
-            lua: load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
-                content: code.into_bytes().into_boxed_slice(),
-                asset_path: code_path.into(),
-            }),
-            gfx: Some(load_context.labeled_asset_scope("gfx".into(), move |_load_context| gfx)),
+        let parts = CartParts {
+            lua: code,
+            gfx: Some(gfx),
             map,
             flags,
-            sfx: sfx
-                .into_iter()
-                .enumerate()
-                .map(|(n, sfx)| {
-                    load_context.labeled_asset_scope(format!("sfx{n}"), move |_load_context| sfx)
-                })
-                .collect(),
+            sfx,
+            music: vec![]
         };
-        to_state(cart, load_context)
+        to_state(parts, load_context)
     }
 
     fn extensions(&self) -> &[&str] {
