@@ -2,9 +2,8 @@ use bevy::{
     asset::embedded_asset,
     audio::PlaybackMode,
     ecs::system::SystemParam,
-    image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
-    input::{keyboard::Key,
-            gamepad::GamepadConnectionEvent},
+    image::{ImageSampler, TextureAccessError},
+    input::gamepad::GamepadConnectionEvent,
     prelude::*,
     render::{
         render_asset::RenderAssetUsages,
@@ -31,22 +30,17 @@ use crate::{
         image::pixel_art_settings,
         keyboard::KeyInput,
         mouse::MouseInput,
-        audio::{Sfx, SfxChannels, AudioBank, AudioCommand, SfxDest},
+        audio::{SfxChannels, AudioBank, AudioCommand, SfxDest},
         rand::Rand8,
-        Cart, ClearEvent, Clearable, Gfx, GfxHandles, LoadCart, Map, PalMap, PALETTE, Palette,
+         ClearEvent, Clearable, Gfx, GfxHandles, Map, PalMap, PALETTE, Palette,
     },
     DrawState, FillColor, N9Canvas, N9Color, Nano9Camera, PColor,
 };
 
 use std::{
-    collections::VecDeque,
     any::TypeId,
     borrow::Cow,
     f32::consts::PI,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
 };
 
 pub const PICO8_PALETTE: &str = "embedded://nano9/pico8/pico-8-palette.png";
@@ -475,11 +469,6 @@ pub fn negate_y(y: f32) -> f32 {
 }
 
 impl Pico8<'_, '_> {
-    #[allow(dead_code)]
-    pub fn load_cart(&mut self, cart: Handle<Cart>) {
-        self.commands.spawn(LoadCart(cart));
-    }
-
     /// sspr( sx, sy, sw, sh, dx, dy, [dw,] [dh,] [flip_x,] [flip_y,] [sheet_index])
     pub fn sspr(
         &mut self,
@@ -764,7 +753,7 @@ impl Pico8<'_, '_> {
                                 if let Some(c) = c {
                                     // c.map(&self.state.pal_map).write_color(&PALETTE, pixel_bytes);
                                     let _ =
-                                        c.write_color(&(*self.state.palettes).data, &self.state.pal_map, pixel_bytes);
+                                        c.write_color(&self.state.palettes.data, &self.state.pal_map, pixel_bytes);
                                 }
                                 Ok::<(), Error>(())
                             })?,

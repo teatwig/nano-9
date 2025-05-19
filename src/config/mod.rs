@@ -1,14 +1,11 @@
 #[cfg(feature = "level")]
 use crate::level::{self, tiled::*};
-use crate::{call, level::asset::TiledSet, pico8::{self, image::pixel_art_settings, Gfx, Error}};
+use crate::{level::asset::TiledSet, pico8::{self, image::pixel_art_settings, Gfx}};
 use bevy::{
     asset::{embedded_asset, io::Reader, AssetLoader, AssetPath, LoadContext},
-    image::{ImageLoaderSettings, ImageSampler},
     prelude::*,
 };
-use bevy_mod_scripting::core::{
-    bindings::script_value::ScriptValue, event::ScriptCallbackEvent, script::ScriptComponent,
-};
+use bevy_mod_scripting::core::script::ScriptComponent;
 use serde::Deserialize;
 use std::{ffi::OsStr, io, ops::Deref, path::PathBuf};
 

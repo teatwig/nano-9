@@ -86,13 +86,8 @@ fn main() -> io::Result<()> {
             Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
                 let asset_path = AssetPath::from_path(&path).with_source(&pwd);
-                let cart: Handle<Cart> = asset_server.load(&asset_path);
-                commands.send_event(LoadCart(cart));
-                // commands.spawn(ScriptComponent(vec![asset_path.path().to_str().unwrap().to_string().into()]));
-                commands.spawn(ScriptComponent(
-                    // vec![format!("{}#lua", &script_path).into()],
-                    vec![format!("{}#lua", &asset_path.path().display()).into()],
-                ));
+                let pico8state: Handle<Pico8State> = asset_server.load(&asset_path);
+                commands.insert_resource(InitState(pico8state));
             },
         );
         nano9_plugin = Nano9Plugin {

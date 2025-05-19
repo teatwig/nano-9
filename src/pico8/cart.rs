@@ -10,10 +10,7 @@ use bevy_mod_scripting::core::asset::ScriptAsset;
 use bitvec::prelude::*;
 use pico8_decompress::*;
 use serde::{Deserialize, Serialize};
-use std::{
-    borrow::Cow,
-    path::PathBuf,
-};
+use std::path::PathBuf;
 
 pub(crate) fn plugin(app: &mut App) {
     app.register_type::<Cart>()
@@ -28,7 +25,7 @@ pub(crate) fn plugin(app: &mut App) {
 #[derive(Debug, thiserror::Error)]
 pub enum CartLoaderError {
     /// An [IO](std::io) Error
-    #[error("Could not load asset: {0}")]
+    #[error("io error: {0}")]
     Io(#[from] std::io::Error),
     #[error("Could not convert to utf-8: {0}")]
     Utf8(#[from] std::string::FromUtf8Error),
@@ -68,7 +65,7 @@ pub struct CartParts {
 }
 
 #[derive(Asset, Debug, Reflect)]
-pub struct Cart {
+struct Cart {
     pub lua: Handle<ScriptAsset>,
     pub gfx: Option<Handle<Gfx>>,
     pub map: Vec<u8>,
@@ -397,7 +394,7 @@ struct CartLoaderSettings {}
 struct P8CartLoader;
 
 impl AssetLoader for P8CartLoader {
-    type Asset = Cart;
+    type Asset = Pico8State;
     type Settings = CartLoaderSettings;
     type Error = CartLoaderError;
     async fn load(
@@ -444,7 +441,7 @@ impl AssetLoader for P8CartLoader {
         let mut code_path: PathBuf = load_context.path().into();
         let path = code_path.as_mut_os_string();
         path.push("#lua");
-        Ok(Cart {
+        let cart = Cart {
             lua: load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
                 content: code.into_bytes().into_boxed_slice(),
                 asset_path: code_path.into(),
@@ -462,7 +459,55 @@ impl AssetLoader for P8CartLoader {
                     load_context.labeled_asset_scope(format!("sfx{n}"), move |_load_context| sfx)
                 })
                 .collect(),
-        })
+        };
+
+        let layout = load_context.labeled_asset_scope("atlas".into(), move |_load_context| TextureAtlasLayout::from_grid(
+                    PICO8_SPRITE_SIZE,
+                    PICO8_TILE_COUNT.x,
+                    PICO8_TILE_COUNT.y,
+                    None,
+                    None));
+        let sprite_sheets: Vec<_> = cart
+            .gfx
+            .as_ref()
+            .map(|gfx| SpriteSheet {
+                handle: SprAsset::Gfx(gfx.clone()),
+                sprite_size: UVec2::splat(8),
+                flags: cart.flags.clone(),
+                layout,
+            })
+            .into_iter()
+            .collect();
+        let state = Pico8State {
+            palettes: vec![Palette::from_slice(&PALETTE)].into(),
+            //     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
+            //     row: 0,
+            // },
+            pal_map: PalMap::default(),
+            border: load_context.loader()
+                                .with_settings(pixel_art_settings)
+                                .load(pico8::PICO8_BORDER),
+            maps: vec![P8Map {
+                entries: cart.map.clone(),
+                sheet_index: 0,
+            }
+            .into()]
+            .into(),
+            audio_banks: vec![AudioBank(
+                cart.sfx.clone().into_iter().map(Audio::Sfx).collect(),
+            )]
+            .into(),
+            sprite_sheets: sprite_sheets.into(),
+            code: cart.lua.clone(),
+            draw_state: DrawState::default(),
+            font: vec![N9Font {
+                handle: load_context.load(PICO8_FONT),
+                height: Some(7.0),
+            }]
+            .into(),
+        };
+        Ok(state)
+
     }
 
     fn extensions(&self) -> &[&str] {

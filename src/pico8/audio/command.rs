@@ -1,49 +1,16 @@
 use bevy::{
     audio::PlaybackMode,
-    asset::embedded_asset,
-    ecs::system::SystemParam,
-    image::{ImageLoaderSettings, ImageSampler, TextureAccessError},
-    input::gamepad::GamepadConnectionEvent,
     prelude::*,
-    render::{
-        render_asset::RenderAssetUsages,
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
-    },
-    sprite::Anchor,
 };
-use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 
-use bevy_mod_scripting::{
-    core::{
-        asset::ScriptAsset,
-        bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
-        docgen::typed_through::{ThroughTypeInfo, TypedThrough},
-        error::InteropError,
-    },
-    lua::mlua::prelude::LuaError,
-};
 use bitvec::prelude::*;
 
-use crate::{
-    cursor::Cursor,
-    pico8::{
-        image::pixel_art_settings,
-        audio::{Sfx, SfxChannels},
-        rand::Rand8,
-        Cart, ClearEvent, Clearable, Gfx, GfxHandles, LoadCart, Map, PalMap, PALETTE, Palette,
-    },
-    DrawState, FillColor, N9Canvas, N9Color, Nano9Camera, PColor,
-};
+use crate::pico8::audio::{Sfx, SfxChannels};
 
-use std::{
-    any::TypeId,
-    borrow::Cow,
-    f32::consts::PI,
-    sync::{
+use std::sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
-    },
-};
+    };
 
 pub(crate) fn plugin(app: &mut App) {
     app
@@ -121,7 +88,7 @@ impl Command for AudioCommand {
                     }
                     SfxDest::ChannelMask(channel_mask) => {
                         for i in channel_mask.view_bits::<Lsb0>().iter_ones() {
-                            let id = world.get_resource::<SfxChannels>().and_then(|sfx_channels| sfx_channels.get(i as usize)).copied();
+                            let id = world.get_resource::<SfxChannels>().and_then(|sfx_channels| sfx_channels.get(i)).copied();
                             if let Some(id) = id {
                                 if let Some(ref mut sink) = world.get_mut::<AudioSink>(id) {
                                     sink.stop();

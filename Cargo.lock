@@ -2558,6 +2558,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "find-matching-bracket"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca1fd464246d9b9131afb123ec76bc7bfc2edb48379313c65308720c29244a71"
+
+[[package]]
 name = "fixedbitset"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4119,6 +4125,7 @@ dependencies = [
 name = "pico8-to-lua"
 version = "0.1.0"
 dependencies = [
+ "find-matching-bracket",
  "lazy-regex",
  "regex-lite",
 ]

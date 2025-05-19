@@ -1,9 +1,5 @@
-use bevy::{input::keyboard::{Key, KeyboardInput}, prelude::*};
-use std::{
-    borrow::Cow,
-    collections::VecDeque
-};
-use crate::{Nano9Camera, pico8::Error};
+use bevy::prelude::*;
+use crate::Nano9Camera;
 
 #[derive(Clone, Debug, Reflect, Default, Resource)]
 pub struct MouseInput {

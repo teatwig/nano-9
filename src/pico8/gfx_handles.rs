@@ -1,9 +1,8 @@
-use bevy::{asset::StrongHandle, prelude::*};
+use bevy::prelude::*;
 
 use crate::pico8::{FillPat, Gfx, PalMap, Palette, Error};
 
 use std::{
-    sync::Arc,
     collections::{HashMap, hash_map::Entry},
     hash::{DefaultHasher, Hash, Hasher},
 };
@@ -34,20 +33,12 @@ pub(crate) fn plugin(app: &mut App) {
 /// end
 /// ```
 #[derive(Debug, Resource)]
+#[derive(Default)]
 pub struct GfxHandles {
     buffers: [HashMap<u64, Handle<Image>>; 2],
     tick: usize,
 }
 
-impl Default for GfxHandles {
-    fn default() -> Self {
-        GfxHandles {
-            buffers: [HashMap::<u64, Handle<Image>>::default(),
-                      HashMap::<u64, Handle<Image>>::default()],
-            tick: 0,
-        }
-    }
-}
 
 impl GfxHandles {
     /// This returns a strong handle if it was created and caches a weak handle.

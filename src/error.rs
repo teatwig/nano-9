@@ -146,12 +146,9 @@ fn try_to_run_after_error(mut reader: EventReader<AssetEvent<ScriptAsset>>,
         return;
     }
     for e in reader.read() {
-        match e {
-            AssetEvent::Modified { .. } => {
-                info!("Goto run state from error state.");
-                next_state.set(RunState::Run);
-            }
-            _ => ()
+        if let AssetEvent::Modified { .. } = e {
+            info!("Goto run state from error state.");
+            next_state.set(RunState::Run);
         }
     }
 }
