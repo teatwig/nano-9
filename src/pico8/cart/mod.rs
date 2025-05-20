@@ -15,8 +15,11 @@ mod state;
 
 pub(crate) fn plugin(app: &mut App) {
     app
+        .init_asset::<CartParts>()
         .init_asset_loader::<P8CartLoader>()
-        .init_asset_loader::<PngCartLoader>();
+        .init_asset_loader::<PngCartLoader>()
+        .add_plugins(state::plugin)
+        ;
 }
 
 #[non_exhaustive]
@@ -208,7 +211,6 @@ impl CartParts {
                 gff = bytes;
             }
         }
-        info!("Got {} flags", gff.len());
         // map
         let mut map = Vec::new();
         if let Some(content) = get_segment(&sections[MAP]) {
@@ -333,12 +335,11 @@ impl AssetLoader for P8CartLoader {
         reader.read_to_end(&mut bytes).await?;
         let content = String::from_utf8(bytes)?;
         let mut parts = CartParts::from_str(&content, settings)?;
-        let code: String = std::mem::take(&mut parts.lua);
         #[cfg(feature = "pico8-to-lua")]
         {
             let mut include_paths = vec![];
             // Patch the includes.
-            let mut include_patch = pico8_to_lua::patch_includes(&code, |path| {
+            let mut include_patch = pico8_to_lua::patch_includes(&parts.lua, |path| {
                 include_paths.push(path.to_string());
                 "".into()
             });
@@ -350,55 +351,32 @@ impl AssetLoader for P8CartLoader {
                     cart_path.pop();
                     cart_path.push(&path);
                     let source: AssetSourceId<'static> = load_context.asset_path().source().clone_owned();
-                    if cart_path.extension() == Some(std::ffi::OsStr::new("p8")) {
-                        // let contents = load_context.load(&include_path.with_label("lua")).await?;
-
-                        todo!()
-                    } else {
+                    if cart_path.extension() == Some(std::ffi::OsStr::new("p8")) ||
+                        cart_path.extension() == Some(std::ffi::OsStr::new("png")) {
                         let include_path = AssetPath::from(cart_path).with_source(source);
-                        warn!("include_path {:?}", &include_path);
+                        let cart = load_context
+                            .loader()
+                            .immediate()
+                            .load::<CartParts>(include_path)
+                            .await?;
+                        path_contents.insert(path, cart.take().lua);
+                    } else {
+                            // Lua or some other code.
+                        let include_path = AssetPath::from(cart_path).with_source(source);
                         let contents = load_context.read_asset_bytes(&include_path).await?;
                         path_contents.insert(path, String::from_utf8(contents)?);
                     }
                 }
 
-                include_patch = pico8_to_lua::patch_includes(&code, |path| path_contents.remove(path).unwrap());
+                include_patch = pico8_to_lua::patch_includes(&parts.lua, |path| path_contents.remove(path).unwrap());
             }
 
             // Patch the code.
             let result = pico8_to_lua::patch_lua(include_patch);
             if pico8_to_lua::was_patched(&result) {
                 parts.lua = result.to_string();
-                std::fs::write("cart-patched.lua", &code).unwrap();
-                info!("WROTE PATCHED CODE to cart-patched.lua");
             }
         }
-        let gfx = parts.gfx.clone();
-        // let code_path = load_context.asset_path().clone().with_label("lua");
-        let mut code_path: PathBuf = load_context.path().into();
-        // let path = code_path.as_mut_os_string();
-        // code_path.
-        // {
-        //     let path = code_path.as_mut_os_string();
-        //     path.push("#lua");
-        // }
-        // warn!("script asset path {}", code_path.display());
-        // let cart = Cart {
-        //     lua: ,
-        //     gfx: gfx.map(|gfx| {
-        //         load_context.labeled_asset_scope("gfx".into(), move |_load_context| gfx)
-        //     }),
-        //     map: parts.map,
-        //     flags: parts.flags,
-        //     sfx: parts
-        //         .sfx
-        //         .into_iter()
-        //         .enumerate()
-        //         .map(|(n, sfx)| {
-        //             load_context.labeled_asset_scope(format!("sfx{n}"), move |_load_context| sfx)
-        //         })
-        //         .collect(),
-        // };
         Ok(parts)
     }
 

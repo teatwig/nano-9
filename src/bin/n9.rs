@@ -36,11 +36,9 @@ fn main() -> io::Result<()> {
     let script = arg;
     let script_path = {
         let mut path = PathBuf::from(&script);
-        dbg!(&path);
         if path.is_dir() {
             path.push("Nano9.toml")
         }
-        dbg!(&path);
         path
     };
     let mut app = App::new();
