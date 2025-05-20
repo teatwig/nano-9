@@ -11,6 +11,8 @@ use pico8_decompress::*;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+mod state;
+
 pub(crate) fn plugin(app: &mut App) {
     app
         .init_asset_loader::<P8CartLoader>()
@@ -42,7 +44,7 @@ pub enum CartLoaderError {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Reflect)]
 pub struct MusicParts {
     begin: bool,
     end: bool,
@@ -50,7 +52,7 @@ pub struct MusicParts {
     patterns: Vec<u8>,
 }
 
-#[derive(Debug)]
+#[derive(Asset, Debug, Reflect)]
 pub struct CartParts {
     pub lua: String,
     pub gfx: Option<Gfx>,
@@ -318,7 +320,7 @@ struct CartLoaderSettings {}
 struct P8CartLoader;
 
 impl AssetLoader for P8CartLoader {
-    type Asset = Pico8State;
+    type Asset = CartParts;
     type Settings = CartLoaderSettings;
     type Error = CartLoaderError;
     async fn load(
@@ -397,9 +399,7 @@ impl AssetLoader for P8CartLoader {
         //         })
         //         .collect(),
         // };
-
-        to_state(parts, load_context)
-
+        Ok(parts)
     }
 
     fn extensions(&self) -> &[&str] {
@@ -407,69 +407,11 @@ impl AssetLoader for P8CartLoader {
     }
 }
 
-fn to_state(cart: CartParts, load_context: &mut LoadContext) -> Result<Pico8State, CartLoaderError> {
-        let layout = load_context.labeled_asset_scope("atlas".into(), move |_load_context| TextureAtlasLayout::from_grid(
-                    PICO8_SPRITE_SIZE,
-                    PICO8_TILE_COUNT.x,
-                    PICO8_TILE_COUNT.y,
-                    None,
-                    None));
-        let sprite_sheets: Vec<_> = cart
-            .gfx
-            .map(|gfx| SpriteSheet {
-                handle: SprAsset::Gfx(load_context.labeled_asset_scope("gfx".into(), move |_load_context| gfx)),
-                sprite_size: UVec2::splat(8),
-                flags: cart.flags.clone(),
-                layout,
-            })
-            .into_iter()
-            .collect();
-        let code = cart.lua;
-        let code_path: PathBuf = load_context.path().into();
-
-        let state = Pico8State {
-
-            code: load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
-                content: code.into_bytes().into_boxed_slice(),
-                asset_path: code_path.into(),
-            }),
-            palettes: vec![Palette::from_slice(&PALETTE)].into(),
-            pal_map: PalMap::default(),
-            border: load_context.loader()
-                                .with_settings(pixel_art_settings)
-                                .load(pico8::PICO8_BORDER),
-            maps: vec![P8Map {
-                entries: cart.map.clone(),
-                sheet_index: 0,
-            }
-            .into()]
-            .into(),
-            audio_banks: vec![AudioBank(
-                cart.sfx
-                .into_iter()
-                .enumerate()
-                .map(|(n, sfx)| {
-                    Audio::Sfx(load_context.labeled_asset_scope(format!("sfx{n}"), move |_load_context| sfx))
-                })
-                .collect(),
-            )]
-            .into(),
-            sprite_sheets: sprite_sheets.into(),
-            draw_state: DrawState::default(),
-            font: vec![N9Font {
-                handle: load_context.load(PICO8_FONT),
-                height: Some(7.0),
-            }]
-            .into(),
-        };
-    Ok(state)
-}
-
 #[derive(Default)]
 struct PngCartLoader;
 
 impl AssetLoader for PngCartLoader {
-    type Asset = Pico8State;
+    type Asset = CartParts;
     type Settings = CartLoaderSettings;
     type Error = CartLoaderError;
     async fn load(
@@ -548,7 +490,7 @@ impl AssetLoader for PngCartLoader {
             sfx,
             music: vec![]
         };
-        to_state(parts, load_context)
+        Ok(parts)
     }
 
     fn extensions(&self) -> &[&str] {
