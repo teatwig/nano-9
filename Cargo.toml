@@ -52,8 +52,9 @@ name = "n9"
 test = false
 bench = false
 
-[patch.crates-io]
+[patch."https://github.com/shanecelis/pico8_decompress.git"]
 pico8_decompress = { path = "../pico8_decompress" }
+[patch.crates-io]
 bevy_ecs_tiled = { path = "../bevy_ecs_tiled" }
 bevy_mod_scripting = { path = "../bevy_mod_scripting" }
 # bevy_minibuffer = { path = "../bevy_minibuffer" }

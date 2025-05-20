@@ -7,7 +7,7 @@ use bevy::{
 };
 use bevy_mod_scripting::core::asset::ScriptAsset;
 use bitvec::prelude::*;
-use pico8_decompress::*;
+use pico8_decompress::{decompress, extract_bits_from_png};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -343,16 +343,21 @@ impl AssetLoader for P8CartLoader {
                 include_paths.push(path.to_string());
                 "".into()
             });
-            if !include_paths.is_empty() {
+            let has_includes = !include_paths.is_empty();
+            if has_includes {
                 // There are included files, let's read them all then add them.
                 let mut path_contents = std::collections::HashMap::new();
                 for path in include_paths.into_iter() {
                     let mut cart_path: PathBuf = load_context.path().to_owned();
                     cart_path.pop();
                     cart_path.push(&path);
+                    dbg!(&cart_path);
                     let source: AssetSourceId<'static> = load_context.asset_path().source().clone_owned();
-                    if cart_path.extension() == Some(std::ffi::OsStr::new("p8")) ||
-                        cart_path.extension() == Some(std::ffi::OsStr::new("png")) {
+                    let extension = cart_path.extension()
+                                  .and_then(|s| s.to_str())
+                                  .unwrap_or("");
+                    match extension {
+                        "p8" | "png" => {
                         let include_path = AssetPath::from(cart_path).with_source(source);
                         let cart = load_context
                             .loader()
@@ -360,20 +365,25 @@ impl AssetLoader for P8CartLoader {
                             .load::<CartParts>(include_path)
                             .await?;
                         path_contents.insert(path, cart.take().lua);
-                    } else {
+                    }
+                        "lua" => {
                             // Lua or some other code.
                         let include_path = AssetPath::from(cart_path).with_source(source);
                         let contents = load_context.read_asset_bytes(&include_path).await?;
                         path_contents.insert(path, String::from_utf8(contents)?);
                     }
+                        ext => {
+                            warn!("Extension {} not supported. Cannot include {:?}.", ext, &cart_path);
+                            path_contents.insert(path, "error(\"Cannot include file\")".into());
+                        }
+                }
                 }
 
                 include_patch = pico8_to_lua::patch_includes(&parts.lua, |path| path_contents.remove(path).unwrap());
             }
-
             // Patch the code.
             let result = pico8_to_lua::patch_lua(include_patch);
-            if pico8_to_lua::was_patched(&result) {
+            if has_includes || pico8_to_lua::was_patched(&result) {
                 parts.lua = result.to_string();
             }
         }
@@ -402,7 +412,7 @@ impl AssetLoader for PngCartLoader {
         reader.read_to_end(&mut bytes).await?;
 
         let v = extract_bits_from_png(&bytes[..])?;
-        let p8scii_code: Vec<u8> = pxa::decompress(&v[0x4300..=0x7fff], None)
+        let p8scii_code: Vec<u8> = decompress(&v[0x4300..=0x7fff], None)
             .map_err(|e| CartLoaderError::Decompression(format!("{e}")))?;
         let mut code: String = p8scii::vec_to_utf8(p8scii_code);
 
