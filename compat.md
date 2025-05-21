@@ -1,5 +1,9 @@
 # API Compatibility
 
+Parameters shown in italics are extensions to the Pico-8 API. 
+
+## Hooks
+
 - [x] _init()
 - [x] _update()
 - [x] _draw()
@@ -22,14 +26,14 @@
 - [x] pal([c0,] [c1,] [p])
 - [x] palt([c,] [t])
 - [ ] pget(x, y)
-- [x] print(str, [x,] [y,] [col])
+- [x] print(str, [x,] [y,] [col,] *[font_size]*)
 - [x] pset(x, y, [c])
 - [x] rect(x0, y0, x1, y1, [col])
 - [x] rectfill(x0, y0, x1, y1, [col])
 - [x] sget(x, y)
-- [x] spr(n, x, y, [w,] [h,] [flip_x,] [flip_y])
+- [x] spr(n, x, y, [w,] [h,] [flip_x,] [flip_y,] *[turns]*)
 - [x] sset(x, y, [c])
-- [x] sspr(sx, sy, sw, sh, dx, dy, [dw,] [dh,] [flip_x,] [flip_y])
+- [x] sspr(sx, sy, sw, sh, dx, dy, [dw,] [dh,] [flip_x,] [flip_y,] *[image_index]*)
 - [ ] tline(x0, y0, x1, y1, mx, my, [mdx,] [mdy])
 
 ## Tables
@@ -50,11 +54,11 @@
 - [x] btnp([i,] [p])
 
 ## Sound
-- [ ] music([n,] [fade_len,] [channel_mask])
-- [x] sfx(n, [channel,] [offset])
+- [ ] music([n,] [fade_len,] [channel_mask,] *[bank_index]*)
+- [x] sfx(n, [channel,] [offset,] *[bank_index]*)
 
 ## Map
-- [x] map(cel_x, cel_y, sx, sy, cel_w, cel_h, [layer])
+- [x] map(cel_x, cel_y, sx, sy, cel_w, cel_h, [layer,] *[map_index]*)
 - [ ] mget(x, y)
 - [ ] mset(x, y, v)
 
@@ -82,7 +86,7 @@
 - [x] ceil(x)
 - [x] cos(x)
 - [x] flr(x)
-- [ ] lshr(num, bits)
+- [x] lshr(num, bits)
 - [x] max(x, y)
 - [x] mid(x, y, z)
 - [x] min(x, y)
@@ -140,6 +144,5 @@
 - [/] printh(str, [filename], [overwrite])
 - [/] stat(n)
 Supports keyboard and some mouse functions.
-- [ ] stop() (undocumented)
+- [x] stop() (undocumented)
 - [ ] trace() (undocumented)
-
