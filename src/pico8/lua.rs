@@ -577,6 +577,24 @@ pub(crate) fn plugin(app: &mut App) {
                 })
             },
         )
+        .register(
+            "shl",
+            |ctx: FunctionCallContext, a: f32, b: u8| {
+                Pico8::shl(a, b)
+            },
+        )
+        .register(
+            "shr",
+            |ctx: FunctionCallContext, a: f32, b: u8| {
+                Pico8::shr(a, b)
+            },
+        )
+        .register(
+            "lshr",
+            |ctx: FunctionCallContext, a: f32, b: u8| {
+                Pico8::lshr(a, b)
+            },
+        )
         ;
 
     #[cfg(feature = "level")]

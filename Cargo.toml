@@ -31,9 +31,10 @@ bevy_prng = "0.9.0"
 pico8_decompress = { version = "0.1.0", git = "https://github.com/shanecelis/pico8_decompress.git" }
 png = "0.17.16"
 pico8-to-lua = { version = "0.1.0", path = "../pico8-to-lua", optional = true }
+fixed = { version = "1.29.0", optional = true }
 
 [features]
-default = [ "level", "negate-y", "pico8-to-lua" ]
+default = [ "level", "negate-y", "pico8-to-lua", "fixed" ]
 negate-y = []
 # level = [ "dep:bevy_ecs_ldtk", "dep:ldtk_rust", "dep:serde_json"]
 # level = [ "dep:bevy_ecs_tiled", "dep:serde_json", "bevy_ecs_tiled/user_properties" ]
@@ -43,6 +44,7 @@ user_properties = [ "bevy_ecs_tiled/user_properties" ]
 inspector = [ "minibuffer", "dep:bevy_minibuffer_inspector" ]
 minibuffer = [ "dep:bevy_minibuffer" ]
 pico8-to-lua = ["dep:pico8-to-lua"]
+fixed = ["dep:fixed"]
 
 [dev-dependencies]
 bevy = "0.15"

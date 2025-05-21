@@ -1611,6 +1611,34 @@ impl Pico8<'_, '_> {
             _ => Err(Error::UnsupportedStat(n))?,
         }
     }
+
+}
+
+#[cfg(feature = "fixed")]
+mod fixed {
+    use fixed::types::extra::U16;
+    use fixed::{FixedI32, FixedU32};
+impl super::Pico8<'_, '_> {
+
+
+    pub fn shl(a: f32, b: u8) -> f32 {
+        let a = FixedI32::<U16>::from_num(a);
+        let c = a << b;
+        c.to_num()
+    }
+
+    pub fn shr(a: f32, b: u8) -> f32 {
+        let a = FixedI32::<U16>::from_num(a);
+        let c = a >> b;
+        c.to_num()
+    }
+
+    pub fn lshr(a: f32, b: u8) -> f32 {
+        let c: u32 = FixedI32::<U16>::from_num(a).to_bits() as u32;
+        let d = c >> b;
+        FixedI32::<U16>::from_bits(d as i32).to_num()
+    }
+}
 }
 
 #[derive(Default, Debug, Clone)]
@@ -1701,5 +1729,27 @@ mod test {
         b.last.set(1, false);
         assert!(!b.btn(None).unwrap());
         assert!(!b.btnp(None).unwrap());
+    }
+
+    #[cfg(feature = "fixed")]
+    mod fixed {
+        use super::*;
+        #[test]
+        fn test_shr() {
+            assert_eq!(0.5, Pico8::shr(1.0, 1));
+            assert_eq!(-0.5, Pico8::shr(-1.0, 1));
+        }
+
+        #[test]
+        fn test_lshr() {
+            assert_eq!(0.5, Pico8::lshr(1.0, 1));
+            assert_eq!(32767.5, Pico8::lshr(-1.0, 1));
+            assert_eq!(8191.875, Pico8::lshr(-1.0, 3));
+        }
+
+        #[test]
+        fn test_shl() {
+            assert_eq!(2.0, Pico8::shl(1.0, 1));
+        }
     }
 }

@@ -80,16 +80,7 @@ bnot = function(x)
   x = math.floor(x)
   return ~x
 end
-shl = function(x, y)
-  x = math.floor(x)
-  y = math.floor(y)
-  return x << y
-end
-shr = function(x, y)
-  x = math.floor(x)
-  y = math.floor(y)
-  return x >> y
-end
+
 rotl = function(x, y)
   x = math.floor(x)
   y = math.floor(y)
