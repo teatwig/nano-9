@@ -848,24 +848,30 @@ impl Pico8<'_, '_> {
         buttons.btn(b)
     }
 
-    // print(text, [x,] [y,] [color])
+    /// print(text, [x,] [y,] [color,] [font_size])
+    ///
+    /// Print the given text. The Lua `print()` function will return the new x
+    /// value. This function only returns the entity. To recover the new x
+    /// value, one can call the `cursor().x` function.
     pub fn print(
         &mut self,
-        text: impl AsRef<str>,
+        text: impl Into<String>,
         pos: Option<Vec2>,
         color: Option<N9Color>,
-    ) -> Result<f32, Error> {
-        let (id, add_newline) = self.pre_print(text, pos, color)?;
-        self.post_print(id, add_newline)
+        font_size: Option<f32>,
+    ) -> Result<Entity, Error> {
+        let text = text.into();
+        let id = self.commands.spawn_empty().id();
+        self.commands.queue(move |world: &mut World| {
+            Self::print_world(world, Some(id), text, pos, color, font_size);
+        });
+        Ok(id)
     }
 
-    pub(crate) fn print_world(world: &mut World, text: impl AsRef<str>, pos: Option<Vec2>, color: Option<N9Color>) -> Result<f32, Error> {
-        let mut system_state = SystemState::<Pico8>::new(world);
-        let mut pico8 = system_state.get_mut(world);
-        let (id, add_newline) = pico8.pre_print(text, pos, color)?;
-        system_state.apply(world);
-        world.run_system_cached(bevy::text::update_text2d_layout).unwrap();
-        world.run_system_cached_with(Self::post_print_world, (id, add_newline)).unwrap()
+    pub(crate) fn print_world(world: &mut World, dest: Option<Entity>, text: String, pos: Option<Vec2>, color: Option<N9Color>, font_size: Option<f32>) -> Result<f32, Error> {
+        let (id, add_newline) = Self::pre_print_world(world, dest, text, pos, color, font_size)?;
+        world.run_system_cached(bevy::text::update_text2d_layout).expect("update_text2d_layout");
+        world.run_system_cached_with(Self::post_print_world, (id, add_newline)).expect("post_print_world")
     }
 
     fn post_print_world(In((id, add_newline)): In<(Entity, bool)>, query: Query<(&Transform, &TextLayoutInfo)>, mut state: ResMut<Pico8State>) -> Result<f32, Error> {
@@ -873,7 +879,7 @@ impl Pico8<'_, '_> {
         let pos = &transform.translation;
         if add_newline {
             state.draw_state.print_cursor.x = pos.x;
-            state.draw_state.print_cursor.y = dbg!(negate_y(pos.y) + dbg!(text_layout.size.y));
+            state.draw_state.print_cursor.y = negate_y(pos.y) + text_layout.size.y;
         } else {
             state.draw_state.print_cursor.x = pos.x + text_layout.size.x;
         }
@@ -881,73 +887,64 @@ impl Pico8<'_, '_> {
         Ok(pos.x + text_layout.size.x)
     }
 
-    fn pre_print(
-        &mut self,
-        text: impl AsRef<str>,
+    fn pre_print_world(
+        world: &mut World,
+        entity: Option<Entity>,
+        // &mut self,
+        mut text: String,
         pos: Option<Vec2>,
         color: Option<N9Color>,
+        font_size: Option<f32>,
+        // state: &Pico8State,
+        // mut commands: &mut Commands,
     ) -> Result<(Entity, bool), Error> {
-        let mut text: &str = text.as_ref();
+        // let mut text: &str = text.as_ref();
+        let state = world.get_resource::<Pico8State>().expect("Pico8State");
+        let font = state.font.handle.clone();
         // XXX: Should the camera delta apply to the print cursor position?
-        let pos = pos.map(|p| self.state.draw_state.apply_camera_delta(p)).unwrap_or_else(|| {
+        let pos = pos.map(|p| state.draw_state.apply_camera_delta(p)).unwrap_or_else(|| {
             Vec2::new(
-                self.state.draw_state.print_cursor.x,
-                self.state.draw_state.print_cursor.y,
+                state.draw_state.print_cursor.x,
+                state.draw_state.print_cursor.y,
             )
         });
         // pos =
-        let c = self.state.get_color(color.unwrap_or(N9Color::Pen))?;
+        let c = state.get_color(color.unwrap_or(N9Color::Pen))?;
         let clearable = Clearable::default();
         let add_newline = if text.ends_with('\0') {
-            text = &text[..text.len().saturating_sub(1)];
+            text.pop();
             false
         } else {
             true
         };
         // XXX: this is byte count, not char count.
         let len = text.len() as f32;
-        let font_size = 5.0;
+        let font_size = font_size.unwrap_or(5.0);
         // Empirically derived the char_width from the font size using these
         // good values for the Pico-8 font:
         //
         // (font_size, char_width)
         //  5, 4
         // 10, 8
-        let char_width = font_size * 4.0 / 5.0;
         let z = clearable.suggest_z();
-        let entity = self.commands
-            .spawn((
+        let id = entity.unwrap_or_else(|| world.spawn_empty().id());
+        world
+            .entity_mut(id)
+            .insert((
                 Name::new("print"),
                 Transform::from_xyz(pos.x, negate_y(pos.y), z),
                 Text2d::new(text),
                 Visibility::default(),
                 TextColor(c),
                 TextFont {
-                    font: self.state.font.handle.clone(),
+                    font,
                     font_smoothing: bevy::text::FontSmoothing::None,
                     font_size,
                 },
                 Anchor::TopLeft,
                 clearable,
-            )).id();
-        Ok((entity, add_newline))
-    }
-
-    fn post_print(
-        &mut self,
-        entity: Entity,
-        add_newline: bool,
-    ) -> Result<f32, Error> {
-
-        // if add_newline {
-        //     self.state.draw_state.print_cursor.x = pos.x;
-        //     self.state.draw_state.print_cursor.y = pos.y + font_size + 1.0;
-        // } else {
-        //     self.state.draw_state.print_cursor.x = pos.x + char_width * len;
-        // }
-        // self.state.draw_state.mark_drawn();
-        // Ok(pos.x + len * char_width)
-        Ok(0.0)
+            ));
+        Ok((id, add_newline))
     }
 
     pub fn exit(&mut self, error: Option<u8>) {
