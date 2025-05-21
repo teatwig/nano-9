@@ -81,18 +81,6 @@ bnot = function(x)
   return ~x
 end
 
-rotl = function(x, y)
-  x = math.floor(x)
-  y = math.floor(y)
-  return (x << y) | (x >> (NUMBER_BITS-y))
-end
-rotr = function(x, y)
-  x = math.floor(x)
-  y = math.floor(y)
-  return (x << (NUMBER_BITS-y)) | (x >> y)
-end
-
-
 function add(a,v)
     if a == nil then
         warn("add to nil")

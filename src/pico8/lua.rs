@@ -615,6 +615,18 @@ pub(crate) fn plugin(app: &mut App) {
                 Pico8::lshr(a, b)
             },
         )
+        .register(
+            "rotl",
+            |ctx: FunctionCallContext, a: f32, b: u8| {
+                Pico8::rotl(a, b)
+            },
+        )
+        .register(
+            "rotr",
+            |ctx: FunctionCallContext, a: f32, b: u8| {
+                Pico8::rotr(a, b)
+            },
+        )
         ;
 
     #[cfg(feature = "level")]

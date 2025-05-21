@@ -15,6 +15,7 @@ use bevy::{
 
 use bevy_mod_scripting::{
     core::{
+        ConfigureScriptPlugin,
         asset::{Language, ScriptAsset, ScriptAssetSettings, AssetPathToScriptIdMapper},
         bindings::{function::namespace::NamespaceBuilder, script_value::ScriptValue},
         callback_labels,
@@ -356,7 +357,7 @@ impl Plugin for Nano9Plugin {
     fn build(&self, app: &mut App) {
         app.register_type::<DrawState>();
         // How do you enable shared context since it eats the plugin?
-        let mut lua_scripting_plugin = LuaScriptingPlugin::default();
+        let mut lua_scripting_plugin = LuaScriptingPlugin::default().enable_context_sharing();
         let canvas_size: UVec2 = self
             .config
             .screen
