@@ -1,7 +1,8 @@
 use bevy::{
     asset::embedded_asset,
+    text::TextLayoutInfo,
     audio::PlaybackMode,
-    ecs::system::SystemParam,
+    ecs::system::{SystemParam, SystemState},
     image::{ImageSampler, TextureAccessError},
     input::gamepad::GamepadConnectionEvent,
     prelude::*,
@@ -581,39 +582,9 @@ impl Pico8<'_, '_> {
             .id())
     }
 
-    // XXX: Should this be here? It's not a Pico8 API.
-    pub(crate) fn get_color(&self, c: impl Into<N9Color>) -> Result<Color, Error> {
-        match c.into() {
-            N9Color::Pen => match self.state.draw_state.pen {
-                PColor::Palette(n) => {
-                    self.state.palettes.get_color(n).map(|c| c.into())
-                    // let pal = self
-                    //     .images
-                    //     .get(&self.state.palettes.handle)
-                    //     .ok_or(Error::NoAsset("palette".into()))?;
-
-                    // // Strangely. It's not a 1d texture.
-                    // Ok(pal.get_color_at(n as u32, self.state.palettes.row)?)
-                }
-                PColor::Color(c) => Ok(c.into()),
-            },
-            N9Color::Palette(n) => {
-                self.state.palettes.get_color(n).map(|c| c.into())
-                // let pal = self
-                //     .images
-                //     .get(&self.state.palettes.handle)
-                //     .ok_or(Error::NoAsset("palette".into()))?;
-
-                // // Strangely. It's not a 1d texture.
-                // Ok(pal.get_color_at(n as u32, self.state.palettes.row)?)
-            }
-            N9Color::Color(c) => Ok(c.into()),
-        }
-    }
-
     // cls([n])
     pub fn cls(&mut self, color: Option<N9Color>) -> Result<(), Error> {
-        let c = self.get_color(color.unwrap_or(Color::BLACK.into()))?;
+        let c = self.state.get_color(color.unwrap_or(Color::BLACK.into()))?;
         self.state.draw_state.clear_screen();
         let image = self
             .images
@@ -629,7 +600,7 @@ impl Pico8<'_, '_> {
     }
 
     pub fn pset(&mut self, pos: UVec2, color: Option<N9Color>) -> Result<(), Error> {
-        let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
+        let c = self.state.get_color(color.unwrap_or(N9Color::Pen))?;
         let image = self
             .images
             .get_mut(&self.canvas.handle)
@@ -671,7 +642,7 @@ impl Pico8<'_, '_> {
                 );
             }
             SprAsset::Image(handle) => {
-                let c = self.get_color(color)?;
+                let c = self.state.get_color(color)?;
                 let image = self
                     .images
                     .get_mut(handle)
@@ -768,7 +739,7 @@ impl Pico8<'_, '_> {
                     }
                 } else {
                     let c =
-                        self.get_color(color.map(|x| x.off().into()).unwrap_or(N9Color::Pen))?;
+                        self.state.get_color(color.map(|x| x.off().into()).unwrap_or(N9Color::Pen))?;
                     Sprite {
                         color: c,
                         anchor: Anchor::TopLeft,
@@ -792,7 +763,7 @@ impl Pico8<'_, '_> {
     ) -> Result<Entity, Error> {
         let upper_left = self.state.draw_state.apply_camera_delta(upper_left);
         let lower_right = self.state.draw_state.apply_camera_delta(lower_right);
-        let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
+        let c = self.state.get_color(color.unwrap_or(N9Color::Pen))?;
         let size = (lower_right - upper_left) + Vec2::ONE;
         let clearable = Clearable::default();
         let id = self
@@ -884,14 +855,48 @@ impl Pico8<'_, '_> {
         pos: Option<Vec2>,
         color: Option<N9Color>,
     ) -> Result<f32, Error> {
+        let (id, add_newline) = self.pre_print(text, pos, color)?;
+        self.post_print(id, add_newline)
+    }
+
+    pub(crate) fn print_world(world: &mut World, text: impl AsRef<str>, pos: Option<Vec2>, color: Option<N9Color>) -> Result<f32, Error> {
+        let mut system_state = SystemState::<Pico8>::new(world);
+        let mut pico8 = system_state.get_mut(world);
+        let (id, add_newline) = pico8.pre_print(text, pos, color)?;
+        system_state.apply(world);
+        world.run_system_cached(bevy::text::update_text2d_layout).unwrap();
+        world.run_system_cached_with(Self::post_print_world, (id, add_newline)).unwrap()
+    }
+
+    fn post_print_world(In((id, add_newline)): In<(Entity, bool)>, query: Query<(&Transform, &TextLayoutInfo)>, mut state: ResMut<Pico8State>) -> Result<f32, Error> {
+        let (transform, text_layout) = query.get(id).map_err(|_| Error::NoSuch("text layout".into()))?;
+        let pos = &transform.translation;
+        if add_newline {
+            state.draw_state.print_cursor.x = pos.x;
+            state.draw_state.print_cursor.y = dbg!(negate_y(pos.y) + dbg!(text_layout.size.y));
+        } else {
+            state.draw_state.print_cursor.x = pos.x + text_layout.size.x;
+        }
+        state.draw_state.mark_drawn();
+        Ok(pos.x + text_layout.size.x)
+    }
+
+    fn pre_print(
+        &mut self,
+        text: impl AsRef<str>,
+        pos: Option<Vec2>,
+        color: Option<N9Color>,
+    ) -> Result<(Entity, bool), Error> {
         let mut text: &str = text.as_ref();
+        // XXX: Should the camera delta apply to the print cursor position?
         let pos = pos.map(|p| self.state.draw_state.apply_camera_delta(p)).unwrap_or_else(|| {
             Vec2::new(
                 self.state.draw_state.print_cursor.x,
                 self.state.draw_state.print_cursor.y,
             )
         });
-        let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
+        // pos =
+        let c = self.state.get_color(color.unwrap_or(N9Color::Pen))?;
         let clearable = Clearable::default();
         let add_newline = if text.ends_with('\0') {
             text = &text[..text.len().saturating_sub(1)];
@@ -910,7 +915,7 @@ impl Pico8<'_, '_> {
         // 10, 8
         let char_width = font_size * 4.0 / 5.0;
         let z = clearable.suggest_z();
-        self.commands
+        let entity = self.commands
             .spawn((
                 Name::new("print"),
                 Transform::from_xyz(pos.x, negate_y(pos.y), z),
@@ -924,15 +929,25 @@ impl Pico8<'_, '_> {
                 },
                 Anchor::TopLeft,
                 clearable,
-            ));
-        if add_newline {
-            self.state.draw_state.print_cursor.x = pos.x;
-            self.state.draw_state.print_cursor.y = pos.y + font_size + 1.0;
-        } else {
-            self.state.draw_state.print_cursor.x = pos.x + char_width * len;
-        }
-        self.state.draw_state.mark_drawn();
-        Ok(pos.x + len * char_width)
+            )).id();
+        Ok((entity, add_newline))
+    }
+
+    fn post_print(
+        &mut self,
+        entity: Entity,
+        add_newline: bool,
+    ) -> Result<f32, Error> {
+
+        // if add_newline {
+        //     self.state.draw_state.print_cursor.x = pos.x;
+        //     self.state.draw_state.print_cursor.y = pos.y + font_size + 1.0;
+        // } else {
+        //     self.state.draw_state.print_cursor.x = pos.x + char_width * len;
+        // }
+        // self.state.draw_state.mark_drawn();
+        // Ok(pos.x + len * char_width)
+        Ok(0.0)
     }
 
     pub fn exit(&mut self, error: Option<u8>) {
@@ -1191,7 +1206,7 @@ impl Pico8<'_, '_> {
     pub fn line(&mut self, a: IVec2, b: IVec2, color: Option<N9Color>) -> Result<Entity, Error> {
         let a = self.state.draw_state.apply_camera_delta_ivec2(a);
         let b = self.state.draw_state.apply_camera_delta_ivec2(b);
-        let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
+        let color = self.state.get_color(color.unwrap_or(N9Color::Pen))?;
         let min = a.min(b);
         let delta = b - a;
         let size = UVec2::new(delta.x.unsigned_abs(), delta.y.unsigned_abs()) + UVec2::ONE;
@@ -1249,7 +1264,7 @@ impl Pico8<'_, '_> {
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
         let pos = self.state.draw_state.apply_camera_delta_ivec2(pos);
-        let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
+        let color = self.state.get_color(color.unwrap_or(N9Color::Pen))?;
         let r: UVec2 = r.into();
         let size: UVec2 = r * UVec2::splat(2) + UVec2::ONE;
         let mut pixmap = Pixmap::new(size.x, size.y).expect("pixmap");
@@ -1311,7 +1326,7 @@ impl Pico8<'_, '_> {
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
         let pos = self.state.draw_state.apply_camera_delta_ivec2(pos);
-        let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
+        let color = self.state.get_color(color.unwrap_or(N9Color::Pen))?;
         let r: UVec2 = r.into();
         let size: UVec2 = r * UVec2::splat(2) + UVec2::ONE;
         let mut pixmap = Pixmap::new(size.x, size.y).expect("pixmap");
@@ -1377,7 +1392,7 @@ impl Pico8<'_, '_> {
     ) -> Result<Entity, Error> {
         let upper_left = self.state.draw_state.apply_camera_delta_ivec2(upper_left);
         let lower_right = self.state.draw_state.apply_camera_delta_ivec2(lower_right);
-        let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
+        let color = self.state.get_color(color.unwrap_or(N9Color::Pen))?;
         // let min = a.min(b);
         let size: UVec2 = ((lower_right - upper_left) + IVec2::ONE)
             .try_into()
@@ -1446,7 +1461,7 @@ impl Pico8<'_, '_> {
     ) -> Result<Entity, Error> {
         let upper_left = self.state.draw_state.apply_camera_delta_ivec2(upper_left);
         let lower_right = self.state.draw_state.apply_camera_delta_ivec2(lower_right);
-        let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
+        let color = self.state.get_color(color.unwrap_or(N9Color::Pen))?;
         let size: UVec2 = ((lower_right - upper_left) + IVec2::ONE)
             .try_into()
             .unwrap();
@@ -1617,9 +1632,8 @@ impl Pico8<'_, '_> {
 #[cfg(feature = "fixed")]
 mod fixed {
     use fixed::types::extra::U16;
-    use fixed::{FixedI32, FixedU32};
+    use fixed::FixedI32;
 impl super::Pico8<'_, '_> {
-
 
     pub fn shl(a: f32, b: u8) -> f32 {
         let a = FixedI32::<U16>::from_num(a);
@@ -1670,6 +1684,38 @@ impl FromWorld for Pico8State {
             audio_banks: Vec::new().into(),
             sprite_sheets: Vec::new().into(),
             maps: Vec::new().into(),
+        }
+    }
+}
+
+impl Pico8State {
+
+    pub(crate) fn get_color(&self, c: impl Into<N9Color>) -> Result<Color, Error> {
+        match c.into() {
+            N9Color::Pen => match self.draw_state.pen {
+                PColor::Palette(n) => {
+                    self.palettes.get_color(n).map(|c| c.into())
+                    // let pal = self
+                    //     .images
+                    //     .get(&self.state.palettes.handle)
+                    //     .ok_or(Error::NoAsset("palette".into()))?;
+
+                    // // Strangely. It's not a 1d texture.
+                    // Ok(pal.get_color_at(n as u32, self.state.palettes.row)?)
+                }
+                PColor::Color(c) => Ok(c.into()),
+            },
+            N9Color::Palette(n) => {
+                self.palettes.get_color(n).map(|c| c.into())
+                // let pal = self
+                //     .images
+                //     .get(&self.state.palettes.handle)
+                //     .ok_or(Error::NoAsset("palette".into()))?;
+
+                // // Strangely. It's not a 1d texture.
+                // Ok(pal.get_color_at(n as u32, self.state.palettes.row)?)
+            }
+            N9Color::Color(c) => Ok(c.into()),
         }
     }
 }

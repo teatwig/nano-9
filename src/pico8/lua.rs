@@ -26,6 +26,7 @@ use crate::{
 
 #[cfg(feature = "level")]
 use std::collections::HashMap;
+use std::borrow::Cow;
 
 pub(crate) fn with_system_param<
     S: SystemParam + 'static,
@@ -239,16 +240,48 @@ pub(crate) fn plugin(app: &mut App) {
              x: Option<f32>,
              y: Option<f32>,
              c: Option<N9Color>| {
-                with_pico8(&ctx, move |pico8| {
-                    let pos =
-                        x.map(|x| Vec2::new(x, y.unwrap_or(pico8.state.draw_state.print_cursor.y)));
-                    match text.unwrap_or(ScriptValue::Unit) {
-                        ScriptValue::String(s) => pico8.print(&s, pos, c),
-                        ScriptValue::Float(f) => pico8.print(format!("{f:.4}"), pos, c),
-                        ScriptValue::Integer(x) => pico8.print(format!("{x}"), pos, c),
-                        _ => pico8.print("", pos, c),
-                    }
-                })
+                // with_pico8(&ctx, move |pico8| {
+                //     let pos =
+                //         x.map(|x| Vec2::new(x, y.unwrap_or(pico8.state.draw_state.print_cursor.y)));
+                //     match text.unwrap_or(ScriptValue::Unit) {
+                //         ScriptValue::String(s) => pico8.print(&s, pos, c),
+                //         ScriptValue::Float(f) => pico8.print(format!("{f:.4}"), pos, c),
+                //         ScriptValue::Integer(x) => pico8.print(format!("{x}"), pos, c),
+                //         _ => pico8.print("", pos, c),
+                //     }
+                // })
+                let pos = with_pico8(&ctx, move |pico8| {
+                        Ok(x.map(|x| Vec2::new(x, y.unwrap_or(pico8.state.draw_state.print_cursor.y))))
+                })?;
+
+                let text: Cow<'_, str> = match text.unwrap_or(ScriptValue::Unit) {
+                    ScriptValue::String(s) => s,
+                    ScriptValue::Float(f) => format!("{f:.4}").into(),
+                    ScriptValue::Integer(x) => format!("{x}").into(),
+                    _ => "".into(),
+                };
+
+                let world_guard = ctx.world()?;
+                let raid = ReflectAccessId::for_global();
+                if world_guard.claim_global_access() {
+                    let world = world_guard.as_unsafe_world_cell()?;
+                    let world = unsafe { world.world_mut() };
+                    let r = Pico8::print_world(world, text, pos, c);
+                    // let mut system_state: SystemState<S> = SystemState::new(world);
+                    // let r = {
+                    //     let mut pico8 = system_state.get_mut(world);
+                    //     f(&mut pico8)
+                    // };
+                    // system_state.apply(world);
+                    unsafe { world_guard.release_global_access() };
+                    r.map_err(|e| InteropError::external_error(Box::new(e)))
+                } else {
+                    Err(InteropError::cannot_claim_access(
+                        raid,
+                        world_guard.get_access_location(raid),
+                        "with_system_param",
+                    ))
+                }
             },
         )
         .register(
