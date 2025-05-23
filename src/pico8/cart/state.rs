@@ -64,7 +64,7 @@ impl AssetLoader for PngStateLoader {
     }
 }
 
-fn to_state(cart: CartParts, load_context: &mut LoadContext) -> Result<Pico8State, CartLoaderError> {
+fn to_state(cart: Cart, load_context: &mut LoadContext) -> Result<Pico8State, CartLoaderError> {
         let layout = load_context.labeled_asset_scope("atlas".into(), move |_load_context| TextureAtlasLayout::from_grid(
                     PICO8_SPRITE_SIZE,
                     PICO8_TILE_COUNT.x,

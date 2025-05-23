@@ -15,7 +15,7 @@ mod state;
 
 pub(crate) fn plugin(app: &mut App) {
     app
-        .init_asset::<CartParts>()
+        .init_asset::<Cart>()
         .init_asset_loader::<P8CartLoader>()
         .init_asset_loader::<PngCartLoader>()
         .add_plugins(state::plugin)
@@ -56,7 +56,7 @@ pub struct MusicParts {
 }
 
 #[derive(Asset, Debug, Reflect)]
-pub struct CartParts {
+pub struct Cart {
     pub lua: String,
     pub gfx: Option<Gfx>,
     pub map: Vec<u8>,
@@ -64,15 +64,6 @@ pub struct CartParts {
     pub sfx: Vec<Sfx>,
     pub music: Vec<MusicParts>,
 }
-
-// #[derive(Asset, Debug, Reflect)]
-// struct Cart {
-//     pub lua: Handle<ScriptAsset>,
-//     pub gfx: Option<Handle<Gfx>>,
-//     pub map: Vec<u8>,
-//     pub flags: Vec<u8>,
-//     pub sfx: Vec<Handle<Sfx>>,
-// }
 
 pub const PALETTE: [[u8; 4]; 16] = [
     [0x00, 0x00, 0x00, 0xff], //black
@@ -93,11 +84,11 @@ pub const PALETTE: [[u8; 4]; 16] = [
     [0xff, 0xcc, 0xaa, 0xff], //light-peach
 ];
 
-impl CartParts {
+impl Cart {
     fn from_str(
         content: &str,
         _settings: &CartLoaderSettings,
-    ) -> Result<CartParts, CartLoaderError> {
+    ) -> Result<Cart, CartLoaderError> {
         const LUA: usize = 0;
         const GFX: usize = 1;
         const GFF: usize = 3;
@@ -293,7 +284,7 @@ impl CartParts {
         } else {
             Vec::new()
         };
-        Ok(CartParts {
+        Ok(Cart {
             lua,
             gfx,
             map,
@@ -322,7 +313,7 @@ struct CartLoaderSettings {}
 struct P8CartLoader;
 
 impl AssetLoader for P8CartLoader {
-    type Asset = CartParts;
+    type Asset = Cart;
     type Settings = CartLoaderSettings;
     type Error = CartLoaderError;
     async fn load(
@@ -334,7 +325,7 @@ impl AssetLoader for P8CartLoader {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let content = String::from_utf8(bytes)?;
-        let mut parts = CartParts::from_str(&content, settings)?;
+        let mut parts = Cart::from_str(&content, settings)?;
         #[cfg(feature = "pico8-to-lua")]
         {
             let mut include_paths = vec![];
@@ -362,7 +353,7 @@ impl AssetLoader for P8CartLoader {
                         let cart = load_context
                             .loader()
                             .immediate()
-                            .load::<CartParts>(include_path)
+                            .load::<Cart>(include_path)
                             .await?;
                         path_contents.insert(path, cart.take().lua);
                     }
@@ -399,7 +390,7 @@ impl AssetLoader for P8CartLoader {
 struct PngCartLoader;
 
 impl AssetLoader for PngCartLoader {
-    type Asset = CartParts;
+    type Asset = Cart;
     type Settings = CartLoaderSettings;
     type Error = CartLoaderError;
     async fn load(
@@ -463,14 +454,14 @@ impl AssetLoader for PngCartLoader {
         let sfx = v[0x3200..=0x42ff].chunks(68).map(Sfx::from_u8).collect();
 
         // let content = String::from_utf8(bytes)?;
-        // let parts = CartParts::from_str(&content, settings)?;
+        // let parts = Cart::from_str(&content, settings)?;
         // let code = parts.lua;
         // cart.lua = Some(load_context.add_labeled_asset("lua".into(), ScriptAsset { bytes: code.into_bytes() }));
         // let gfx = parts.gfx.clone();
         let mut code_path: PathBuf = load_context.path().into();
         // let path = code_path.as_mut_os_string();
         // path.push("#lua");
-        let parts = CartParts {
+        let parts = Cart {
             lua: code,
             gfx: Some(gfx),
             map,
@@ -606,7 +597,7 @@ __gff__
     #[test]
     fn test_cart_from() {
         let settings = CartLoaderSettings::default();
-        let cart = CartParts::from_str(SAMPLE_CART, &settings).unwrap();
+        let cart = Cart::from_str(SAMPLE_CART, &settings).unwrap();
         assert_eq!(
             cart.lua,
             r#"function _draw()
@@ -621,7 +612,7 @@ end"#
     #[test]
     fn test_cart_black_row() {
         let settings = CartLoaderSettings::default();
-        let cart = CartParts::from_str(BLACK_ROW_CART, &settings).unwrap();
+        let cart = Cart::from_str(BLACK_ROW_CART, &settings).unwrap();
         assert_eq!(
             cart.lua,
             r#"function _draw()
@@ -636,14 +627,14 @@ end"#
     #[test]
     fn map() {
         let settings = CartLoaderSettings::default();
-        let cart = CartParts::from_str(MAP_CART, &settings).unwrap();
+        let cart = Cart::from_str(MAP_CART, &settings).unwrap();
         assert_eq!(cart.map[5], 136);
     }
 
     #[test]
     fn test_cart_map() {
         let settings = CartLoaderSettings::default();
-        let cart = CartParts::from_str(TEST_MAP_CART, &settings).unwrap();
+        let cart = Cart::from_str(TEST_MAP_CART, &settings).unwrap();
         assert_eq!(
             cart.lua,
             r#"function _draw()
@@ -659,7 +650,7 @@ end"#
     #[test]
     fn test_cart_sfx() {
         let settings = CartLoaderSettings::default();
-        let cart = CartParts::from_str(TEST_SFX_CART, &settings).unwrap();
+        let cart = Cart::from_str(TEST_SFX_CART, &settings).unwrap();
         assert_eq!(cart.lua, "");
         assert_eq!(cart.gfx.as_ref().map(|gfx| gfx.width), Some(128));
         assert_eq!(cart.gfx.as_ref().map(|gfx| gfx.height), Some(8));
@@ -682,7 +673,7 @@ end"#
     #[test]
     fn test_pooh_sfx() {
         let settings = CartLoaderSettings::default();
-        let cart = CartParts::from_str(POOH_SFX_CART, &settings).unwrap();
+        let cart = Cart::from_str(POOH_SFX_CART, &settings).unwrap();
         assert_eq!(cart.lua, "");
         // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), None);
         // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), None);
@@ -699,7 +690,7 @@ end"#
     #[test]
     fn test_sfx() {
         let settings = CartLoaderSettings::default();
-        let cart = CartParts::from_str(TEST_SFX_CART, &settings).unwrap();
+        let cart = Cart::from_str(TEST_SFX_CART, &settings).unwrap();
         assert_eq!(cart.lua, "");
         // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), None);
         // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), None);
@@ -716,7 +707,7 @@ end"#
     #[test]
     fn test_gff_cart() {
         let settings = CartLoaderSettings::default();
-        let cart = CartParts::from_str(GFF_CART, &settings).unwrap();
+        let cart = Cart::from_str(GFF_CART, &settings).unwrap();
         assert_eq!(cart.lua, "");
         // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.width), None);
         // assert_eq!(cart.sprites.as_ref().map(|s| s.texture_descriptor.size.height), None);
