@@ -9,6 +9,7 @@ pub use clear::*;
 pub mod audio;
 mod map;
 pub use map::*;
+#[cfg(feature = "scripting")]
 pub(crate) mod lua;
 mod pal_map;
 pub(crate) use pal_map::*;
@@ -29,7 +30,6 @@ pub(crate) mod mouse;
 
 pub(crate) fn plugin(app: &mut App) {
     app.add_plugins(pico8::plugin)
-        .add_plugins(lua::plugin)
         .add_plugins(clear::plugin)
         .add_plugins(audio::plugin)
         .add_plugins(rand::plugin)
@@ -38,4 +38,7 @@ pub(crate) fn plugin(app: &mut App) {
         .add_plugins(keyboard::plugin)
         .add_plugins(mouse::plugin)
         .add_plugins(cart::plugin);
+#[cfg(feature = "scripting")]
+        app
+        .add_plugins(lua::plugin);
 }

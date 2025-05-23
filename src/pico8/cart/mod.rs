@@ -5,7 +5,6 @@ use crate::{
 use bevy::{
     asset::{io::{Reader, AssetSourceId}, AssetLoader, LoadContext, AssetPath, },
 };
-use bevy_mod_scripting::core::asset::ScriptAsset;
 use bitvec::prelude::*;
 use pico8_decompress::{decompress, extract_bits_from_png};
 use serde::{Deserialize, Serialize};

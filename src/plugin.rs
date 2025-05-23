@@ -13,6 +13,7 @@ use bevy::{
     window::{PresentMode, PrimaryWindow, WindowMode, WindowResized},
 };
 
+#[cfg(feature = "scripting")]
 use bevy_mod_scripting::{
     core::{
         ConfigureScriptPlugin,
@@ -26,7 +27,10 @@ use bevy_mod_scripting::{
     BMSPlugin,
 };
 
-use crate::{config::*, error::RunState, pico8::{Pico8State, fill_input}, pico8::FillPat, N9Var, PColor};
+use crate::{config::*, error::RunState, pico8::{Pico8State, fill_input}, pico8::FillPat, PColor};
+
+#[cfg(feature = "scripting")]
+use crate::N9Var;
 
 #[derive(Component)]
 pub struct Nano9Sprite;
@@ -108,6 +112,7 @@ pub fn setup_canvas(mut canvas: Option<ResMut<N9Canvas>>, mut assets: ResMut<Ass
     }
 }
 
+#[cfg(feature = "scripting")]
 pub mod call {
     use super::*;
     callback_labels!(
@@ -168,6 +173,7 @@ fn spawn_camera(mut commands: Commands, canvas: Option<Res<N9Canvas>>) {
                 IsDefaultUiCamera,
                 InheritedVisibility::default(),
                 Nano9Camera,
+                #[cfg(feature = "scripting")]
                 N9Var::new("camera"),
             ));
             if let Some(handle) = handle {
@@ -177,6 +183,7 @@ fn spawn_camera(mut commands: Commands, canvas: Option<Res<N9Canvas>>) {
                         Sprite::from_image(handle),
                         Transform::from_xyz(0.0, 0.0, -100.0),
                         Nano9Sprite,
+                        #[cfg(feature = "scripting")]
                         N9Var::new("canvas"),
                     ));
                 });
@@ -277,6 +284,7 @@ pub fn sync_window_size(
     }
 }
 
+#[cfg(feature = "scripting")]
 /// Sends events allowing scripts to drive update logic
 pub fn send_update(mut writer: EventWriter<ScriptCallbackEvent>) {
     writer.send(ScriptCallbackEvent::new_for_all(
@@ -285,6 +293,7 @@ pub fn send_update(mut writer: EventWriter<ScriptCallbackEvent>) {
     ));
 }
 
+#[cfg(feature = "scripting")]
 /// Sends initialization event
 pub fn send_init(mut writer: EventWriter<ScriptCallbackEvent>) {
     info!("calling init");
@@ -294,6 +303,7 @@ pub fn send_init(mut writer: EventWriter<ScriptCallbackEvent>) {
     ));
 }
 
+#[cfg(feature = "scripting")]
 /// Sends draw event
 pub fn send_draw(mut writer: EventWriter<ScriptCallbackEvent>) {
     writer.send(ScriptCallbackEvent::new_for_all(
@@ -338,6 +348,7 @@ impl Nano9Plugin {
 
 fn add_info(app: &mut App) {
     let world = app.world_mut();
+#[cfg(feature = "scripting")]
     NamespaceBuilder::<World>::new_unregistered(world)
         .register("info", |s: String| {
             bevy::log::info!(s);
@@ -357,13 +368,16 @@ impl Plugin for Nano9Plugin {
     fn build(&self, app: &mut App) {
         app.register_type::<DrawState>();
         // How do you enable shared context since it eats the plugin?
-        let mut lua_scripting_plugin = LuaScriptingPlugin::default().enable_context_sharing();
         let canvas_size: UVec2 = self
             .config
             .screen
             .as_ref()
             .map(|s| s.canvas_size)
             .unwrap_or(DEFAULT_CANVAS_SIZE);
+
+        #[cfg(feature = "scripting")]
+        {
+        let mut lua_scripting_plugin = LuaScriptingPlugin::default().enable_context_sharing();
         lua_scripting_plugin
             .scripting_plugin
             .add_context_initializer(
@@ -382,14 +396,9 @@ impl Plugin for Nano9Plugin {
                     Ok(())
                 },
             );
-        // let resolution = settings.canvas_size.as_vec2() * settings.pixel_scale;
-        app.insert_resource(bevy::winit::WinitSettings {
-            // focused_mode: bevy::winit::UpdateMode::Continuous,
-            focused_mode: bevy::winit::UpdateMode::reactive(Duration::from_millis(16)),
-            unfocused_mode: bevy::winit::UpdateMode::reactive_low_power(Duration::from_millis(
-                16 * 4,
-            )),
-        })
+
+        app
+        .add_plugins(BMSPlugin.set(lua_scripting_plugin))
         .insert_resource({
             let mut settings = ScriptAssetSettings::default();
             // settings
@@ -408,7 +417,17 @@ impl Plugin for Nano9Plugin {
             //     map: (|path: &AssetPath| path.to_string().into()),
             // };
             settings
+        }) ;
+        }
+        // let resolution = settings.canvas_size.as_vec2() * settings.pixel_scale;
+        app.insert_resource(bevy::winit::WinitSettings {
+            // focused_mode: bevy::winit::UpdateMode::Continuous,
+            focused_mode: bevy::winit::UpdateMode::reactive(Duration::from_millis(16)),
+            unfocused_mode: bevy::winit::UpdateMode::reactive_low_power(Duration::from_millis(
+                16 * 4,
+            )),
         })
+
         .insert_resource(N9Canvas {
             size: canvas_size,
             ..default()
@@ -421,9 +440,11 @@ impl Plugin for Nano9Plugin {
                 .frames_per_second
                 .unwrap_or(DEFAULT_FRAMES_PER_SECOND) as f64,
         ))
-        .add_plugins(BMSPlugin.set(lua_scripting_plugin))
         .add_plugins((crate::plugin, add_info))
-        .add_systems(Startup, (setup_canvas, spawn_camera).chain())
+        .add_systems(Startup, (setup_canvas, spawn_camera).chain());
+
+            #[cfg(feature = "scripting")]
+        app
         .add_systems(
             Update,
             (
@@ -439,6 +460,8 @@ impl Plugin for Nano9Plugin {
                 .chain(),
         );
 
+        #[cfg(not(feature = "scripting"))]
+        app.add_systems(Update, fill_input);
         // bevy_ecs_ldtk will add this plugin, so let's not add that if it's
         // present.
         #[cfg(not(feature = "level"))]

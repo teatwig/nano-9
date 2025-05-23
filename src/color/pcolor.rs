@@ -5,6 +5,7 @@ use crate::{
     pico8::{Error, PalMap},
     ValueExt,
 };
+#[cfg(feature = "scripting")]
 use bevy_mod_scripting::{
     core::docgen::typed_through::{ThroughTypeInfo, TypedThrough},
     core::{
@@ -17,7 +18,8 @@ use bevy_mod_scripting::{
     GetTypeDependencies,
 };
 
-#[derive(Debug, Clone, Copy, Reflect, GetTypeDependencies)]
+#[derive(Debug, Clone, Copy, Reflect)]
+#[cfg_attr(feature = "scripting", derive(GetTypeDependencies))]
 pub enum PColor {
     Palette(usize),
     Color(LinearRgba),
@@ -49,12 +51,14 @@ impl PColor {
     }
 }
 
+#[cfg(feature = "scripting")]
 impl TypedThrough for PColor {
     fn through_type_info() -> ThroughTypeInfo {
         ThroughTypeInfo::TypeInfo(<PColor as bevy::reflect::Typed>::type_info())
     }
 }
 
+#[cfg(feature = "scripting")]
 impl FromScript for PColor {
     type This<'w> = Self;
     fn from_script(
@@ -69,6 +73,7 @@ impl FromScript for PColor {
     }
 }
 
+#[cfg(feature = "scripting")]
 impl IntoScript for PColor {
     fn into_script(self, _world: WorldAccessGuard<'_>) -> Result<ScriptValue, InteropError> {
         match self {
@@ -91,6 +96,7 @@ impl From<Color> for PColor {
     }
 }
 
+#[cfg(feature = "scripting")]
 impl FromLua for PColor {
     fn from_lua(value: Value, _: &Lua) -> mlua::Result<Self> {
         fn bad_arg(s: &str) -> LuaError {

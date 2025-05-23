@@ -1,10 +1,13 @@
 #[cfg(feature = "level")]
-use crate::level::{self, tiled::*};
-use crate::{level::asset::TiledSet, pico8::{self, image::pixel_art_settings, Gfx}};
+use crate::level::{self,
+                   tiled::*,
+                   asset::TiledSet};
+use crate::{pico8::{self, image::pixel_art_settings, Gfx}};
 use bevy::{
     asset::{embedded_asset, io::Reader, AssetLoader, AssetPath, LoadContext},
     prelude::*,
 };
+#[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::{asset::ScriptAssetSettings, script::ScriptComponent};
 use serde::Deserialize;
 use std::{ffi::OsStr, io, ops::Deref, path::PathBuf};
@@ -38,6 +41,7 @@ pub struct Config {
     pub fonts: Vec<Font>,
     #[serde(default, rename = "image")]
     pub sprite_sheets: Vec<SpriteSheet>,
+    #[cfg(feature = "scripting")]
     pub code: Option<PathBuf>,
     #[serde(default, rename = "audio_bank")]
     pub audio_banks: Vec<AudioBank>,
@@ -140,6 +144,7 @@ impl AssetLoader for ConfigLoader {
         let mut config: Config = toml::from_str::<Config>(content)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?
             .inject_template();
+        #[cfg(feature = "scripting")]
         let code_path = config.code.unwrap_or_else(|| "main.lua".into());
 
         let mut sprite_sheets = vec![];
@@ -231,6 +236,7 @@ impl AssetLoader for ConfigLoader {
         };
         let pal_map = pico8::PalMap::default();
         let state = pico8::Pico8State {
+#[cfg(feature = "scripting")]
                 code: load_context.load(&*code_path),
                 palettes: palettes.into(),
             pal_map,
@@ -243,22 +249,20 @@ impl AssetLoader for ConfigLoader {
                         match ext {
                             "p8" => todo!(),
                             "tmx" => {
-                                if cfg!(not(feature = "level")) {
-                                    Err(ConfigLoaderError::Message(format!("The map {:?} is a Tiled map; consider using the '--features=level' flag.", &map.path)))
-                                } else {
-                                    Ok(level::Tiled::Map {
+                                    #[cfg(feature = "level")]
+                                    return Ok(level::Tiled::Map {
                                         handle: load_context.load(&*map.path),
-                                    }.into())
-                                }
+                                    }.into());
+                                    #[cfg(not(feature = "level"))]
+                                    Err(ConfigLoaderError::Message(format!("The map {:?} is a Tiled map; consider using the '--features=level' flag.", &map.path)))
                             }
                             "world" => {
-                                if cfg!(not(feature = "level")) {
-                                    Err(ConfigLoaderError::Message(format!("The map {:?} is a Tiled world; consider using the '--features=level' flag.", &map.path)))
-                                } else {
-                                    Ok(level::Tiled::World {
+                                    #[cfg(feature = "level")]
+                                    return Ok(level::Tiled::World {
                                         handle: load_context.load(&*map.path),
-                                    }.into())
-                                }
+                                    }.into());
+                                    #[cfg(not(feature = "level"))]
+                                    Err(ConfigLoaderError::Message(format!("The map {:?} is a Tiled world; consider using the '--features=level' flag.", &map.path)))
                             }
                             _ => Err(ConfigLoaderError::Message(format!("Unknown map format {:?}", &map.path)))
                         }
@@ -335,6 +339,7 @@ pub fn update_asset(
     mut reader: EventReader<AssetEvent<pico8::Pico8State>>,
     assets: Res<Assets<pico8::Pico8State>>,
     mut commands: Commands,
+#[cfg(feature = "scripting")]
     script_settings: Res<ScriptAssetSettings>,
 ) {
     for e in reader.read() {
@@ -342,12 +347,13 @@ pub fn update_asset(
         if let AssetEvent::LoadedWithDependencies { id } = e {
             if let Some(state) = assets.get(*id) {
                 commands.insert_resource(state.clone());
+                #[cfg(feature = "scripting")]
+                {
                 let path: &AssetPath<'static> = state.code.path().unwrap();
                 let script_path = (script_settings.script_id_mapper.map)(path);
                 info!("add script component path {}", &script_path);
-                // commands.spawn(ScriptComponent(vec!["main.lua".into()]));
-                // commands.spawn(ScriptComponent(vec![path.to_string().into()]));
                 commands.spawn(ScriptComponent(vec![script_path.into()]));
+                }
             } else {
                 error!("Pico8State not available.");
             }

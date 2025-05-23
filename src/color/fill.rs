@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use std::any::TypeId;
 
 use super::PColor;
+#[cfg(feature = "scripting")]
 use bevy_mod_scripting::{
     core::docgen::typed_through::{ThroughTypeInfo, TypedThrough},
     core::{
@@ -12,7 +13,8 @@ use bevy_mod_scripting::{
 };
 
 /// This is a fill color that specifies what color to use for the "off" bit (default) and "on" bit.
-#[derive(Debug, Clone, Copy, Reflect, GetTypeDependencies)]
+#[derive(Debug, Clone, Copy, Reflect)]
+#[cfg_attr(feature = "scripting", derive(GetTypeDependencies))]
 pub enum FillColor {
     One { off: PColor },
     Two { off: PColor, on: PColor },
@@ -34,6 +36,7 @@ impl FillColor {
     }
 }
 
+#[cfg(feature = "scripting")]
 impl TypedThrough for FillColor {
     fn through_type_info() -> ThroughTypeInfo {
         ThroughTypeInfo::TypeInfo(<FillColor as bevy::reflect::Typed>::type_info())
@@ -57,6 +60,7 @@ impl From<(Color, Color)> for FillColor {
     }
 }
 
+#[cfg(feature = "scripting")]
 impl FromScript for FillColor {
     type This<'w> = Self;
     fn from_script(

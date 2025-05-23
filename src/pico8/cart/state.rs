@@ -5,6 +5,8 @@ use crate::{
 use bevy::{
     asset::{io::{Reader, AssetSourceId}, AssetLoader, LoadContext, AssetPath, },
 };
+
+#[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::asset::ScriptAsset;
 use bitvec::prelude::*;
 use pico8_decompress::*;
@@ -84,10 +86,16 @@ fn to_state(cart: Cart, load_context: &mut LoadContext) -> Result<Pico8State, Ca
         let code = cart.lua;
         let code_path: PathBuf = load_context.path().into();
         let state = Pico8State {
-            code: load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
+
+#[cfg(feature = "scripting")]
+            code: if cfg!(feature = "scripting") {
+                load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
                 content: code.into_bytes().into_boxed_slice(),
                 asset_path: code_path.into(),
-            }),
+            })
+            } else {
+                Handle::default()
+            },
             palettes: vec![Palette::from_slice(&PALETTE)].into(),
             pal_map: PalMap::default(),
             border: load_context.loader()

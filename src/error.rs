@@ -1,14 +1,20 @@
 use bevy::{color::palettes::css, core::FrameCount, prelude::*, window::RequestRedraw};
+#[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::{asset::ScriptAsset, event::ScriptErrorEvent};
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_state::<RunState>()
-        .add_systems(Startup, spawn_error_message_layout)
+        .add_systems(Startup, spawn_error_message_layout);
+    #[cfg(feature = "scripting")]
+    app
         .add_systems(Update, add_messages);
 
     if app.is_plugin_added::<WindowPlugin>() {
+
+        #[cfg(feature = "scripting")]
         app
-            .add_systems(PreUpdate, try_to_run_after_error)
+            .add_systems(PreUpdate, try_to_run_after_error);
+        app
             .add_systems(OnEnter(RunState::Messages), show::<ErrorMessages>)
             .add_systems(OnExit(RunState::Messages), (clear_messages, hide::<ErrorMessages>));
     }
@@ -100,6 +106,7 @@ fn spawn_error_message_layout(mut commands: Commands) {
         });
 }
 
+#[cfg(feature = "scripting")]
 pub fn add_messages(
     mut r: EventReader<ScriptErrorEvent>,
     query: Query<Entity, With<ErrorMessages>>,
@@ -139,6 +146,7 @@ pub fn clear_messages(
     commands.entity(id).despawn_descendants();
 }
 
+#[cfg(feature = "scripting")]
 fn try_to_run_after_error(mut reader: EventReader<AssetEvent<ScriptAsset>>,
                      state: Res<State<RunState>>,
                      mut next_state: ResMut<NextState<RunState>>) {

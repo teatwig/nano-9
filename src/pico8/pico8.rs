@@ -14,6 +14,7 @@ use bevy::{
 };
 use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 
+#[cfg(feature = "scripting")]
 use bevy_mod_scripting::{
     core::{
         asset::ScriptAsset,
@@ -58,10 +59,15 @@ pub struct N9Font {
     pub height: Option<f32>,
 }
 
+#[cfg(feature = "scripting")]
+#[derive(Resource, Clone, Debug)]
+pub struct Pico8Script(Handle<ScriptAsset>);
+
 /// Pico8State's state.
 #[derive(Resource, Clone, Asset, Debug, Reflect)]
 #[reflect(Resource)]
 pub struct Pico8State {
+#[cfg(feature = "scripting")]
     pub code: Handle<ScriptAsset>,
     pub(crate) palettes: Cursor<Palette>,
     #[reflect(ignore)]
@@ -87,6 +93,7 @@ pub enum Spr {
     Set { sheet: usize },
 }
 
+#[cfg(feature = "scripting")]
 impl FromScript for Spr {
     type This<'w> = Self;
     fn from_script(
@@ -237,6 +244,7 @@ pub enum Error {
     UnsupportedStat(u8),
 }
 
+#[cfg(feature = "scripting")]
 impl From<Error> for LuaError {
     fn from(e: Error) -> Self {
         LuaError::RuntimeError(format!("pico8 error: {e}"))
@@ -404,20 +412,14 @@ impl From<String> for PropBy {
 //     }
 // }
 
+#[cfg(feature = "scripting")]
 impl TypedThrough for PropBy {
     fn through_type_info() -> ThroughTypeInfo {
         ThroughTypeInfo::TypeInfo(<PropBy as bevy::reflect::Typed>::type_info())
     }
 }
 
-fn script_value_to_f32(value: &ScriptValue) -> Option<f32> {
-    match value {
-        ScriptValue::Float(f) => Some(*f as f32),
-        ScriptValue::Integer(i) => Some(*i as f32),
-        _ => None,
-    }
-}
-
+#[cfg(feature = "scripting")]
 impl FromScript for PropBy {
     type This<'w> = Self;
     fn from_script(
@@ -1246,6 +1248,7 @@ impl Pico8<'_, '_> {
         Ok(id)
     }
 
+    #[cfg(feature = "scripting")]
     pub fn rnd(&mut self, value: Option<ScriptValue>) -> ScriptValue {
         self.rand8.rnd(value)
     }
@@ -1613,6 +1616,7 @@ impl Pico8<'_, '_> {
         }
     }
 
+    #[cfg(feature = "scripting")]
     pub fn stat(&mut self, n: u8, value: Option<u8>) -> Result<ScriptValue, Error> {
         match n {
             30 => Ok(ScriptValue::Bool(!self.key_input.buffer.is_empty())),
@@ -1684,7 +1688,6 @@ impl FromWorld for Pico8State {
             // },
             pal_map: PalMap::default(),
             border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
-            code: Handle::<ScriptAsset>::default(),
             font: vec![N9Font {
                 handle: asset_server.load(PICO8_FONT),
                 height: Some(7.0),

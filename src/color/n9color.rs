@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use std::{any::TypeId, sync::Arc};
 
 use crate::ValueExt;
+#[cfg(feature = "scripting")]
 use bevy_mod_scripting::{
     core::docgen::typed_through::{ThroughTypeInfo, TypedThrough},
     core::{
@@ -15,7 +16,8 @@ use bevy_mod_scripting::{
     GetTypeDependencies,
 };
 
-#[derive(Debug, Clone, Copy, Reflect, GetTypeDependencies)]
+#[derive(Debug, Clone, Copy, Reflect)]
+#[cfg_attr(feature = "scripting", derive(GetTypeDependencies))]
 pub enum N9Color {
     Pen,
     Palette(usize),
@@ -31,12 +33,14 @@ impl From<PColor> for N9Color {
     }
 }
 
+#[cfg(feature = "scripting")]
 impl TypedThrough for N9Color {
     fn through_type_info() -> ThroughTypeInfo {
         ThroughTypeInfo::TypeInfo(<N9Color as bevy::reflect::Typed>::type_info())
     }
 }
 
+#[cfg(feature = "scripting")]
 impl FromScript for N9Color {
     type This<'w> = Self;
     fn from_script(
@@ -66,6 +70,7 @@ impl From<Color> for N9Color {
     }
 }
 
+#[cfg(feature = "scripting")]
 impl FromLua for N9Color {
     fn from_lua(value: Value, _: &Lua) -> mlua::Result<Self> {
         fn bad_arg(s: &str) -> LuaError {
@@ -110,6 +115,7 @@ impl FromLua for N9Color {
     }
 }
 
+#[cfg(feature = "scripting")]
 impl UserData for N9Color {
     fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {
         fields.add_field_method_get("i", |_ctx, this| match this {

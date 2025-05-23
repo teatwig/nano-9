@@ -4,7 +4,10 @@ use bevy::{
     prelude::*,
 };
 
-use crate::pico8::{lua::with_system_param, negate_y, Error};
+use crate::pico8::{negate_y, Error};
+#[cfg(feature = "scripting")]
+use crate::pico8::lua::with_system_param;
+#[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::{
     bindings::{
         function::{
@@ -17,6 +20,7 @@ use bevy_mod_scripting::core::{
     error::InteropError,
 };
 
+#[cfg(feature = "scripting")]
 use crate::conversions::RectValue;
 
 pub struct RaycastPlugin;
@@ -27,6 +31,7 @@ impl Plugin for RaycastPlugin {
 
         // XXX: cfg!(feature = "scripting")
         let world = app.world_mut();
+#[cfg(feature = "scripting")]
         NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
             .register(
                 "raydown",
@@ -115,6 +120,7 @@ pub struct Rays<'w, 's> {
     places: Query<'w, 's, (&'static Place, &'static GlobalTransform)>,
 }
 
+#[cfg(feature = "scripting")]
 fn with_rays<X>(
     ctx: &FunctionCallContext,
     f: impl FnOnce(&mut Rays) -> Result<X, Error>,

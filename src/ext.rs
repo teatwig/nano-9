@@ -1,3 +1,4 @@
+#[cfg(feature = "scripting")]
 use bevy_mod_scripting::lua::mlua::Value;
 
 pub trait ValueExt {
@@ -8,6 +9,7 @@ pub trait ValueExt {
     }
 }
 
+#[cfg(feature = "scripting")]
 impl ValueExt for Value {
     fn to_f32(&self) -> Option<f32> {
         self.as_f32()
