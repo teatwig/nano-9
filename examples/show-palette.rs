@@ -22,8 +22,8 @@ struct MemoryDir {
 fn init(mut pico8: Pico8) {
     pico8.cls(Some(0)).unwrap();
     let n = pico8.paln(None).unwrap();
-    let width = 128;
-    let height = 128;
+
+    let UVec2 { x: width, y: height } = pico8.canvas_size();
     let dw = width as f32 / n as f32;
 
     for i in 0..n {
@@ -38,7 +38,8 @@ fn init(mut pico8: Pico8) {
 
 fn main() -> io::Result<()> {
     let mut app = App::new();
-    app.add_systems(Startup, init);
+
+    app.add_systems(OnExit(RunState::Uninit), init);
     // app.add_systems(Update, update);
     // let config = Config::pico8();
     let config = Config::gameboy();

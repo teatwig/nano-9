@@ -64,7 +64,7 @@ pub struct Cart {
     pub music: Vec<MusicParts>,
 }
 
-pub const PALETTE: [[u8; 4]; 16] = [
+pub(crate) const PALETTE: [[u8; 4]; 16] = [
     [0x00, 0x00, 0x00, 0xff], //black
     [0x1d, 0x2b, 0x53, 0xff], //dark-blue
     [0x7e, 0x25, 0x53, 0xff], //dark-purple

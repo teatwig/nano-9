@@ -2,7 +2,10 @@
 use crate::level::{self,
                    tiled::*,
                    asset::TiledSet};
-use crate::{pico8::{self, image::pixel_art_settings, Gfx}};
+use crate::{
+    error::RunState,
+    pico8::{self, image::pixel_art_settings, Gfx, Pico8State},
+};
 use bevy::{
     asset::{embedded_asset, io::Reader, AssetLoader, AssetPath, LoadContext},
     prelude::*,
@@ -340,7 +343,10 @@ fn get_layout(image_index: usize, image_size: UVec2, sprite_size: &mut Option<UV
 
 pub fn update_asset(
     mut reader: EventReader<AssetEvent<pico8::Pico8State>>,
-    assets: Res<Assets<pico8::Pico8State>>,
+    mut assets: ResMut<Assets<pico8::Pico8State>>,
+
+    mut next_state: ResMut<NextState<RunState>>,
+    mut pico8_state: ResMut<Pico8State>,
     mut commands: Commands,
 #[cfg(feature = "scripting")]
     script_settings: Res<ScriptAssetSettings>,
@@ -348,8 +354,8 @@ pub fn update_asset(
     for e in reader.read() {
         info!("update asset event {e:?}");
         if let AssetEvent::LoadedWithDependencies { id } = e {
-            if let Some(state) = assets.get(*id) {
-                commands.insert_resource(state.clone());
+            if let Some(state) = assets.remove(*id) {
+                // XXX: It happens here too!
                 #[cfg(feature = "scripting")]
                 {
                 let path: &AssetPath<'static> = state.code.path().unwrap();
@@ -357,6 +363,9 @@ pub fn update_asset(
                 info!("add script component path {}", &script_path);
                 commands.spawn(ScriptComponent(vec![script_path.into()]));
                 }
+                *pico8_state = state;
+                info!("Goto run state");
+                next_state.set(RunState::Run);
             } else {
                 error!("Pico8State not available.");
             }

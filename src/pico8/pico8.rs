@@ -34,7 +34,7 @@ use crate::{
         mouse::MouseInput,
         audio::{SfxChannels, AudioBank, AudioCommand, SfxDest},
         rand::Rand8,
-         ClearEvent, Clearable, Gfx, GfxHandles, Map, PalMap, PALETTE, Palette,
+         ClearEvent, Clearable, Gfx, GfxHandles, Map, PalMap, Palette,
     },
     DrawState, FillColor, N9Canvas, N9Color, Nano9Camera, PColor,
 };
@@ -1641,6 +1641,14 @@ impl Pico8<'_, '_> {
         }
     }
 
+    /// Return the size of the canvas
+    ///
+    /// This is not the window dimensions, which are physical pixels. Instead it
+    /// is the number of "logical" pixels, which may be comprised of many
+    /// physical pixels.
+    pub fn canvas_size(&self) -> UVec2 {
+        self.canvas.size
+    }
 }
 
 #[cfg(feature = "fixed")]
@@ -1695,7 +1703,8 @@ impl FromWorld for Pico8State {
         let asset_server = world.resource::<AssetServer>();
 
         Pico8State {
-            palettes: vec![Palette::from_slice(&PALETTE)].into(),
+            palettes: vec![Palette::from_slice(&crate::pico8::PALETTE)].into(),
+            // palettes: vec![].into(),
             //     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
             //     row: 0,
             // },
@@ -1706,7 +1715,11 @@ impl FromWorld for Pico8State {
                 height: Some(7.0),
             }]
             .into(),
-            draw_state: DrawState::default(),
+            draw_state: {
+                let mut draw_state = DrawState::default();
+                draw_state.pen = PColor::Palette(6);
+                draw_state
+            },
             audio_banks: Vec::new().into(),
             sprite_sheets: Vec::new().into(),
             maps: Vec::new().into(),
