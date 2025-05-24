@@ -1,14 +1,16 @@
-use crate::{call, error::RunState, pico8::lua::with_system_param};
+use crate::error::RunState;
+#[cfg(feature = "scripting")]
+use crate::{call, pico8::lua::with_system_param};
 use bevy::{core::FrameCount, prelude::*};
 use bevy_minibuffer::prelude::*;
-use bevy_mod_scripting::core::event::ScriptCallbackEvent;
 
+#[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::{
     bindings::{
         function::{namespace::NamespaceBuilder, script_function::FunctionCallContext},
         script_value::ScriptValue,
     },
-    error::InteropError,
+    error::{InteropError, ScriptCallbackEvent},
 };
 // mod count;
 // pub use count::*;
@@ -24,6 +26,7 @@ impl Default for Nano9Acts {
         Self {
             acts: Acts::new([
                 Act::new(toggle_pause).bind(keyseq! { Space N P }),
+#[cfg(feature = "scripting")]
                 Act::new(lua_eval).bind(keyseq! { Space N E }),
             ]),
         }
@@ -43,6 +46,7 @@ impl Plugin for Nano9Acts {
     fn build(&self, app: &mut App) {
         self.warn_on_unused_acts();
         let world = app.world_mut();
+#[cfg(feature = "scripting")]
         NamespaceBuilder::<World>::new_unregistered(world).register(
             "message",
             |ctx: FunctionCallContext, s: String| {
@@ -55,6 +59,7 @@ impl Plugin for Nano9Acts {
     }
 }
 
+#[cfg(feature = "scripting")]
 fn with_minibuffer<T>(
     ctx: &FunctionCallContext,
     f: impl FnOnce(&mut Minibuffer) -> Result<T, Error>,
@@ -74,6 +79,7 @@ pub fn toggle_pause(
     });
 }
 
+#[cfg(feature = "scripting")]
 pub fn lua_eval(mut minibuffer: Minibuffer) {
     minibuffer.prompt::<TextField>("Lua Eval: ").observe(
         |mut trigger: Trigger<Submit<String>>,
