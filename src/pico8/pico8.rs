@@ -27,6 +27,7 @@ use bevy_mod_scripting::{
 use bitvec::prelude::*;
 
 use crate::{
+    ValueExt,
     cursor::Cursor,
     pico8::{
         image::pixel_art_settings,
@@ -429,15 +430,15 @@ impl FromScript for PropBy {
         match value {
             ScriptValue::String(n) => Ok(PropBy::Name(n)),
             ScriptValue::List(l) => {
-                let x = l.first().and_then(script_value_to_f32).unwrap_or(0.0);
-                let y = l.get(1).and_then(script_value_to_f32).unwrap_or(0.0);
+                let x = l.first().and_then(ValueExt::to_f32).unwrap_or(0.0);
+                let y = l.get(1).and_then(ValueExt::to_f32).unwrap_or(0.0);
                 Ok(PropBy::Pos(Vec2::new(x, y)))
             }
             ScriptValue::Map(v) => {
-                let x = v.get("x").and_then(script_value_to_f32).unwrap_or(0.0);
-                let y = v.get("y").and_then(script_value_to_f32).unwrap_or(0.0);
-                let w = v.get("width").and_then(script_value_to_f32);
-                let h = v.get("height").and_then(script_value_to_f32);
+                let x = v.get("x").and_then(ValueExt::to_f32).unwrap_or(0.0);
+                let y = v.get("y").and_then(ValueExt::to_f32).unwrap_or(0.0);
+                let w = v.get("width").and_then(ValueExt::to_f32);
+                let h = v.get("height").and_then(ValueExt::to_f32);
                 if w.is_some() && h.is_some() {
                     Ok(PropBy::Rect(Rect::from_corners(
                         Vec2::new(x, y),
@@ -1703,6 +1704,8 @@ impl FromWorld for Pico8State {
         let asset_server = world.resource::<AssetServer>();
 
         Pico8State {
+            #[cfg(feature = "scripting")]
+            code: Handle::<ScriptAsset>::default(),
             palettes: vec![Palette::from_slice(&crate::pico8::PALETTE)].into(),
             // palettes: vec![].into(),
             //     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),

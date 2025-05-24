@@ -84,7 +84,7 @@ pub(crate) fn plugin(app: &mut App) {
                 with_pico8(&ctx, |pico8| pico8.btn(b, p))
             },
         )
-        .register("cls", |ctx: FunctionCallContext, c: Option<N9Color>| {
+        .register("cls", |ctx: FunctionCallContext, c: Option<PColor>| {
             with_pico8(&ctx, |pico8| pico8.cls(c))
         })
         .register(
@@ -548,7 +548,7 @@ pub(crate) fn plugin(app: &mut App) {
         .register(
             "color",
             |ctx: FunctionCallContext, color: Option<PColor>| {
-                with_pico8(&ctx, move |pico8| Ok(pico8.color(color)))
+                with_pico8(&ctx, move |pico8| pico8.color(color))
             },
         )
         .register("fillp", |ctx: FunctionCallContext, pattern: Option<u16>| {

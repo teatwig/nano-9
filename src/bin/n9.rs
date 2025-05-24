@@ -12,7 +12,7 @@ use bevy::{
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::script::ScriptComponent;
 use nano9::{config::Config, pico8::*, *, error::RunState};
-use std::{borrow::Cow, env, ffi::OsStr, fs, io, path::PathBuf, process};
+use std::{borrow::Cow, env, ffi::OsStr, fs, io, path::PathBuf, process::ExitCode};
 
 #[allow(dead_code)]
 #[derive(Resource)]
@@ -20,18 +20,18 @@ struct InitState(Handle<Pico8State>);
 
 fn usage(mut output: impl io::Write) -> io::Result<()> {
     writeln!(output, "usage: n9 <FILE>")?;
-    writeln!(output, "Nano-9 accepts cart.p8 or game[/Nano9.toml] files")
+    writeln!(output, "Nano-9 accepts cart.p8, cart.p8.png, or game[/Nano9.toml] files.")
 }
 
-fn main() -> io::Result<()> {
+fn main() -> io::Result<ExitCode> {
     let mut args = env::args();
     let Some(arg) = args.nth(1) else {
         usage(std::io::stderr())?;
-        process::exit(2);
+        return Ok(ExitCode::from(2));
     };
     if arg == "--help" || arg == "-h" {
         usage(std::io::stdout())?;
-        process::exit(0);
+        return Ok(ExitCode::from(0));
     }
     let script = arg;
     let script_path = {
@@ -63,9 +63,15 @@ fn main() -> io::Result<()> {
         // Get rid of this.
         let content = fs::read_to_string(path)?;
 
-        let config: Config = toml::from_str::<Config>(&content)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?
-            .inject_template();
+        let mut config: Config = toml::from_str::<Config>(&content)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
+
+        if let Some(template) = config.template.take() {
+            if let Err(e) = config.inject_template(&template) {
+                eprintln!("error: {e}");
+                return Ok(ExitCode::from(2));
+            }
+        }
         // let cmd = config.clone();
         app.add_systems(
             PostStartup,
@@ -129,7 +135,8 @@ fn main() -> io::Result<()> {
         );
     } else {
         eprintln!("Only accepts .p8, .lua, and .toml files.");
-        process::exit(1);
+
+        return Ok(ExitCode::from(1));
     }
 
     app.add_plugins(
@@ -186,7 +193,8 @@ fn main() -> io::Result<()> {
         });
     });
     app.run();
-    Ok(())
+
+    Ok(ExitCode::from(0))
 }
 
 #[cfg(feature = "minibuffer")]

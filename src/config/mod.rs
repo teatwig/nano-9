@@ -3,8 +3,8 @@ use crate::level::{self,
                    tiled::*,
                    asset::TiledSet};
 use crate::{
-    error::RunState,
-    pico8::{self, image::pixel_art_settings, Gfx, Pico8State},
+    error::{RunState},
+    pico8::{Error, self, image::pixel_art_settings, Gfx, Pico8State},
 };
 use bevy::{
     asset::{embedded_asset, io::Reader, AssetLoader, AssetPath, LoadContext},
@@ -125,6 +125,9 @@ pub enum ConfigLoaderError {
     InvalidSpriteSize { image_index: usize, image_size: UVec2, sprite_size: UVec2 },
     #[error("image {image_index} ({image_size:?}) does not fit sprite counts {sprite_counts:?}", )]
     InvalidSpriteCounts { image_index: usize, image_size: UVec2, sprite_counts: UVec2 },
+    #[error("invalid template: {0}")]
+    InvalidTemplate(String)
+
 }
 
 #[derive(Default)]
@@ -145,8 +148,10 @@ impl AssetLoader for ConfigLoader {
         let _ = reader.read_to_end(&mut bytes).await?;
         let content = std::str::from_utf8(&bytes)?;
         let mut config: Config = toml::from_str::<Config>(content)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?
-            .inject_template();
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
+        if let Some(template) = config.template.take() {
+            config.inject_template(&template)?;
+        }
         #[cfg(feature = "scripting")]
         let code_path = config.code.unwrap_or_else(|| "main.lua".into());
 
@@ -380,19 +385,15 @@ impl Config {
         config
     }
 
-    pub fn inject_template(mut self) -> Self {
-        if let Some(ref template) = self.template {
-            match template.deref() {
-                "gameboy" => self.inject_gameboy(),
-                "pico8" => self.inject_pico8(),
-                x => {
-                    panic!("No template {x:?}")
-                }
+    pub fn inject_template(&mut self, template_name: &str) -> Result<(), ConfigLoaderError> {
+        match template_name {
+            "gameboy" => self.inject_gameboy(),
+            "pico8" => self.inject_pico8(),
+            x => {
+                return Err(ConfigLoaderError::InvalidTemplate(x.to_string()));
             }
-            self
-        } else {
-            self
         }
+        Ok(())
     }
 
     pub fn with_default_font(mut self) -> Self {
