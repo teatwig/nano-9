@@ -585,8 +585,9 @@ impl Pico8<'_, '_> {
     }
 
     // cls([n])
-    pub fn cls(&mut self, color: Option<N9Color>) -> Result<(), Error> {
-        let c = self.state.get_color(color.unwrap_or(Color::BLACK.into()))?;
+    pub fn cls(&mut self, color: Option<impl Into<PColor>>) -> Result<(), Error> {
+        trace!("cls");
+        let c = self.state.get_color(color.map(|x| x.into()).unwrap_or(Color::BLACK.into()))?;
         self.state.draw_state.clear_screen();
         let image = self
             .images
@@ -677,12 +678,13 @@ impl Pico8<'_, '_> {
         &mut self,
         upper_left: Vec2,
         lower_right: Vec2,
-        color: Option<FillColor>,
+        color: Option<impl Into<FillColor>>,
     ) -> Result<Entity, Error> {
         let upper_left = self.state.draw_state.apply_camera_delta(upper_left);
         let lower_right = self.state.draw_state.apply_camera_delta(lower_right);
         let size = (lower_right - upper_left) + Vec2::ONE;
         let clearable = Clearable::default();
+        let color = color.map(|x| x.into());
         let id = self
             .commands
             .spawn((
@@ -1552,6 +1554,11 @@ impl Pico8<'_, '_> {
         }
     }
 
+    /// Return the number of colors in the palette.
+    pub fn paln(&self, palette_index: Option<usize>) -> Option<usize> {
+        self.state.palettes.get(palette_index).map(|pal| pal.data.len())
+    }
+
     pub fn palt(&mut self, color_index: Option<usize>, transparent: Option<bool>) {
         if let Some(color_index) = color_index {
             self.state
@@ -1564,12 +1571,18 @@ impl Pico8<'_, '_> {
         }
     }
 
-    pub fn color(&mut self, color: Option<PColor>) -> PColor {
+    pub fn color(&mut self, color: Option<impl Into<PColor>>) -> Result<PColor, Error> {
         let last_color = self.state.draw_state.pen;
-        if let Some(color) = color {
+        if let Some(color) = color.map(|x| x.into()) {
+            if let PColor::Palette(n) = color {
+                // Check that it's within the palette.
+                if n >= self.state.palettes.data.len() {
+                    return Err(Error::NoSuch("palette color index".into()));
+                }
+            }
             self.state.draw_state.pen = color;
         }
-        last_color
+        Ok(last_color)
     }
 
     pub fn cursor(&mut self, pos: Option<Vec2>, color: Option<PColor>) -> (Vec2, PColor) {
