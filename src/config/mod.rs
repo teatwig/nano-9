@@ -9,7 +9,7 @@ use bevy::{
 };
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::{asset::ScriptAssetSettings, script::ScriptComponent};
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 use std::{ffi::OsStr, io, ops::Deref, path::PathBuf};
 
 pub const DEFAULT_CANVAS_SIZE: UVec2 = UVec2::splat(128);
@@ -25,7 +25,7 @@ pub(crate) fn plugin(app: &mut App) {
         .add_systems(Update, update_asset);
 }
 
-#[derive(Default, Debug, Clone, Deserialize)]
+#[derive(Default, Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
     pub name: Option<String>,
     pub frames_per_second: Option<u8>,
@@ -49,7 +49,7 @@ pub struct Config {
     pub maps: Vec<Map>,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum AudioBank {
     // #[serde(rename = "p8")]
@@ -58,7 +58,7 @@ pub enum AudioBank {
     Paths { paths: Vec<PathBuf> },
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Screen {
     pub canvas_size: UVec2,
     pub screen_size: Option<UVec2>,
@@ -71,7 +71,7 @@ pub struct Screen {
 //     Tiled { path: PathBuf },
 // }
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SpriteSheet {
     pub path: PathBuf,
     pub sprite_size: Option<UVec2>,
@@ -82,13 +82,13 @@ pub struct SpriteSheet {
     pub indexed: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 // #[serde(untagged)]
 pub struct Map {
     path: PathBuf,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum Font {
     Default { default: bool },
@@ -97,7 +97,7 @@ pub enum Font {
     // pub height: Option<f32>,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Palette {
     pub path: String,
     pub row: Option<u32>,
@@ -220,20 +220,23 @@ impl AssetLoader for ConfigLoader {
                 })
             }
         }
+        let mut palettes = Vec::new();
         if config.palettes.is_empty() {
+            warn!("No palettes were provided.");
             // XXX: Should we provide a default pico8 palette?
-            config.palettes.push(Palette { path: pico8::PICO8_PALETTE.to_string(), row: None });
+            // config.palettes.push(Palette { path: pico8::PICO8_PALETTE.to_string(), row: None });
+        } else {
+            palettes = Vec::with_capacity(config.palettes.len());
+            for palette in config.palettes.iter() {
+                let image = load_context
+                    .loader()
+                    .immediate()
+                    .with_settings(pixel_art_settings)
+                    .load(&palette.path)
+                    .await?;
+                palettes.push(pico8::Palette::from_image(image.get(), palette.row));
+            };
         }
-        let mut palettes = Vec::with_capacity(config.palettes.len());
-        for palette in config.palettes.iter() {
-            let image = load_context
-                .loader()
-                .immediate()
-                .with_settings(pixel_art_settings)
-                .load(&palette.path)
-                .await?;
-            palettes.push(pico8::Palette::from_image(image.get()));
-        };
         let pal_map = pico8::PalMap::default();
         let state = pico8::Pico8State {
 #[cfg(feature = "scripting")]
@@ -366,15 +369,6 @@ impl Config {
         let mut config = Config::default();
         config.inject_pico8();
         config
-        // Self {
-        //     frames_per_second: Some(30),
-        //     screen: Some(Screen {
-        //         canvas_size: UVec2::splat(128),
-        //         screen_size: Some(UVec2::splat(512)),
-        //     }),
-        //     palette: Some(pico8::PICO8_PALETTE.into()),
-        //     ..default()
-        // }
     }
 
     pub fn inject_template(mut self) -> Self {
@@ -407,7 +401,6 @@ impl Config {
             self.screen = Some(Screen {
                 canvas_size: UVec2::splat(128),
                 screen_size: Some(UVec2::splat(512)),
-                // screen_size: Some(UVec2::splat(128)),
             });
         }
         if self.palettes.is_empty() {
@@ -437,7 +430,7 @@ impl Config {
         if self.palettes.is_empty() {
             self.palettes.push(Palette {
                 path: "embedded://nano9/config/gameboy-palettes.png".into(),
-                row: Some(17),
+                row: Some(15),
             });
         }
 
