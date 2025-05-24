@@ -8,13 +8,20 @@ pub struct Palette {
 
 impl Palette {
 
-    pub fn from_image(image: &Image) -> Self {
+    pub fn from_image(image: &Image, row: Option<u32>) -> Self {
         let size = image.size();
         let mut data = Vec::new();
-        for j in 0..size.y {
+        if let Some(row) = row {
             for i in 0..size.x {
-                let color: Srgba = image.get_color_at(i, j).unwrap().into();
+                let color: Srgba = image.get_color_at(i, row).unwrap().into();
                 data.push(color.to_u8_array());
+            }
+        } else {
+            for j in 0..size.y {
+                for i in 0..size.x {
+                    let color: Srgba = image.get_color_at(i, j).unwrap().into();
+                    data.push(color.to_u8_array());
+                }
             }
         }
         Palette {

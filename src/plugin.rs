@@ -77,7 +77,7 @@ impl Default for DrawState {
     fn default() -> Self {
         DrawState {
             // XXX: Pico-8 should be 6 here, but that's not true in general.
-            pen: PColor::Palette(6),
+            pen: PColor::Palette(1),
             camera_position: Vec2::ZERO,
             print_cursor: Vec2::ZERO,
             camera_position_delta: None,
@@ -95,6 +95,7 @@ impl Default for DrawState {
 // }
 
 pub fn setup_canvas(mut canvas: Option<ResMut<N9Canvas>>, mut assets: ResMut<Assets<Image>>) {
+    trace!("setup_canvas");
     if let Some(ref mut canvas) = canvas {
         let mut image = Image::new_fill(
             Extent3d {
@@ -346,9 +347,9 @@ impl Nano9Plugin {
     }
 }
 
-fn add_info(app: &mut App) {
-    let world = app.world_mut();
 #[cfg(feature = "scripting")]
+fn add_lua_logging(app: &mut App) {
+    let world = app.world_mut();
     NamespaceBuilder::<World>::new_unregistered(world)
         .register("info", |s: String| {
             bevy::log::info!(s);
@@ -427,11 +428,6 @@ impl Plugin for Nano9Plugin {
                 16 * 4,
             )),
         })
-
-        .insert_resource(N9Canvas {
-            size: canvas_size,
-            ..default()
-        })
         // Insert the config as a resource.
         // TODO: Should we constrain it, if it wasn't provided as an option?
         .insert_resource(Time::<Fixed>::from_seconds(
@@ -440,10 +436,16 @@ impl Plugin for Nano9Plugin {
                 .frames_per_second
                 .unwrap_or(DEFAULT_FRAMES_PER_SECOND) as f64,
         ))
-        .add_plugins((crate::plugin, add_info))
-        .add_systems(Startup, (setup_canvas, spawn_camera).chain());
+        .insert_resource(N9Canvas {
+            size: canvas_size,
+            ..default()
+        })
+        .add_plugins(crate::plugin)
+        .add_systems(PreStartup, (setup_canvas, spawn_camera).chain());
 
-            #[cfg(feature = "scripting")]
+        #[cfg(feature = "scripting")]
+        app.add_plugins(add_lua_logging);
+        #[cfg(feature = "scripting")]
         app
         .add_systems(
             Update,
