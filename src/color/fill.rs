@@ -43,6 +43,22 @@ impl TypedThrough for FillColor {
     }
 }
 
+impl From<PColor> for FillColor {
+    fn from(c: PColor) -> Self {
+        FillColor::One {
+            off: c,
+        }
+    }
+}
+
+impl From<usize> for FillColor {
+    fn from(c: usize) -> Self {
+        FillColor::One {
+            off: PColor::from(c),
+        }
+    }
+}
+
 impl From<Color> for FillColor {
     fn from(c: Color) -> Self {
         FillColor::One {
