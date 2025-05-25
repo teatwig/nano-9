@@ -10,7 +10,7 @@ use bevy::asset::{
 use super::*;
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::asset::ScriptAsset;
-use std::path::PathBuf;
+use std::{borrow::Cow, path::PathBuf};
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_asset_loader::<P8StateLoader>()
@@ -67,6 +67,16 @@ impl AssetLoader for PngStateLoader {
     }
 }
 
+trait Loader {
+    fn add_asset<A>(&mut self, label: Cow<'static, str>, asset: A) -> Handle<A> where A: Asset;
+}
+
+impl Loader for LoadContext<'_> {
+    fn add_asset<A>(&mut self, label: Cow<'static, str>, asset: A) -> Handle<A> where A: Asset {
+        self.labeled_asset_scope(label.into_owned(), move |_load_context| asset)
+    }
+}
+
 fn to_state(cart: Cart, load_context: &mut LoadContext) -> Result<Pico8State, CartLoaderError> {
     let layout = load_context.labeled_asset_scope("atlas".into(), move |_load_context| {
         TextureAtlasLayout::from_grid(
@@ -80,7 +90,7 @@ fn to_state(cart: Cart, load_context: &mut LoadContext) -> Result<Pico8State, Ca
     let sprite_sheets: Vec<_> = cart
         .gfx
         .map(|gfx| SpriteSheet {
-            handle: SprAsset::Gfx(
+            handle: SprHandle::Gfx(
                 load_context.labeled_asset_scope("gfx".into(), move |_load_context| gfx),
             ),
             sprite_size: UVec2::splat(8),

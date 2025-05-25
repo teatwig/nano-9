@@ -578,19 +578,19 @@ pub(crate) fn plugin(app: &mut App) {
                 with_pico8(&ctx, move |pico8| pico8.stat(n, value))
             },
         )
-        .register("shl", |ctx: FunctionCallContext, a: f32, b: u8| {
+        .register("shl", |_ctx: FunctionCallContext, a: f32, b: u8| {
             Pico8::shl(a, b)
         })
-        .register("shr", |ctx: FunctionCallContext, a: f32, b: u8| {
+        .register("shr", |_ctx: FunctionCallContext, a: f32, b: u8| {
             Pico8::shr(a, b)
         })
-        .register("lshr", |ctx: FunctionCallContext, a: f32, b: u8| {
+        .register("lshr", |_ctx: FunctionCallContext, a: f32, b: u8| {
             Pico8::lshr(a, b)
         })
-        .register("rotl", |ctx: FunctionCallContext, a: f32, b: u8| {
+        .register("rotl", |_ctx: FunctionCallContext, a: f32, b: u8| {
             Pico8::rotl(a, b)
         })
-        .register("rotr", |ctx: FunctionCallContext, a: f32, b: u8| {
+        .register("rotr", |_ctx: FunctionCallContext, a: f32, b: u8| {
             Pico8::rotr(a, b)
         });
 

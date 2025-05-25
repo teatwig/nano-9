@@ -180,7 +180,7 @@ impl AssetLoader for ConfigLoader {
                     }
                     let flags = flags_from_tileset(tileset);
                     sprite_sheets.push(pico8::SpriteSheet {
-                        handle: pico8::SprAsset::Image(
+                        handle: pico8::SprHandle::Image(
                             load_context
                                 .loader()
                                 .with_settings(pixel_art_settings)
@@ -221,7 +221,7 @@ impl AssetLoader for ConfigLoader {
                     )?
                     .map(|layout| load_context.add_labeled_asset(format!("atlas{i}"), layout));
                     (
-                        pico8::SprAsset::Gfx(
+                        pico8::SprHandle::Gfx(
                             load_context.add_labeled_asset(format!("spritesheet{i}"), gfx),
                         ),
                         layout,
@@ -245,7 +245,7 @@ impl AssetLoader for ConfigLoader {
                     .map(|layout| load_context.add_labeled_asset(format!("atlas{i}"), layout));
 
                     (
-                        pico8::SprAsset::Image(
+                        pico8::SprHandle::Image(
                             load_context
                                 .add_loaded_labeled_asset(format!("spritesheet{i}"), loaded),
                         ),

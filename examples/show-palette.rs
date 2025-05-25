@@ -40,18 +40,12 @@ fn init(mut pico8: Pico8) {
     }
 }
 
-// fn update(mut pico8: Pico8, mut x: Local<u32>) {
-//     let _ = pico8.pset(UVec2::new(*x, *x), None);
-//     *x += 1;
-// }
-
 fn main() -> io::Result<()> {
     let mut app = App::new();
 
     app.add_systems(OnExit(RunState::Uninit), init);
-    // app.add_systems(Update, update);
-    // let config = Config::pico8();
-    let config = Config::gameboy();
+    let config = Config::pico8();
+    // let config = Config::gameboy();
     {
         let config_string = toml::to_string(&config).unwrap();
         let memory_dir = MemoryDir {
@@ -77,8 +71,7 @@ fn main() -> io::Result<()> {
             let pico8_state: Handle<Pico8State> = asset_server.load("memory://Nano9.toml");
             commands.insert_resource(InitState(pico8_state));
         },
-    )
-    .add_systems(PreUpdate, run_pico8_when_ready);
+    );
     app.add_plugins(
         DefaultPlugins
             .set(AudioPlugin {

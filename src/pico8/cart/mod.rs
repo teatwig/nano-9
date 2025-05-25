@@ -393,7 +393,7 @@ impl AssetLoader for PngCartLoader {
         &self,
         reader: &mut dyn Reader,
         _settings: &CartLoaderSettings,
-        load_context: &mut LoadContext<'_>,
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
@@ -449,14 +449,6 @@ impl AssetLoader for PngCartLoader {
 
         let sfx = v[0x3200..=0x42ff].chunks(68).map(Sfx::from_u8).collect();
 
-        // let content = String::from_utf8(bytes)?;
-        // let parts = Cart::from_str(&content, settings)?;
-        // let code = parts.lua;
-        // cart.lua = Some(load_context.add_labeled_asset("lua".into(), ScriptAsset { bytes: code.into_bytes() }));
-        // let gfx = parts.gfx.clone();
-        let code_path: PathBuf = load_context.path().into();
-        // let path = code_path.as_mut_os_string();
-        // path.push("#lua");
         let parts = Cart {
             lua: code,
             gfx: Some(gfx),

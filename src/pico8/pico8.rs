@@ -54,10 +54,6 @@ pub struct N9Font {
     pub handle: Handle<Font>,
 }
 
-#[cfg(feature = "scripting")]
-#[derive(Resource, Clone, Debug)]
-pub struct Pico8Script(Handle<ScriptAsset>);
-
 /// Pico8State's state.
 #[derive(Resource, Clone, Asset, Debug, Reflect)]
 #[reflect(Resource)]
@@ -147,14 +143,14 @@ impl From<(usize, usize)> for Spr {
 }
 
 #[derive(Debug, Clone, Reflect)]
-pub enum SprAsset {
+pub enum SprHandle {
     Gfx(Handle<Gfx>),
     Image(Handle<Image>),
 }
 
 #[derive(Debug, Clone, Reflect)]
 pub struct SpriteSheet {
-    pub handle: SprAsset,
+    pub handle: SprHandle,
     pub layout: Handle<TextureAtlasLayout>,
     pub sprite_size: UVec2,
     pub flags: Vec<u8>,
@@ -484,8 +480,8 @@ impl Pico8<'_, '_> {
         let sheet = &self.state.sprite_sheets.inner[sheet_index];
         let sprite = Sprite {
             image: match &sheet.handle {
-                SprAsset::Image(handle) => handle.clone(),
-                SprAsset::Gfx(handle) => self.gfx_handles.get_or_create(
+                SprHandle::Image(handle) => handle.clone(),
+                SprHandle::Gfx(handle) => self.gfx_handles.get_or_create(
                     &self.state.palettes,
                     &self.state.pal_map,
                     None,
@@ -535,8 +531,8 @@ impl Pico8<'_, '_> {
             }
         };
         let image = match &sprites.handle {
-            SprAsset::Image(handle) => handle.clone(),
-            SprAsset::Gfx(handle) => self.gfx_handles.get_or_create(
+            SprHandle::Image(handle) => handle.clone(),
+            SprHandle::Gfx(handle) => self.gfx_handles.get_or_create(
                 &self.state.palettes,
                 &self.state.pal_map,
                 None,
@@ -619,7 +615,7 @@ impl Pico8<'_, '_> {
         let sheet_index = sheet_index.unwrap_or(0);
         let sheet = &self.state.sprite_sheets.inner[sheet_index];
         match &sheet.handle {
-            SprAsset::Gfx(handle) => {
+            SprHandle::Gfx(handle) => {
                 let gfx = self
                     .gfxs
                     .get_mut(handle)
@@ -641,7 +637,7 @@ impl Pico8<'_, '_> {
                     }?,
                 );
             }
-            SprAsset::Image(handle) => {
+            SprHandle::Image(handle) => {
                 let c = self.state.get_color(color)?;
                 let image = self
                     .images
@@ -661,12 +657,12 @@ impl Pico8<'_, '_> {
         let sheet_index = sheet_index.unwrap_or(0);
         let sheet = &self.state.sprite_sheets.inner[sheet_index];
         Ok(match &sheet.handle {
-            SprAsset::Gfx(handle) => {
+            SprHandle::Gfx(handle) => {
                 let gfx = self.gfxs.get(handle).ok_or(Error::NoSuch("Gfx".into()))?;
                 gfx.get(pos.x as usize, pos.y as usize)
                     .map(|i| PColor::Palette(i as usize))
             }
-            SprAsset::Image(handle) => {
+            SprHandle::Image(handle) => {
                 let image = self
                     .images
                     .get_mut(handle)
@@ -946,15 +942,7 @@ impl Pico8<'_, '_> {
         } else {
             true
         };
-        // XXX: this is byte count, not char count.
-        let len = text.len() as f32;
         let font_size = font_size.unwrap_or(5.0);
-        // Empirically derived the char_width from the font size using these
-        // good values for the Pico-8 font:
-        //
-        // (font_size, char_width)
-        //  5, 4
-        // 10, 8
         let z = clearable.suggest_z();
         let id = entity.unwrap_or_else(|| world.spawn_empty().id());
         world.entity_mut(id).insert((

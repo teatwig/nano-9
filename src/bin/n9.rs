@@ -20,9 +20,10 @@ struct InitState(Handle<Pico8State>);
 
 fn usage(mut output: impl io::Write) -> io::Result<()> {
     writeln!(output, "usage: n9 <FILE>")?;
+    // XXX: Rewrite this to show what it accepts based on its feature flags.
     writeln!(
         output,
-        "Nano-9 accepts cart.p8, cart.p8.png, or game[/Nano9.toml] files."
+        "Nano-9 accepts cart.p8, cart.p8.png, code.lua, or game[/Nano9.toml] files."
     )
 }
 
@@ -166,8 +167,7 @@ fn main() -> io::Result<ExitCode> {
             text_color: Color::WHITE,
             enabled: false,
         },
-    })
-    .add_systems(PreUpdate, run_pico8_when_ready);
+    });
 
     #[cfg(feature = "minibuffer")]
     app.add_plugins(MinibufferPlugins).add_acts((
