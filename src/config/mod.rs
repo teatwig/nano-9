@@ -1,10 +1,8 @@
 #[cfg(feature = "level")]
-use crate::level::{self,
-                   tiled::*,
-                   asset::TiledSet};
+use crate::level::{self, asset::TiledSet, tiled::*};
 use crate::{
-    error::{RunState},
-    pico8::{Error, self, image::pixel_art_settings, Gfx, Pico8State},
+    error::RunState,
+    pico8::{self, image::pixel_art_settings, Error, Gfx, Pico8State},
 };
 use bevy::{
     asset::{embedded_asset, io::Reader, AssetLoader, AssetPath, LoadContext},
@@ -12,7 +10,7 @@ use bevy::{
 };
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::{asset::ScriptAssetSettings, script::ScriptComponent};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::{ffi::OsStr, io, ops::Deref, path::PathBuf};
 
 pub const DEFAULT_CANVAS_SIZE: UVec2 = UVec2::splat(128);
@@ -121,13 +119,20 @@ pub enum ConfigLoaderError {
     AssetBytes(#[from] bevy::asset::ReadAssetBytesError),
     #[error("Decoding error: {0}")]
     Decoding(#[from] png::DecodingError),
-    #[error("image {image_index} ({image_size:?}) does not fit sprite size {sprite_size:?}", )]
-    InvalidSpriteSize { image_index: usize, image_size: UVec2, sprite_size: UVec2 },
-    #[error("image {image_index} ({image_size:?}) does not fit sprite counts {sprite_counts:?}", )]
-    InvalidSpriteCounts { image_index: usize, image_size: UVec2, sprite_counts: UVec2 },
+    #[error("image {image_index} ({image_size:?}) does not fit sprite size {sprite_size:?}")]
+    InvalidSpriteSize {
+        image_index: usize,
+        image_size: UVec2,
+        sprite_size: UVec2,
+    },
+    #[error("image {image_index} ({image_size:?}) does not fit sprite counts {sprite_counts:?}")]
+    InvalidSpriteCounts {
+        image_index: usize,
+        image_size: UVec2,
+        sprite_counts: UVec2,
+    },
     #[error("invalid template: {0}")]
-    InvalidTemplate(String)
-
+    InvalidTemplate(String),
 }
 
 #[derive(Default)]
@@ -179,7 +184,15 @@ impl AssetLoader for ConfigLoader {
                             load_context
                                 .loader()
                                 .with_settings(pixel_art_settings)
-                                .load(&*tileset.image.as_ref().ok_or(ConfigLoaderError::Message(format!("could not load .tsx image {i}")))?.source),
+                                .load(
+                                    &*tileset
+                                        .image
+                                        .as_ref()
+                                        .ok_or(ConfigLoaderError::Message(format!(
+                                            "could not load .tsx image {i}"
+                                        )))?
+                                        .source,
+                                ),
                         ),
                         sprite_size: tile_size,
                         flags,
@@ -198,27 +211,46 @@ impl AssetLoader for ConfigLoader {
                     let bytes = load_context.read_asset_bytes(&*sheet.path).await?;
                     let gfx = Gfx::from_png(&bytes)?;
                     let image_size = UVec2::new(gfx.width as u32, gfx.height as u32);
-                    let layout = get_layout(i, image_size, &mut sheet.sprite_size, sheet.sprite_counts, sheet.padding, sheet.offset)?
-                        .map(|layout|
-                             load_context.add_labeled_asset(format!("atlas{i}"),
-                                                            layout));
-                    (pico8::SprAsset::Gfx(
-                        load_context.add_labeled_asset(format!("spritesheet{i}"), gfx)),
-                     layout)
+                    let layout = get_layout(
+                        i,
+                        image_size,
+                        &mut sheet.sprite_size,
+                        sheet.sprite_counts,
+                        sheet.padding,
+                        sheet.offset,
+                    )?
+                    .map(|layout| load_context.add_labeled_asset(format!("atlas{i}"), layout));
+                    (
+                        pico8::SprAsset::Gfx(
+                            load_context.add_labeled_asset(format!("spritesheet{i}"), gfx),
+                        ),
+                        layout,
+                    )
                 } else {
                     let loaded = load_context
-                            .loader()
-                            .immediate()
-                            .with_settings(pixel_art_settings)
-                            .load::<Image>(&*sheet.path).await?;
+                        .loader()
+                        .immediate()
+                        .with_settings(pixel_art_settings)
+                        .load::<Image>(&*sheet.path)
+                        .await?;
                     let image_size = loaded.get().size();
-                    let layout = get_layout(i, image_size, &mut sheet.sprite_size, sheet.sprite_counts, sheet.padding, sheet.offset)?
-                        .map(|layout|
-                             load_context.add_labeled_asset(format!("atlas{i}"),
-                                                            layout));
+                    let layout = get_layout(
+                        i,
+                        image_size,
+                        &mut sheet.sprite_size,
+                        sheet.sprite_counts,
+                        sheet.padding,
+                        sheet.offset,
+                    )?
+                    .map(|layout| load_context.add_labeled_asset(format!("atlas{i}"), layout));
 
-                    (pico8::SprAsset::Image(load_context.add_loaded_labeled_asset(format!("spritesheet{i}"), loaded)),
-                     layout)
+                    (
+                        pico8::SprAsset::Image(
+                            load_context
+                                .add_loaded_labeled_asset(format!("spritesheet{i}"), loaded),
+                        ),
+                        layout,
+                    )
                 };
                 sprite_sheets.push(pico8::SpriteSheet {
                     handle,
@@ -243,7 +275,7 @@ impl AssetLoader for ConfigLoader {
                     .load(&palette.path)
                     .await?;
                 palettes.push(pico8::Palette::from_image(image.get(), palette.row));
-            };
+            }
         }
         let pal_map = pico8::PalMap::default();
         let state = pico8::Pico8State {
@@ -318,26 +350,54 @@ impl AssetLoader for ConfigLoader {
     }
 }
 
-fn get_layout(image_index: usize, image_size: UVec2, sprite_size: &mut Option<UVec2>, sprite_counts: Option<UVec2>, padding: Option<UVec2>, offset: Option<UVec2>)
-              -> Result<Option<TextureAtlasLayout>, ConfigLoaderError> {
+fn get_layout(
+    image_index: usize,
+    image_size: UVec2,
+    sprite_size: &mut Option<UVec2>,
+    sprite_counts: Option<UVec2>,
+    padding: Option<UVec2>,
+    offset: Option<UVec2>,
+) -> Result<Option<TextureAtlasLayout>, ConfigLoaderError> {
     if let Some((size, counts)) = sprite_size.zip(sprite_counts) {
-        Ok(Some(TextureAtlasLayout::from_grid(size, counts.x, counts.y, padding, offset)))
+        Ok(Some(TextureAtlasLayout::from_grid(
+            size, counts.x, counts.y, padding, offset,
+        )))
     } else if let Some(sprite_size) = *sprite_size {
         let counts = image_size / sprite_size;
         let remainders = image_size % sprite_size;
         if remainders == UVec2::ZERO {
-            Ok(Some(TextureAtlasLayout::from_grid(sprite_size, counts.x, counts.y, padding, offset)))
+            Ok(Some(TextureAtlasLayout::from_grid(
+                sprite_size,
+                counts.x,
+                counts.y,
+                padding,
+                offset,
+            )))
         } else {
-            Err(ConfigLoaderError::InvalidSpriteSize { image_index, image_size, sprite_size })
+            Err(ConfigLoaderError::InvalidSpriteSize {
+                image_index,
+                image_size,
+                sprite_size,
+            })
         }
     } else if let Some(sprite_counts) = sprite_counts {
         let size = image_size / sprite_counts;
         *sprite_size = Some(size);
         let remainders = image_size % sprite_counts;
         if remainders == UVec2::ZERO {
-            Ok(Some(TextureAtlasLayout::from_grid(size, sprite_counts.x, sprite_counts.y, padding, offset)))
+            Ok(Some(TextureAtlasLayout::from_grid(
+                size,
+                sprite_counts.x,
+                sprite_counts.y,
+                padding,
+                offset,
+            )))
         } else {
-            Err(ConfigLoaderError::InvalidSpriteCounts { image_index, image_size, sprite_counts })
+            Err(ConfigLoaderError::InvalidSpriteCounts {
+                image_index,
+                image_size,
+                sprite_counts,
+            })
         }
     } else {
         Ok(None)
@@ -351,8 +411,7 @@ pub fn update_asset(
     mut next_state: ResMut<NextState<RunState>>,
     mut pico8_state: ResMut<Pico8State>,
     mut commands: Commands,
-#[cfg(feature = "scripting")]
-    script_settings: Res<ScriptAssetSettings>,
+    #[cfg(feature = "scripting")] script_settings: Res<ScriptAssetSettings>,
 ) {
     for e in reader.read() {
         info!("update asset event {e:?}");
@@ -361,10 +420,10 @@ pub fn update_asset(
                 // XXX: It happens here too!
                 #[cfg(feature = "scripting")]
                 {
-                let path: &AssetPath<'static> = state.code.path().unwrap();
-                let script_path = (script_settings.script_id_mapper.map)(path);
-                info!("add script component path {}", &script_path);
-                commands.spawn(ScriptComponent(vec![script_path.into()]));
+                    let path: &AssetPath<'static> = state.code.path().unwrap();
+                    let script_path = (script_settings.script_id_mapper.map)(path);
+                    info!("add script component path {}", &script_path);
+                    commands.spawn(ScriptComponent(vec![script_path.into()]));
                 }
                 *pico8_state = state;
                 info!("Goto run state");
@@ -522,7 +581,13 @@ path = "sprites.png"
 "#,
         )
         .unwrap();
-        assert_eq!(config.palettes, vec![Palette { path: "sprites.png".into(), row: None }]);
+        assert_eq!(
+            config.palettes,
+            vec![Palette {
+                path: "sprites.png".into(),
+                row: None
+            }]
+        );
     }
 
     #[test]

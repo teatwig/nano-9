@@ -6,7 +6,7 @@ use bevy::{
     audio::AudioPlugin,
     prelude::*,
 };
-use nano9::{config::Config, pico8::*, error::RunState, *};
+use nano9::{config::Config, error::RunState, pico8::*, *};
 use std::{io, path::Path};
 
 #[cfg(feature = "minibuffer")]
@@ -23,11 +23,20 @@ fn init(mut pico8: Pico8) {
     pico8.cls(Some(0)).unwrap();
     let n = pico8.paln(None).unwrap();
 
-    let UVec2 { x: width, y: height } = pico8.canvas_size();
+    let UVec2 {
+        x: width,
+        y: height,
+    } = pico8.canvas_size();
     let dw = width as f32 / n as f32;
 
     for i in 0..n {
-        pico8.rectfill(Vec2::new(i as f32 * dw, 0.0), Vec2::new((i + 1) as f32 * dw, height as f32), Some(i)).unwrap();
+        pico8
+            .rectfill(
+                Vec2::new(i as f32 * dw, 0.0),
+                Vec2::new((i + 1) as f32 * dw, height as f32),
+                Some(i),
+            )
+            .unwrap();
     }
 }
 
@@ -48,7 +57,9 @@ fn main() -> io::Result<()> {
         let mut memory_dir = MemoryDir {
             dir: Dir::default(),
         };
-        memory_dir.dir.insert_asset(Path::new("Nano9.toml"), config_string.into_bytes());
+        memory_dir
+            .dir
+            .insert_asset(Path::new("Nano9.toml"), config_string.into_bytes());
         let reader = MemoryAssetReader {
             root: memory_dir.dir.clone(),
         };
@@ -58,22 +69,25 @@ fn main() -> io::Result<()> {
         );
     }
     let nano9_plugin = Nano9Plugin { config: config };
-        app.add_systems(
-            PostStartup,
-            move |asset_server: Res<AssetServer>, mut commands: Commands, mut next_state: ResMut<NextState<RunState>>| {
-                let pico8_state: Handle<Pico8State> = asset_server.load("memory://Nano9.toml");
-                commands.insert_resource(InitState(pico8_state));
-            },
-        )
-        .add_systems(PreUpdate, run_pico8_when_ready);
+    app.add_systems(
+        PostStartup,
+        move |asset_server: Res<AssetServer>,
+              mut commands: Commands,
+              mut next_state: ResMut<NextState<RunState>>| {
+            let pico8_state: Handle<Pico8State> = asset_server.load("memory://Nano9.toml");
+            commands.insert_resource(InitState(pico8_state));
+        },
+    )
+    .add_systems(PreUpdate, run_pico8_when_ready);
     app.add_plugins(
         DefaultPlugins
             .set(AudioPlugin {
                 global_volume: GlobalVolume::new(0.4),
                 ..default()
             })
-            .set(nano9_plugin.window_plugin()))
-       .add_plugins(nano9_plugin);
+            .set(nano9_plugin.window_plugin()),
+    )
+    .add_plugins(nano9_plugin);
     #[cfg(feature = "minibuffer")]
     app.add_plugins(MinibufferPlugins).add_acts((
         BasicActs::default(),
@@ -90,8 +104,9 @@ fn main() -> io::Result<()> {
     ));
 
     #[cfg(all(feature = "minibuffer", feature = "inspector"))]
-    app.add_acts((bevy_minibuffer_inspector::WorldActs::default(),
-                  bevy_minibuffer_inspector::StateActs::default().add::<RunState>(),
+    app.add_acts((
+        bevy_minibuffer_inspector::WorldActs::default(),
+        bevy_minibuffer_inspector::StateActs::default().add::<RunState>(),
     ));
 
     app.run();
@@ -99,7 +114,5 @@ fn main() -> io::Result<()> {
 }
 
 fn show_asset_changes<T: Asset>(mut reader: EventReader<AssetEvent<T>>) {
-    reader
-        .read()
-        .inspect(|e| info!("asset event {e:?}"));
+    reader.read().inspect(|e| info!("asset event {e:?}"));
 }

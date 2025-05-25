@@ -1,6 +1,5 @@
 use bevy::{
     asset::embedded_asset,
-    text::TextLayoutInfo,
     audio::PlaybackMode,
     ecs::system::{SystemParam, SystemState},
     image::{ImageSampler, TextureAccessError},
@@ -11,6 +10,7 @@ use bevy::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
     sprite::Anchor,
+    text::TextLayoutInfo,
 };
 use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 
@@ -27,24 +27,19 @@ use bevy_mod_scripting::{
 use bitvec::prelude::*;
 
 use crate::{
-    ValueExt,
     cursor::Cursor,
     pico8::{
+        audio::{AudioBank, AudioCommand, SfxChannels, SfxDest},
         image::pixel_art_settings,
         keyboard::KeyInput,
         mouse::MouseInput,
-        audio::{SfxChannels, AudioBank, AudioCommand, SfxDest},
         rand::Rand8,
-         ClearEvent, Clearable, Gfx, GfxHandles, Map, PalMap, Palette,
+        ClearEvent, Clearable, Gfx, GfxHandles, Map, PalMap, Palette,
     },
-    DrawState, FillColor, N9Canvas, N9Color, Nano9Camera, PColor,
+    DrawState, FillColor, N9Canvas, N9Color, Nano9Camera, PColor, ValueExt,
 };
 
-use std::{
-    any::TypeId,
-    borrow::Cow,
-    f32::consts::PI,
-};
+use std::{any::TypeId, borrow::Cow, f32::consts::PI};
 
 pub const PICO8_PALETTE: &str = "embedded://nano9/pico8/pico-8-palette.png";
 pub const PICO8_BORDER: &str = "embedded://nano9/pico8/rect-border.png";
@@ -67,7 +62,7 @@ pub struct Pico8Script(Handle<ScriptAsset>);
 #[derive(Resource, Clone, Asset, Debug, Reflect)]
 #[reflect(Resource)]
 pub struct Pico8State {
-#[cfg(feature = "scripting")]
+    #[cfg(feature = "scripting")]
     pub code: Handle<ScriptAsset>,
     pub(crate) palettes: Cursor<Palette>,
     #[reflect(ignore)]
@@ -587,7 +582,9 @@ impl Pico8<'_, '_> {
     // cls([n])
     pub fn cls(&mut self, color: Option<impl Into<PColor>>) -> Result<(), Error> {
         trace!("cls");
-        let c = self.state.get_color(color.map(|x| x.into()).unwrap_or(Color::BLACK.into()))?;
+        let c = self
+            .state
+            .get_color(color.map(|x| x.into()).unwrap_or(Color::BLACK.into()))?;
         self.state.draw_state.clear_screen();
         let image = self
             .images
@@ -656,13 +653,18 @@ impl Pico8<'_, '_> {
         Ok(())
     }
 
-    pub fn sget(&mut self, pos: UVec2, sheet_index: Option<usize>) -> Result<Option<PColor>, Error> {
+    pub fn sget(
+        &mut self,
+        pos: UVec2,
+        sheet_index: Option<usize>,
+    ) -> Result<Option<PColor>, Error> {
         let sheet_index = sheet_index.unwrap_or(0);
         let sheet = &self.state.sprite_sheets.inner[sheet_index];
         Ok(match &sheet.handle {
             SprAsset::Gfx(handle) => {
                 let gfx = self.gfxs.get(handle).ok_or(Error::NoSuch("Gfx".into()))?;
-                gfx.get(pos.x as usize, pos.y as usize).map(|i| PColor::Palette(i as usize))
+                gfx.get(pos.x as usize, pos.y as usize)
+                    .map(|i| PColor::Palette(i as usize))
             }
             SprAsset::Image(handle) => {
                 let image = self
@@ -727,8 +729,11 @@ impl Pico8<'_, '_> {
                                 };
                                 if let Some(c) = c {
                                     // c.map(&self.state.pal_map).write_color(&PALETTE, pixel_bytes);
-                                    let _ =
-                                        c.write_color(&self.state.palettes.data, &self.state.pal_map, pixel_bytes);
+                                    let _ = c.write_color(
+                                        &self.state.palettes.data,
+                                        &self.state.pal_map,
+                                        pixel_bytes,
+                                    );
                                 }
                                 Ok::<(), Error>(())
                             })?,
@@ -742,8 +747,9 @@ impl Pico8<'_, '_> {
                         ..default()
                     }
                 } else {
-                    let c =
-                        self.state.get_color(color.map(|x| x.off().into()).unwrap_or(N9Color::Pen))?;
+                    let c = self
+                        .state
+                        .get_color(color.map(|x| x.off().into()).unwrap_or(N9Color::Pen))?;
                     Sprite {
                         color: c,
                         anchor: Anchor::TopLeft,
@@ -872,14 +878,31 @@ impl Pico8<'_, '_> {
         Ok(id)
     }
 
-    pub(crate) fn print_world(world: &mut World, dest: Option<Entity>, text: String, pos: Option<Vec2>, color: Option<N9Color>, font_size: Option<f32>) -> Result<f32, Error> {
+    pub(crate) fn print_world(
+        world: &mut World,
+        dest: Option<Entity>,
+        text: String,
+        pos: Option<Vec2>,
+        color: Option<N9Color>,
+        font_size: Option<f32>,
+    ) -> Result<f32, Error> {
         let (id, add_newline) = Self::pre_print_world(world, dest, text, pos, color, font_size)?;
-        world.run_system_cached(bevy::text::update_text2d_layout).expect("update_text2d_layout");
-        world.run_system_cached_with(Self::post_print_world, (id, add_newline)).expect("post_print_world")
+        world
+            .run_system_cached(bevy::text::update_text2d_layout)
+            .expect("update_text2d_layout");
+        world
+            .run_system_cached_with(Self::post_print_world, (id, add_newline))
+            .expect("post_print_world")
     }
 
-    fn post_print_world(In((id, add_newline)): In<(Entity, bool)>, query: Query<(&Transform, &TextLayoutInfo)>, mut state: ResMut<Pico8State>) -> Result<f32, Error> {
-        let (transform, text_layout) = query.get(id).map_err(|_| Error::NoSuch("text layout".into()))?;
+    fn post_print_world(
+        In((id, add_newline)): In<(Entity, bool)>,
+        query: Query<(&Transform, &TextLayoutInfo)>,
+        mut state: ResMut<Pico8State>,
+    ) -> Result<f32, Error> {
+        let (transform, text_layout) = query
+            .get(id)
+            .map_err(|_| Error::NoSuch("text layout".into()))?;
         let pos = &transform.translation;
         if add_newline {
             state.draw_state.print_cursor.x = pos.x;
@@ -906,12 +929,14 @@ impl Pico8<'_, '_> {
         let state = world.get_resource::<Pico8State>().expect("Pico8State");
         let font = state.font.handle.clone();
         // XXX: Should the camera delta apply to the print cursor position?
-        let pos = pos.map(|p| state.draw_state.apply_camera_delta(p)).unwrap_or_else(|| {
-            Vec2::new(
-                state.draw_state.print_cursor.x,
-                state.draw_state.print_cursor.y,
-            )
-        });
+        let pos = pos
+            .map(|p| state.draw_state.apply_camera_delta(p))
+            .unwrap_or_else(|| {
+                Vec2::new(
+                    state.draw_state.print_cursor.x,
+                    state.draw_state.print_cursor.y,
+                )
+            });
         // pos =
         let c = state.get_color(color.unwrap_or(N9Color::Pen))?;
         let clearable = Clearable::default();
@@ -932,31 +957,28 @@ impl Pico8<'_, '_> {
         // 10, 8
         let z = clearable.suggest_z();
         let id = entity.unwrap_or_else(|| world.spawn_empty().id());
-        world
-            .entity_mut(id)
-            .insert((
-                Name::new("print"),
-                Transform::from_xyz(pos.x, negate_y(pos.y), z),
-                Text2d::new(text),
-                Visibility::default(),
-                TextColor(c),
-                TextFont {
-                    font,
-                    font_smoothing: bevy::text::FontSmoothing::None,
-                    font_size,
-                },
-                Anchor::TopLeft,
-                clearable,
-            ));
+        world.entity_mut(id).insert((
+            Name::new("print"),
+            Transform::from_xyz(pos.x, negate_y(pos.y), z),
+            Text2d::new(text),
+            Visibility::default(),
+            TextColor(c),
+            TextFont {
+                font,
+                font_smoothing: bevy::text::FontSmoothing::None,
+                font_size,
+            },
+            Anchor::TopLeft,
+            clearable,
+        ));
         Ok((id, add_newline))
     }
 
     pub fn exit(&mut self, error: Option<u8>) {
         self.commands.send_event(match error {
-            Some(n) => {
-                std::num::NonZero::new(n)
-                    .map(AppExit::Error).unwrap_or(AppExit::Success)
-            },
+            Some(n) => std::num::NonZero::new(n)
+                .map(AppExit::Error)
+                .unwrap_or(AppExit::Success),
             None => AppExit::Success,
         });
     }
@@ -987,10 +1009,13 @@ impl Pico8<'_, '_> {
             SfxCommand::Stop => {
                 if let Some(chan) = channel {
                     // let chan = self.sfx_channels[chan as usize];
-                    self.commands
-                        .queue(AudioCommand::Stop(SfxDest::Channel(chan), Some(PlaybackMode::Remove)));
+                    self.commands.queue(AudioCommand::Stop(
+                        SfxDest::Channel(chan),
+                        Some(PlaybackMode::Remove),
+                    ));
                 } else {
-                    self.commands.queue(AudioCommand::Stop(SfxDest::All, Some(PlaybackMode::Remove)));
+                    self.commands
+                        .queue(AudioCommand::Stop(SfxDest::All, Some(PlaybackMode::Remove)));
                 }
             }
             SfxCommand::Play(n) => {
@@ -1001,10 +1026,17 @@ impl Pico8<'_, '_> {
 
                 if let Some(chan) = channel {
                     // let chan = self.sfx_channels[chan as usize];
-                    self.commands
-                        .queue(AudioCommand::Play(sfx, SfxDest::Channel(chan), PlaybackSettings::REMOVE));
+                    self.commands.queue(AudioCommand::Play(
+                        sfx,
+                        SfxDest::Channel(chan),
+                        PlaybackSettings::REMOVE,
+                    ));
                 } else {
-                    self.commands.queue(AudioCommand::Play(sfx, SfxDest::Any, PlaybackSettings::REMOVE));
+                    self.commands.queue(AudioCommand::Play(
+                        sfx,
+                        SfxDest::Any,
+                        PlaybackSettings::REMOVE,
+                    ));
                 }
             }
         }
@@ -1032,21 +1064,33 @@ impl Pico8<'_, '_> {
                 //     self.commands
                 //         .queue(AudioCommand::Stop(SfxDest::Channel(chan), Some(PlaybackMode::Loop)));
                 // } else {
-                    self.commands.queue(AudioCommand::Stop(SfxDest::All, Some(PlaybackMode::Loop)));
+                self.commands
+                    .queue(AudioCommand::Stop(SfxDest::All, Some(PlaybackMode::Loop)));
                 // }
             }
             SfxCommand::Play(n) => {
-                let sfx = self.state.audio_banks.inner.get(bank as usize)
-                                                      .ok_or(Error::NoSuch(format!("audio bank {bank}").into()))?
+                let sfx = self
+                    .state
+                    .audio_banks
+                    .inner
+                    .get(bank as usize)
+                    .ok_or(Error::NoSuch(format!("audio bank {bank}").into()))?
                     .get(n as usize)
                     .ok_or(Error::NoAsset(format!("music {n}").into()))?
                     .clone();
 
                 if let Some(mask) = channel_mask {
-                    self.commands
-                        .queue(AudioCommand::Play(sfx, SfxDest::ChannelMask(mask), PlaybackSettings::LOOP));
+                    self.commands.queue(AudioCommand::Play(
+                        sfx,
+                        SfxDest::ChannelMask(mask),
+                        PlaybackSettings::LOOP,
+                    ));
                 } else {
-                    self.commands.queue(AudioCommand::Play(sfx, SfxDest::Any, PlaybackSettings::LOOP));
+                    self.commands.queue(AudioCommand::Play(
+                        sfx,
+                        SfxDest::Any,
+                        PlaybackSettings::LOOP,
+                    ));
                 }
             }
         }
@@ -1556,7 +1600,10 @@ impl Pico8<'_, '_> {
 
     /// Return the number of colors in the palette.
     pub fn paln(&self, palette_index: Option<usize>) -> Option<usize> {
-        self.state.palettes.get(palette_index).map(|pal| pal.data.len())
+        self.state
+            .palettes
+            .get(palette_index)
+            .map(|pal| pal.data.len())
     }
 
     pub fn palt(&mut self, color_index: Option<usize>, transparent: Option<bool>) {
@@ -1616,7 +1663,9 @@ impl Pico8<'_, '_> {
 
     pub fn poke(&mut self, addr: usize, value: u8) -> Result<(), Error> {
         match addr {
-            0x5f2d => { self.key_input.enabled = value != 0; },
+            0x5f2d => {
+                self.key_input.enabled = value != 0;
+            }
             _ => Err(Error::UnsupportedPoke(addr))?,
         }
         Ok(())
@@ -1633,9 +1682,15 @@ impl Pico8<'_, '_> {
     pub fn stat(&mut self, n: u8, value: Option<u8>) -> Result<ScriptValue, Error> {
         match n {
             30 => Ok(ScriptValue::Bool(!self.key_input.buffer.is_empty())),
-            31 => self.key_input.pop().map(|string_maybe| string_maybe.map(ScriptValue::String).unwrap_or(ScriptValue::Unit)),
+            31 => self.key_input.pop().map(|string_maybe| {
+                string_maybe
+                    .map(ScriptValue::String)
+                    .unwrap_or(ScriptValue::Unit)
+            }),
             32 => Ok(ScriptValue::Float(self.mouse_input.position.x as f64)),
-            33 => Ok(ScriptValue::Float(negate_y(self.mouse_input.position.y) as f64)),
+            33 => Ok(ScriptValue::Float(
+                negate_y(self.mouse_input.position.y) as f64
+            )),
             34 => Ok(ScriptValue::Integer(self.mouse_input.buttons as i64)),
             _ => Err(Error::UnsupportedStat(n))?,
         }
@@ -1655,39 +1710,37 @@ impl Pico8<'_, '_> {
 mod fixed {
     use fixed::types::extra::U16;
     use fixed::FixedI32;
-impl super::Pico8<'_, '_> {
+    impl super::Pico8<'_, '_> {
+        pub fn shl(a: f32, b: u8) -> f32 {
+            let a = FixedI32::<U16>::from_num(a);
+            let c = a << b;
+            c.to_num()
+        }
 
-    pub fn shl(a: f32, b: u8) -> f32 {
-        let a = FixedI32::<U16>::from_num(a);
-        let c = a << b;
-        c.to_num()
+        pub fn shr(a: f32, b: u8) -> f32 {
+            let a = FixedI32::<U16>::from_num(a);
+            let c = a >> b;
+            c.to_num()
+        }
+
+        pub fn lshr(a: f32, b: u8) -> f32 {
+            let c: u32 = FixedI32::<U16>::from_num(a).to_bits() as u32;
+            let d = c >> b;
+            FixedI32::<U16>::from_bits(d as i32).to_num()
+        }
+
+        pub fn rotr(a: f32, b: u8) -> f32 {
+            let c: u32 = FixedI32::<U16>::from_num(a).to_bits() as u32;
+            let d = (c << (32 - b)) | (c >> b);
+            FixedI32::<U16>::from_bits(d as i32).to_num()
+        }
+
+        pub fn rotl(a: f32, b: u8) -> f32 {
+            let c: u32 = FixedI32::<U16>::from_num(a).to_bits() as u32;
+            let d = (c << b) | (c >> (32 - b));
+            FixedI32::<U16>::from_bits(d as i32).to_num()
+        }
     }
-
-    pub fn shr(a: f32, b: u8) -> f32 {
-        let a = FixedI32::<U16>::from_num(a);
-        let c = a >> b;
-        c.to_num()
-    }
-
-    pub fn lshr(a: f32, b: u8) -> f32 {
-        let c: u32 = FixedI32::<U16>::from_num(a).to_bits() as u32;
-        let d = c >> b;
-        FixedI32::<U16>::from_bits(d as i32).to_num()
-    }
-
-    pub fn rotr(a: f32, b: u8) -> f32 {
-        let c: u32 = FixedI32::<U16>::from_num(a).to_bits() as u32;
-        let d = (c << (32 - b)) | (c >> b);
-        FixedI32::<U16>::from_bits(d as i32).to_num()
-    }
-
-    pub fn rotl(a: f32, b: u8) -> f32 {
-        let c: u32 = FixedI32::<U16>::from_num(a).to_bits() as u32;
-        let d = (c << b) | (c >> (32 - b));
-        FixedI32::<U16>::from_bits(d as i32).to_num()
-    }
-
-}
 }
 
 #[derive(Default, Debug, Clone)]
@@ -1729,7 +1782,6 @@ impl FromWorld for Pico8State {
 }
 
 impl Pico8State {
-
     pub(crate) fn get_color(&self, c: impl Into<N9Color>) -> Result<Color, Error> {
         match c.into() {
             N9Color::Pen => match self.draw_state.pen {

@@ -1,9 +1,9 @@
+use crate::pico8::Pico8State;
 use bevy::prelude::*;
 use std::{
     fmt,
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
-use crate::pico8::Pico8State;
 
 static DRAW_COUNTER: DrawCounter = DrawCounter::new(1);
 ///

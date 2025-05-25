@@ -38,7 +38,6 @@ pub(crate) fn plugin(app: &mut App) {
         .add_plugins(keyboard::plugin)
         .add_plugins(mouse::plugin)
         .add_plugins(cart::plugin);
-#[cfg(feature = "scripting")]
-        app
-        .add_plugins(lua::plugin);
+    #[cfg(feature = "scripting")]
+    app.add_plugins(lua::plugin);
 }

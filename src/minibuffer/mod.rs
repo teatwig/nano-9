@@ -26,7 +26,7 @@ impl Default for Nano9Acts {
         Self {
             acts: Acts::new([
                 Act::new(toggle_pause).bind(keyseq! { Space N P }),
-#[cfg(feature = "scripting")]
+                #[cfg(feature = "scripting")]
                 Act::new(lua_eval).bind(keyseq! { Space N E }),
             ]),
         }
@@ -46,7 +46,7 @@ impl Plugin for Nano9Acts {
     fn build(&self, app: &mut App) {
         self.warn_on_unused_acts();
         let world = app.world_mut();
-#[cfg(feature = "scripting")]
+        #[cfg(feature = "scripting")]
         NamespaceBuilder::<World>::new_unregistered(world).register(
             "message",
             |ctx: FunctionCallContext, s: String| {

@@ -1,4 +1,4 @@
-use crate::pico8::{self, Clearable, Gfx, SprAsset, Error};
+use crate::pico8::{self, Clearable, Error, Gfx, SprAsset};
 use bevy::prelude::*;
 
 #[cfg(feature = "level")]

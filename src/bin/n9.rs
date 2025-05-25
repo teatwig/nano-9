@@ -11,7 +11,7 @@ use bevy::{
 #[cfg(feature = "minibuffer")]
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::script::ScriptComponent;
-use nano9::{config::Config, pico8::*, *, error::RunState};
+use nano9::{config::Config, error::RunState, pico8::*, *};
 use std::{borrow::Cow, env, ffi::OsStr, fs, io, path::PathBuf, process::ExitCode};
 
 #[allow(dead_code)]
@@ -20,7 +20,10 @@ struct InitState(Handle<Pico8State>);
 
 fn usage(mut output: impl io::Write) -> io::Result<()> {
     writeln!(output, "usage: n9 <FILE>")?;
-    writeln!(output, "Nano-9 accepts cart.p8, cart.p8.png, or game[/Nano9.toml] files.")
+    writeln!(
+        output,
+        "Nano-9 accepts cart.p8, cart.p8.png, or game[/Nano9.toml] files."
+    )
 }
 
 fn main() -> io::Result<ExitCode> {
@@ -120,7 +123,8 @@ fn main() -> io::Result<ExitCode> {
         };
         app.add_systems(
             Startup,
-            move |asset_server: Res<AssetServer>, mut commands: Commands, mut pico8: Pico8| { //, script_settings: Res<ScriptAssetSettings>| {
+            move |asset_server: Res<AssetServer>, mut commands: Commands, mut pico8: Pico8| {
+                //, script_settings: Res<ScriptAssetSettings>| {
                 let asset_path = AssetPath::from_path(&path).with_source(&source);
                 pico8.state.code = asset_server.load(&asset_path);
                 // let script_path = script_settings.script_id_mapper.map(pico8.state.code.path());
@@ -163,8 +167,7 @@ fn main() -> io::Result<ExitCode> {
             enabled: false,
         },
     })
-        .add_systems(PreUpdate, run_pico8_when_ready)
-        ;
+    .add_systems(PreUpdate, run_pico8_when_ready);
 
     #[cfg(feature = "minibuffer")]
     app.add_plugins(MinibufferPlugins).add_acts((
@@ -182,8 +185,9 @@ fn main() -> io::Result<ExitCode> {
     ));
 
     #[cfg(all(feature = "minibuffer", feature = "inspector"))]
-    app.add_acts((bevy_minibuffer_inspector::WorldActs::default(),
-                  bevy_minibuffer_inspector::StateActs::default().add::<RunState>(),
+    app.add_acts((
+        bevy_minibuffer_inspector::WorldActs::default(),
+        bevy_minibuffer_inspector::StateActs::default().add::<RunState>(),
     ));
     #[cfg(all(feature = "level", feature = "user_properties"))]
     app.add_systems(Startup, |reg: Res<AppTypeRegistry>| {

@@ -30,7 +30,6 @@ impl<T: TypePath + Send + Sync + Default + BitView<Store = T> + BitStore + Copy>
     }
 }
 
-
 #[derive(thiserror::Error, Debug)]
 pub enum PngError {
     #[error("Not an indexed png")]
@@ -41,7 +40,7 @@ pub enum PngError {
     BitDepthConversion { pixel_index: usize, pixel_value: u8 },
 }
 
-impl <const N: usize> Gfx<N, u8> {
+impl<const N: usize> Gfx<N, u8> {
     pub fn from_png(bytes: &[u8]) -> Result<Self, png::DecodingError> {
         let cursor = std::io::Cursor::new(bytes);
         let decoder = png::Decoder::new(cursor);
@@ -67,8 +66,15 @@ impl <const N: usize> Gfx<N, u8> {
                     // Check the high bits of the pixel before overwriting them.
                     if data[a + dest_bit_depth..(a + src_bit_depth - dest_bit_depth)].any() {
                         let mut pixel_value: u8 = 0;
-                        pixel_value.view_bits_mut::<Lsb0>().copy_from_bitslice(&data[a..a + src_bit_depth]);
-                        return Err(png::DecodingError::IoError(std::io::Error::other(PngError::BitDepthConversion { pixel_index: i, pixel_value })));
+                        pixel_value
+                            .view_bits_mut::<Lsb0>()
+                            .copy_from_bitslice(&data[a..a + src_bit_depth]);
+                        return Err(png::DecodingError::IoError(std::io::Error::other(
+                            PngError::BitDepthConversion {
+                                pixel_index: i,
+                                pixel_value,
+                            },
+                        )));
                     }
                     data.copy_within(a..b, c);
                 }
@@ -81,9 +87,12 @@ impl <const N: usize> Gfx<N, u8> {
             Ok(Gfx {
                 data,
                 width,
-                height })
+                height,
+            })
         } else {
-            Err(png::DecodingError::IoError(std::io::Error::other(PngError::NotIndexed)))
+            Err(png::DecodingError::IoError(std::io::Error::other(
+                PngError::NotIndexed,
+            )))
         }
     }
 }
@@ -112,7 +121,6 @@ impl<
         gfx
     }
 
-
     /// Get a color index.
     pub fn get(&self, x: usize, y: usize) -> Option<T> {
         let start = x * N + y * N * self.width;
@@ -128,10 +136,13 @@ impl<
     pub fn set(&mut self, x: usize, y: usize, color_index: T) -> bool {
         let bits = color_index.view_bits::<Lsb0>();
         let start = x * N + y * N * self.width;
-        self.data.get_mut(start..start + N).map(|slice| {
-            slice.copy_from_bitslice(&bits[0..N]);
-            true
-        }).unwrap_or(false)
+        self.data
+            .get_mut(start..start + N)
+            .map(|slice| {
+                slice.copy_from_bitslice(&bits[0..N]);
+                true
+            })
+            .unwrap_or(false)
     }
 
     /// Create an image.

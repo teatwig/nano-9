@@ -1,9 +1,9 @@
 #![allow(deprecated)]
 use bevy::{
+    asset::AssetPath,
     image::ImageSampler,
     prelude::*,
     reflect::Reflect,
-    asset::AssetPath,
     render::{
         camera::{ScalingMode, Viewport},
         render_asset::RenderAssetUsages,
@@ -16,18 +16,24 @@ use bevy::{
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::{
     core::{
-        ConfigureScriptPlugin,
-        asset::{Language, ScriptAsset, ScriptAssetSettings, AssetPathToScriptIdMapper},
+        asset::{AssetPathToScriptIdMapper, Language, ScriptAsset, ScriptAssetSettings},
         bindings::{function::namespace::NamespaceBuilder, script_value::ScriptValue},
         callback_labels,
         event::ScriptCallbackEvent,
         handler::event_handler,
+        ConfigureScriptPlugin,
     },
     lua::LuaScriptingPlugin,
     BMSPlugin,
 };
 
-use crate::{config::*, error::RunState, pico8::{Pico8State, fill_input}, pico8::FillPat, PColor};
+use crate::{
+    config::*,
+    error::RunState,
+    pico8::FillPat,
+    pico8::{fill_input, Pico8State},
+    PColor,
+};
 
 #[cfg(feature = "scripting")]
 use crate::N9Var;
@@ -59,7 +65,9 @@ impl DrawState {
 
     #[inline]
     pub fn apply_camera_delta_ivec2(&self, a: IVec2) -> IVec2 {
-        self.camera_position_delta.map(|d| a + d.as_ivec2()).unwrap_or(a)
+        self.camera_position_delta
+            .map(|d| a + d.as_ivec2())
+            .unwrap_or(a)
     }
 
     pub fn clear_screen(&mut self) {
@@ -84,7 +92,6 @@ impl Default for DrawState {
             fill_pat: None,
         }
     }
-
 }
 
 // fn reset_camera_delta(mut events: EventReader<ClearEvent>, mut state: ResMut<Pico8State>) {
@@ -378,47 +385,46 @@ impl Plugin for Nano9Plugin {
 
         #[cfg(feature = "scripting")]
         {
-        let mut lua_scripting_plugin = LuaScriptingPlugin::default().enable_context_sharing();
-        lua_scripting_plugin
-            .scripting_plugin
-            .add_context_initializer(
-                |_script_id: &str, context: &mut bevy_mod_scripting::lua::mlua::Lua| {
-                    context.globals().set(
-                        "_eval_string",
-                        context.create_function(|ctx, arg: String| {
-                            ctx.load(format!("tostring({arg})")).eval::<String>()
-                        })?,
-                    )?;
+            let mut lua_scripting_plugin = LuaScriptingPlugin::default().enable_context_sharing();
+            lua_scripting_plugin
+                .scripting_plugin
+                .add_context_initializer(
+                    |_script_id: &str, context: &mut bevy_mod_scripting::lua::mlua::Lua| {
+                        context.globals().set(
+                            "_eval_string",
+                            context.create_function(|ctx, arg: String| {
+                                ctx.load(format!("tostring({arg})")).eval::<String>()
+                            })?,
+                        )?;
 
-                    context
-                        .load(include_str!("builtin.lua"))
-                        .exec()
-                        .expect("Problem in builtin.lua");
-                    Ok(())
-                },
-            );
+                        context
+                            .load(include_str!("builtin.lua"))
+                            .exec()
+                            .expect("Problem in builtin.lua");
+                        Ok(())
+                    },
+                );
 
-        app
-        .add_plugins(BMSPlugin.set(lua_scripting_plugin))
-        .insert_resource({
-            let mut settings = ScriptAssetSettings::default();
-            // settings
-            //     .extension_to_language_map
-            //     .insert("p8#lua", Language::Lua);
-            settings
-                .extension_to_language_map
-                .insert("p8", Language::Lua);
-            // settings
-            //     .extension_to_language_map
-            //     .insert("png#lua", Language::Lua);
-            settings
-                .extension_to_language_map
-                .insert("png", Language::Lua);
-            // settings.script_id_mapper = AssetPathToScriptIdMapper {
-            //     map: (|path: &AssetPath| path.to_string().into()),
-            // };
-            settings
-        }) ;
+            app.add_plugins(BMSPlugin.set(lua_scripting_plugin))
+                .insert_resource({
+                    let mut settings = ScriptAssetSettings::default();
+                    // settings
+                    //     .extension_to_language_map
+                    //     .insert("p8#lua", Language::Lua);
+                    settings
+                        .extension_to_language_map
+                        .insert("p8", Language::Lua);
+                    // settings
+                    //     .extension_to_language_map
+                    //     .insert("png#lua", Language::Lua);
+                    settings
+                        .extension_to_language_map
+                        .insert("png", Language::Lua);
+                    // settings.script_id_mapper = AssetPathToScriptIdMapper {
+                    //     map: (|path: &AssetPath| path.to_string().into()),
+                    // };
+                    settings
+                });
         }
         // let resolution = settings.canvas_size.as_vec2() * settings.pixel_scale;
         app.insert_resource(bevy::winit::WinitSettings {
@@ -446,8 +452,7 @@ impl Plugin for Nano9Plugin {
         #[cfg(feature = "scripting")]
         app.add_plugins(add_lua_logging);
         #[cfg(feature = "scripting")]
-        app
-        .add_systems(
+        app.add_systems(
             Update,
             (
                 fill_input,
@@ -523,10 +528,11 @@ pub fn on_asset_change<T: Asset>() -> impl FnMut(EventReader<AssetEvent<T>>) -> 
 }
 
 /// Puts pico8 in run state when ready and pauses it when it is unloaded.
-pub fn run_pico8_when_ready(mut reader: EventReader<AssetEvent<Pico8State>>,
-                            mut next_state: ResMut<NextState<RunState>>,
-                            mut pico8_states: ResMut<Assets<Pico8State>>,
-                            mut pico8_state: ResMut<Pico8State>,
+pub fn run_pico8_when_ready(
+    mut reader: EventReader<AssetEvent<Pico8State>>,
+    mut next_state: ResMut<NextState<RunState>>,
+    mut pico8_states: ResMut<Assets<Pico8State>>,
+    mut pico8_state: ResMut<Pico8State>,
 ) {
     // for e in reader.read() {
     //     match e {

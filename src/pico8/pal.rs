@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::pico8::Error;
+use bevy::prelude::*;
 
 #[derive(Debug, Clone, Reflect)]
 pub struct Palette {
@@ -7,7 +7,6 @@ pub struct Palette {
 }
 
 impl Palette {
-
     pub fn from_image(image: &Image, row: Option<u32>) -> Self {
         let size = image.size();
         let mut data = Vec::new();
@@ -24,9 +23,7 @@ impl Palette {
                 }
             }
         }
-        Palette {
-            data,
-        }
+        Palette { data }
     }
 
     pub fn from_slice(slice: &[[u8; 4]]) -> Self {
@@ -36,14 +33,18 @@ impl Palette {
     }
 
     pub fn write_color(&self, index: usize, pixel_bytes: &mut [u8]) -> Result<(), Error> {
-        let data = self.data.get(index).ok_or(Error::NoSuch(format!("palette color {index}").into()))?;
+        let data = self
+            .data
+            .get(index)
+            .ok_or(Error::NoSuch(format!("palette color {index}").into()))?;
         pixel_bytes.copy_from_slice(&data[0..pixel_bytes.len()]);
         Ok(())
     }
 
     pub fn get_color(&self, index: usize) -> Result<Srgba, Error> {
-        self.data.get(index)
-                 .ok_or(Error::NoSuch(format!("palette color {index}").into()))
-                 .map(|a| Srgba::rgba_u8(a[0], a[1], a[2], a[3]))
+        self.data
+            .get(index)
+            .ok_or(Error::NoSuch(format!("palette color {index}").into()))
+            .map(|a| Srgba::rgba_u8(a[0], a[1], a[2], a[3]))
     }
 }

@@ -1,8 +1,5 @@
 #[cfg(feature = "scripting")]
-use bevy_mod_scripting::{
-    core::bindings::ScriptValue,
-    lua::mlua::Value,
-};
+use bevy_mod_scripting::{core::bindings::ScriptValue, lua::mlua::Value};
 
 pub trait ValueExt {
     fn to_f32(&self) -> Option<f32>;
@@ -23,10 +20,10 @@ impl ValueExt for Value {
 #[cfg(feature = "scripting")]
 impl ValueExt for ScriptValue {
     fn to_f32(&self) -> Option<f32> {
-    match self {
-        ScriptValue::Float(f) => Some(*f as f32),
-        ScriptValue::Integer(i) => Some(*i as f32),
-        _ => None,
-    }
+        match self {
+            ScriptValue::Float(f) => Some(*f as f32),
+            ScriptValue::Integer(i) => Some(*i as f32),
+            _ => None,
+        }
     }
 }

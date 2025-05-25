@@ -45,9 +45,7 @@ impl TypedThrough for FillColor {
 
 impl From<PColor> for FillColor {
     fn from(c: PColor) -> Self {
-        FillColor::One {
-            off: c,
-        }
+        FillColor::One { off: c }
     }
 }
 

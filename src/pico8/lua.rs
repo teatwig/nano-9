@@ -24,9 +24,9 @@ use crate::{
     DropPolicy, N9Color, N9Entity, PColor,
 };
 
+use std::borrow::Cow;
 #[cfg(feature = "level")]
 use std::collections::HashMap;
-use std::borrow::Cow;
 
 pub(crate) fn with_system_param<
     S: SystemParam + 'static,
@@ -242,7 +242,7 @@ pub(crate) fn plugin(app: &mut App) {
              c: Option<N9Color>,
              font_size: Option<f32>| {
                 let pos = with_pico8(&ctx, move |pico8| {
-                        Ok(x.map(|x| Vec2::new(x, y.unwrap_or(pico8.state.draw_state.print_cursor.y))))
+                    Ok(x.map(|x| Vec2::new(x, y.unwrap_or(pico8.state.draw_state.print_cursor.y))))
                 })?;
 
                 let text: Cow<'_, str> = match text.unwrap_or(ScriptValue::Unit) {
@@ -274,7 +274,7 @@ pub(crate) fn plugin(app: &mut App) {
         .register(
             "sfx",
             |ctx: FunctionCallContext,
-            // TODO: Need to be able to specify which audio bank.
+             // TODO: Need to be able to specify which audio bank.
              n: i8,
              channel: Option<u8>,
              offset: Option<u8>,
@@ -286,12 +286,9 @@ pub(crate) fn plugin(app: &mut App) {
                             -2 => Ok(SfxCommand::Release),
                             -1 => Ok(SfxCommand::Stop),
                             n if n >= 0 => Ok(SfxCommand::Play(n as u8)),
-                            x => {
-                                Err(Error::InvalidArgument(
-                                    format!("sfx: expected n to be -2, -1 or >= 0 but was {x}")
-                                        .into(),
-                                ))
-                            }
+                            x => Err(Error::InvalidArgument(
+                                format!("sfx: expected n to be -2, -1 or >= 0 but was {x}").into(),
+                            )),
                         }?,
                         channel,
                         offset,
@@ -304,7 +301,7 @@ pub(crate) fn plugin(app: &mut App) {
         .register(
             "music",
             |ctx: FunctionCallContext,
-            // TODO: Need to be able to specify which audio bank.
+             // TODO: Need to be able to specify which audio bank.
              n: i8,
              fade_ms: Option<u32>,
              channel_mask: Option<u8>,
@@ -315,12 +312,9 @@ pub(crate) fn plugin(app: &mut App) {
                             -2 => Ok(SfxCommand::Release),
                             -1 => Ok(SfxCommand::Stop),
                             n if n >= 0 => Ok(SfxCommand::Play(n as u8)),
-                            x => {
-                                Err(Error::InvalidArgument(
-                                    format!("sfx: expected n to be -2, -1 or >= 0 but was {x}")
-                                        .into(),
-                                ))
-                            }
+                            x => Err(Error::InvalidArgument(
+                                format!("sfx: expected n to be -2, -1 or >= 0 but was {x}").into(),
+                            )),
                         }?,
                         fade_ms,
                         channel_mask,
@@ -364,16 +358,12 @@ pub(crate) fn plugin(app: &mut App) {
                 })
             },
         )
-        .register(
-            "exit",
-            |ctx: FunctionCallContext,
-             error: Option<u8>| {
-                with_pico8(&ctx, move |pico8| {
-                    pico8.exit(error);
-                    Ok(())
-                })
-            },
-        )
+        .register("exit", |ctx: FunctionCallContext, error: Option<u8>| {
+            with_pico8(&ctx, move |pico8| {
+                pico8.exit(error);
+                Ok(())
+            })
+        })
         .register(
             "mset",
             |ctx: FunctionCallContext,
@@ -573,61 +563,36 @@ pub(crate) fn plugin(app: &mut App) {
                 ]))
             },
         )
-        .register(
-            "peek",
-            |ctx: FunctionCallContext, addr: usize| {
-                with_pico8(&ctx, move |pico8| {
-                    pico8.peek(addr)
-                })
-            },
-        )
+        .register("peek", |ctx: FunctionCallContext, addr: usize| {
+            with_pico8(&ctx, move |pico8| pico8.peek(addr))
+        })
         .register(
             "poke",
             |ctx: FunctionCallContext, addr: usize, value: u8| {
-                with_pico8(&ctx, move |pico8| {
-                    pico8.poke(addr, value)
-                })
+                with_pico8(&ctx, move |pico8| pico8.poke(addr, value))
             },
         )
         .register(
             "stat",
             |ctx: FunctionCallContext, n: u8, value: Option<u8>| {
-                with_pico8(&ctx, move |pico8| {
-                    pico8.stat(n, value)
-                })
+                with_pico8(&ctx, move |pico8| pico8.stat(n, value))
             },
         )
-        .register(
-            "shl",
-            |ctx: FunctionCallContext, a: f32, b: u8| {
-                Pico8::shl(a, b)
-            },
-        )
-        .register(
-            "shr",
-            |ctx: FunctionCallContext, a: f32, b: u8| {
-                Pico8::shr(a, b)
-            },
-        )
-        .register(
-            "lshr",
-            |ctx: FunctionCallContext, a: f32, b: u8| {
-                Pico8::lshr(a, b)
-            },
-        )
-        .register(
-            "rotl",
-            |ctx: FunctionCallContext, a: f32, b: u8| {
-                Pico8::rotl(a, b)
-            },
-        )
-        .register(
-            "rotr",
-            |ctx: FunctionCallContext, a: f32, b: u8| {
-                Pico8::rotr(a, b)
-            },
-        )
-        ;
+        .register("shl", |ctx: FunctionCallContext, a: f32, b: u8| {
+            Pico8::shl(a, b)
+        })
+        .register("shr", |ctx: FunctionCallContext, a: f32, b: u8| {
+            Pico8::shr(a, b)
+        })
+        .register("lshr", |ctx: FunctionCallContext, a: f32, b: u8| {
+            Pico8::lshr(a, b)
+        })
+        .register("rotl", |ctx: FunctionCallContext, a: f32, b: u8| {
+            Pico8::rotl(a, b)
+        })
+        .register("rotr", |ctx: FunctionCallContext, a: f32, b: u8| {
+            Pico8::rotr(a, b)
+        });
 
     #[cfg(feature = "level")]
     NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)

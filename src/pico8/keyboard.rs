@@ -1,9 +1,9 @@
-use bevy::{input::keyboard::{Key, KeyboardInput}, prelude::*};
-use std::{
-    borrow::Cow,
-    collections::VecDeque
-};
 use crate::pico8::Error;
+use bevy::{
+    input::keyboard::{Key, KeyboardInput},
+    prelude::*,
+};
+use std::{borrow::Cow, collections::VecDeque};
 
 #[derive(Clone, Debug, Reflect, Default, Resource)]
 pub struct KeyInput {
@@ -12,7 +12,7 @@ pub struct KeyInput {
 }
 
 impl KeyInput {
-    pub fn pop(&mut self) -> Result<Option<Cow<'static,str>>, Error> {
+    pub fn pop(&mut self) -> Result<Option<Cow<'static, str>>, Error> {
         if let Some(key) = self.buffer.pop_front() {
             use bevy::input::keyboard::Key::*;
             match key {
@@ -36,9 +36,8 @@ pub(crate) fn plugin(app: &mut App) {
         .add_systems(Last, clear_buffer);
 }
 
-fn fill_buffer(mut key_input: ResMut<KeyInput>,
-               mut char_input_events: EventReader<KeyboardInput>) {
-    if ! key_input.enabled {
+fn fill_buffer(mut key_input: ResMut<KeyInput>, mut char_input_events: EventReader<KeyboardInput>) {
+    if !key_input.enabled {
         return;
     }
     for event in char_input_events.read() {

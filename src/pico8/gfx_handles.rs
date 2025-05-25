@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 
-use crate::pico8::{FillPat, Gfx, PalMap, Palette, Error};
+use crate::pico8::{Error, FillPat, Gfx, PalMap, Palette};
 
 use std::{
-    collections::{HashMap, hash_map::Entry},
+    collections::{hash_map::Entry, HashMap},
     hash::{DefaultHasher, Hash, Hasher},
 };
 
@@ -32,13 +32,11 @@ pub(crate) fn plugin(app: &mut App) {
 ///
 /// end
 /// ```
-#[derive(Debug, Resource)]
-#[derive(Default)]
+#[derive(Debug, Resource, Default)]
 pub struct GfxHandles {
     buffers: [HashMap<u64, Handle<Image>>; 2],
     tick: usize,
 }
-
 
 impl GfxHandles {
     /// This returns a strong handle if it was created and caches a weak handle.
@@ -59,7 +57,8 @@ impl GfxHandles {
         }
         gfx.hash(&mut hasher);
         let hash = hasher.finish();
-        let other_handle: Option<Handle<Image>> = self.buffers[(self.tick + 1) % 2].get(&hash).cloned();
+        let other_handle: Option<Handle<Image>> =
+            self.buffers[(self.tick + 1) % 2].get(&hash).cloned();
         let map = &mut self.buffers[self.tick % 2];
         let handle: Handle<Image> = match map.entry(hash) {
             Entry::Occupied(entry) => entry.get().clone(),
@@ -71,7 +70,9 @@ impl GfxHandles {
                     let image = if let Some(fill_pat) = fill_pat {
                         todo!();
                     } else {
-                        gfx.try_to_image(|i, _, bytes| pal_map.write_color(&palette.data, i, bytes))?
+                        gfx.try_to_image(|i, _, bytes| {
+                            pal_map.write_color(&palette.data, i, bytes)
+                        })?
                     };
                     entry.insert(images.add(image)).clone()
                 }

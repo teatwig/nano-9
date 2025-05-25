@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::Nano9Camera;
+use bevy::prelude::*;
 
 #[derive(Clone, Debug, Reflect, Default, Resource)]
 pub struct MouseInput {
@@ -10,8 +10,7 @@ pub struct MouseInput {
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_resource::<MouseInput>()
-        .add_systems(PreUpdate, (fill_mouse_position, fill_buttons))
-        ;
+        .add_systems(PreUpdate, (fill_mouse_position, fill_buttons));
 }
 fn fill_mouse_position(
     windows: Query<&Window>,
@@ -30,8 +29,10 @@ fn fill_mouse_position(
     }
 }
 
-fn fill_buttons(mut mouse_input: ResMut<MouseInput>,
-               mouse_button_input: Res<ButtonInput<MouseButton>>) {
+fn fill_buttons(
+    mut mouse_input: ResMut<MouseInput>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+) {
     mouse_input.buttons = 0;
     if mouse_button_input.pressed(MouseButton::Left) {
         mouse_input.buttons |= 1;

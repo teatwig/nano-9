@@ -1,23 +1,17 @@
-use bevy::{
-    audio::PlaybackMode,
-    prelude::*,
-};
+use bevy::{audio::PlaybackMode, prelude::*};
 
 use bitvec::prelude::*;
 
 use crate::pico8::audio::{Sfx, SfxChannels};
 
 use std::sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    };
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 pub(crate) fn plugin(app: &mut App) {
-    app
-        .register_type::<Audio>()
-        .register_type::<AudioBank>();
+    app.register_type::<Audio>().register_type::<AudioBank>();
 }
-
 
 #[derive(Clone, Debug, Deref, DerefMut, Reflect)]
 pub struct AudioBank(pub Vec<Audio>);
@@ -59,7 +53,11 @@ impl Command for AudioCommand {
                         let channels: Vec<Entity> = (*world.resource::<SfxChannels>()).clone();
                         for chan in channels {
                             if let Some(mode) = mode {
-                                if !world.get::<PlaybackSettings>(chan).map(|s| mode_eq(s.mode, mode)).unwrap_or(true) {
+                                if !world
+                                    .get::<PlaybackSettings>(chan)
+                                    .map(|s| mode_eq(s.mode, mode))
+                                    .unwrap_or(true)
+                                {
                                     continue;
                                 }
                             }
@@ -77,7 +75,9 @@ impl Command for AudioCommand {
                         }
                     }
                     SfxDest::Channel(chan) => {
-                        let id = world.get_resource::<SfxChannels>().and_then(|sfx_channels| sfx_channels.get(chan as usize));
+                        let id = world
+                            .get_resource::<SfxChannels>()
+                            .and_then(|sfx_channels| sfx_channels.get(chan as usize));
                         if let Some(id) = id {
                             if let Some(ref mut sink) = world.get_mut::<AudioSink>(*id) {
                                 sink.stop();
@@ -88,7 +88,10 @@ impl Command for AudioCommand {
                     }
                     SfxDest::ChannelMask(channel_mask) => {
                         for i in channel_mask.view_bits::<Lsb0>().iter_ones() {
-                            let id = world.get_resource::<SfxChannels>().and_then(|sfx_channels| sfx_channels.get(i)).copied();
+                            let id = world
+                                .get_resource::<SfxChannels>()
+                                .and_then(|sfx_channels| sfx_channels.get(i))
+                                .copied();
                             if let Some(id) = id {
                                 if let Some(ref mut sink) = world.get_mut::<AudioSink>(id) {
                                     sink.stop();
@@ -112,7 +115,9 @@ impl Command for AudioCommand {
             }
             AudioCommand::Release(sfx_channel) => match sfx_channel {
                 SfxDest::Channel(channel) => {
-                    let id = world.get_resource::<SfxChannels>().and_then(|sfx_channels| sfx_channels.get(channel as usize));
+                    let id = world
+                        .get_resource::<SfxChannels>()
+                        .and_then(|sfx_channels| sfx_channels.get(channel as usize));
                     if let Some(id) = id {
                         if let Some(sfx_release) = world.get::<SfxRelease>(*id) {
                             sfx_release.0.store(true, Ordering::Relaxed);
@@ -177,10 +182,12 @@ impl Command for AudioCommand {
                             .iter()
                             .enumerate()
                             .find_map(|(i, id)| {
-                                (*mask_bits.get(i).as_deref().unwrap_or(&false) && world
-                                    .get::<AudioSink>(*id)
-                                    .map(|s| s.is_paused() || s.empty())
-                                    .unwrap_or(true)).then_some(id)
+                                (*mask_bits.get(i).as_deref().unwrap_or(&false)
+                                    && world
+                                        .get::<AudioSink>(*id)
+                                        .map(|s| s.is_paused() || s.empty())
+                                        .unwrap_or(true))
+                                .then_some(id)
                             })
                             .copied()
                         {
@@ -213,7 +220,10 @@ impl Command for AudioCommand {
                         }
                     }
                     SfxDest::Channel(chan) => {
-                        let id = world.get_resource::<SfxChannels>().and_then(|sfx_channels| sfx_channels.get(chan as usize)).copied();
+                        let id = world
+                            .get_resource::<SfxChannels>()
+                            .and_then(|sfx_channels| sfx_channels.get(chan as usize))
+                            .copied();
                         let mut commands = world.commands();
                         if let Some(id) = id {
                             match audio {
@@ -250,8 +260,6 @@ mod test {
         let y = PlaybackMode::Loop;
         // assert!(!matches!(x, y));
         assert!(matches!(x, y));
-        assert!(mode_eq(x,y));
-
+        assert!(mode_eq(x, y));
     }
-
 }
