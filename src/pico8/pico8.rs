@@ -79,11 +79,9 @@ pub struct Pico8State {
     pub(crate) pal_map: PalMap,
     pub(crate) palette: usize,
     // XXX: rename to gfx_images?
-    pub(crate) border: Handle<Image>,
     pub(crate) sprite_sheets: Cursor<SpriteSheet>,
     pub(crate) maps: Cursor<Map>,
     pub(crate) draw_state: DrawState,
-    pub(crate) audio_banks: Cursor<AudioBank>,
 }
 
 #[derive(Reflect, Clone, Debug, Copy)]
@@ -802,7 +800,7 @@ impl Pico8<'_, '_> {
             .spawn((
                 Name::new("rect"),
                 Sprite {
-                    image: self.state.border.clone(),
+                    image: self.pico8_asset()?.border.clone(),
                     color: c,
                     anchor: Anchor::TopLeft,
                     custom_size: Some(size),
@@ -1052,7 +1050,9 @@ impl Pico8<'_, '_> {
                 }
             }
             SfxCommand::Play(n) => {
-                let sfx = self.state.audio_banks.inner[bank as usize]
+                let sfx = self.pico8_asset()?.audio_banks
+                                             .get(bank as usize)
+                    .ok_or(Error::NoAsset(format!("bank {bank}").into()))?
                     .get(n as usize)
                     .ok_or(Error::NoAsset(format!("sfx {n}").into()))?
                     .clone();
@@ -1103,9 +1103,9 @@ impl Pico8<'_, '_> {
             }
             SfxCommand::Play(n) => {
                 let sfx = self
-                    .state
+                    .pico8_asset()?
+
                     .audio_banks
-                    .inner
                     .get(bank as usize)
                     .ok_or(Error::NoSuch(format!("audio bank {bank}").into()))?
                     .get(n as usize)
@@ -1822,14 +1822,12 @@ impl FromWorld for Pico8State {
             //     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
             //     row: 0,
             // },
-            border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
             pal_map: PalMap::default(),
             draw_state: {
                 let mut draw_state = DrawState::default();
                 draw_state.pen = PColor::Palette(6);
                 draw_state
             },
-            audio_banks: Vec::new().into(),
             sprite_sheets: Vec::new().into(),
             maps: Vec::new().into(),
         }
