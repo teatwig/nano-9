@@ -240,7 +240,8 @@ pub(crate) fn plugin(app: &mut App) {
              x: Option<f32>,
              y: Option<f32>,
              c: Option<N9Color>,
-             font_size: Option<f32>| {
+             font_size: Option<f32>,
+             font_index: Option<usize>| {
                 let pos = with_pico8(&ctx, move |pico8| {
                     Ok(x.map(|x| Vec2::new(x, y.unwrap_or(pico8.state.draw_state.print_cursor.y))))
                 })?;
@@ -259,7 +260,7 @@ pub(crate) fn plugin(app: &mut App) {
                 if world_guard.claim_global_access() {
                     let world = world_guard.as_unsafe_world_cell()?;
                     let world = unsafe { world.world_mut() };
-                    let r = Pico8::print_world(world, None, text.to_string(), pos, c, font_size);
+                    let r = Pico8::print_world(world, None, text.to_string(), pos, c, font_size, font_index);
                     unsafe { world_guard.release_global_access() };
                     r.map_err(|e| InteropError::external_error(Box::new(e)))
                 } else {

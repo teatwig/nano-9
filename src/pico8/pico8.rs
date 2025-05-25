@@ -865,11 +865,12 @@ impl Pico8<'_, '_> {
         pos: Option<Vec2>,
         color: Option<N9Color>,
         font_size: Option<f32>,
+        font_index: Option<usize>,
     ) -> Result<Entity, Error> {
         let text = text.into();
         let id = self.commands.spawn_empty().id();
         self.commands.queue(move |world: &mut World| {
-            Self::print_world(world, Some(id), text, pos, color, font_size);
+            Self::print_world(world, Some(id), text, pos, color, font_size, font_index);
         });
         Ok(id)
     }
@@ -881,8 +882,9 @@ impl Pico8<'_, '_> {
         pos: Option<Vec2>,
         color: Option<N9Color>,
         font_size: Option<f32>,
+        font_index: Option<usize>,
     ) -> Result<f32, Error> {
-        let (id, add_newline) = Self::pre_print_world(world, dest, text, pos, color, font_size)?;
+        let (id, add_newline) = Self::pre_print_world(world, dest, text, pos, color, font_size, font_index)?;
         world
             .run_system_cached(bevy::text::update_text2d_layout)
             .expect("update_text2d_layout");
@@ -918,11 +920,13 @@ impl Pico8<'_, '_> {
         pos: Option<Vec2>,
         color: Option<N9Color>,
         font_size: Option<f32>,
+        font_index: Option<usize>,
         // state: &Pico8State,
         // mut commands: &mut Commands,
     ) -> Result<(Entity, bool), Error> {
         // let mut text: &str = text.as_ref();
         let state = world.get_resource::<Pico8State>().expect("Pico8State");
+
         let font = state.font.handle.clone();
         // XXX: Should the camera delta apply to the print cursor position?
         let pos = pos
