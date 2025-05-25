@@ -73,13 +73,10 @@ pub struct Pico8Asset {
 #[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource)]
 pub struct Pico8State {
-    #[cfg(feature = "scripting")]
-    pub code: Option<Handle<ScriptAsset>>,
     #[reflect(ignore)]
     pub(crate) pal_map: PalMap,
+    /// Current palette
     pub(crate) palette: usize,
-    // XXX: rename to gfx_images?
-    // pub(crate) sprite_sheets: Cursor<SpriteSheet>,
     pub(crate) draw_state: DrawState,
 }
 
@@ -1835,8 +1832,6 @@ impl FromWorld for Pico8State {
         let asset_server = world.resource::<AssetServer>();
 
         Pico8State {
-            #[cfg(feature = "scripting")]
-            code: None,
             palette: 0,
             // palettes: vec![Palette::from_slice(&crate::pico8::PALETTE)].into(),
             // palettes: vec![].into(),

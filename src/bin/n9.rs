@@ -132,7 +132,8 @@ fn main() -> io::Result<ExitCode> {
             move |asset_server: Res<AssetServer>, mut commands: Commands, mut pico8: Pico8| {
                 //, script_settings: Res<ScriptAssetSettings>| {
                 let asset_path = AssetPath::from_path(&path).with_source(&source);
-                pico8.state.code = Some(asset_server.load(&asset_path));
+                let pico8_asset = asset_server.load(&asset_path);
+                commands.insert_resource(Pico8Handle(pico8_asset));
                 // XXX This is weird. Try to get rid of this whole system.
                 //
                 // let script_path = script_settings.script_id_mapper.map(pico8.state.code.path());
