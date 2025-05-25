@@ -54,6 +54,9 @@ pub struct N9Font {
     pub handle: Handle<Font>,
 }
 
+#[derive(Resource, Debug, Reflect)]
+pub struct Pico8Handle(pub Handle<Pico8Asset>);
+
 #[derive(Clone, Asset, Debug, Reflect)]
 pub struct Pico8Asset {
     #[cfg(feature = "scripting")]
@@ -70,7 +73,6 @@ pub struct Pico8Asset {
 #[derive(Resource, Clone, Asset, Debug, Reflect)]
 #[reflect(Resource)]
 pub struct Pico8State {
-    // pub assets: Handle<Pico8Asset>,
     #[cfg(feature = "scripting")]
     pub code: Option<Handle<ScriptAsset>>,
     pub(crate) palettes: Cursor<Palette>,
@@ -80,7 +82,6 @@ pub struct Pico8State {
     pub(crate) border: Handle<Image>,
     pub(crate) sprite_sheets: Cursor<SpriteSheet>,
     pub(crate) maps: Cursor<Map>,
-    pub(crate) font: Cursor<N9Font>,
     pub(crate) draw_state: DrawState,
     pub(crate) audio_banks: Cursor<AudioBank>,
 }
@@ -939,11 +940,12 @@ impl Pico8<'_, '_> {
         // mut commands: &mut Commands,
     ) -> Result<(Entity, bool), Error> {
         // let mut text: &str = text.as_ref();
-        let assets = world.get_resource::<Assets<Pico8Asset>>().expect("Pico8Asset");
+        let assets = world.get_resource::<Assets<Pico8Asset>>().expect("Pico8Assets");
         let state = world.get_resource::<Pico8State>().expect("Pico8State");
 
-        let handle: Handle<Pico8Asset> = default();
-        let pico8_asset = assets.get(/*state.*/&handle).ok_or(Error::NoSuch("Pico8Asset".into()))?;
+        let handle = world.get_resource::<Pico8Handle>().expect("Pico8Handle");
+        // let handle: Handle<Pico8Asset> = default();
+        let pico8_asset = assets.get(&handle.0).ok_or(Error::NoSuch("Pico8Asset".into()))?;
         let font = pico8_asset.font.get(font_index.unwrap_or(0))
                                    .ok_or(Error::NoSuch("font".into()))?.handle.clone();
                                    //state.font.handle.clone();
@@ -1759,6 +1761,7 @@ pub enum PalModify {
     Secondary,
 }
 
+// XXX: Dump this after refactor.
 impl FromWorld for Pico8State {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
@@ -1771,17 +1774,42 @@ impl FromWorld for Pico8State {
             //     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
             //     row: 0,
             // },
-            pal_map: PalMap::default(),
             border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
-            font: vec![N9Font {
-                handle: asset_server.load(PICO8_FONT),
-            }]
-            .into(),
+            pal_map: PalMap::default(),
             draw_state: {
                 let mut draw_state = DrawState::default();
                 draw_state.pen = PColor::Palette(6);
                 draw_state
             },
+            audio_banks: Vec::new().into(),
+            sprite_sheets: Vec::new().into(),
+            maps: Vec::new().into(),
+        }
+    }
+}
+
+impl FromWorld for Pico8Asset {
+    fn from_world(world: &mut World) -> Self {
+        let asset_server = world.resource::<AssetServer>();
+
+        Pico8Asset {
+            #[cfg(feature = "scripting")]
+            code: None,
+            palettes: vec![Palette::from_slice(&crate::pico8::PALETTE)].into(),
+            // palettes: vec![].into(),
+            //     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
+            //     row: 0,
+            // },
+            border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
+            font: vec![N9Font {
+                handle: asset_server.load(PICO8_FONT),
+            }]
+            .into(),
+            // draw_state: {
+            //     let mut draw_state = DrawState::default();
+            //     draw_state.pen = PColor::Palette(6);
+            //     draw_state
+            // },
             audio_banks: Vec::new().into(),
             sprite_sheets: Vec::new().into(),
             maps: Vec::new().into(),
@@ -1824,11 +1852,12 @@ pub(crate) fn plugin(app: &mut App) {
     embedded_asset!(app, "pico-8-palette.png");
     embedded_asset!(app, "rect-border.png");
     embedded_asset!(app, "pico-8.ttf");
-    app.register_type::<Pico8State>()
+    app.register_type::<Pico8Asset>()
+        .register_type::<Pico8State>()
         .register_type::<N9Font>()
         .register_type::<Palette>()
         .register_type::<SpriteSheet>()
-        .init_asset::<Pico8State>()
+        .init_asset::<Pico8Asset>()
         .init_resource::<Pico8State>()
         .init_resource::<PlayerInputs>()
         .add_observer(

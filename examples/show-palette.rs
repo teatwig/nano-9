@@ -11,9 +11,6 @@ use std::{io, path::Path};
 
 #[cfg(feature = "minibuffer")]
 use bevy_minibuffer::prelude::*;
-#[allow(dead_code)]
-#[derive(Resource)]
-struct InitState(Handle<Pico8State>);
 #[derive(Resource)]
 struct MemoryDir {
     dir: Dir,
@@ -66,10 +63,9 @@ fn main() -> io::Result<()> {
     app.add_systems(
         PostStartup,
         move |asset_server: Res<AssetServer>,
-              mut commands: Commands,
-              next_state: ResMut<NextState<RunState>>| {
-            let pico8_state: Handle<Pico8State> = asset_server.load("memory://Nano9.toml");
-            commands.insert_resource(InitState(pico8_state));
+              mut commands: Commands | {
+            let pico8_state: Handle<Pico8Asset> = asset_server.load("memory://Nano9.toml");
+            commands.insert_resource(Pico8Handle(pico8_state));
         },
     );
     app.add_plugins(

@@ -8,13 +8,13 @@ use pico8_decompress::{decompress, extract_bits_from_png};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-mod state;
+mod asset;
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_asset::<Cart>()
         .init_asset_loader::<P8CartLoader>()
         .init_asset_loader::<PngCartLoader>()
-        .add_plugins(state::plugin);
+        .add_plugins(asset::plugin);
 }
 
 #[non_exhaustive]

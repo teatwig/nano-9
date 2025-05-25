@@ -2,7 +2,7 @@
 use crate::level::{self, asset::TiledSet, tiled::*};
 use crate::{
     error::RunState,
-    pico8::{self, image::pixel_art_settings, Gfx, Pico8State},
+    pico8::{self, image::pixel_art_settings, Gfx, Pico8Asset, Pico8State},
 };
 use bevy::{
     asset::{embedded_asset, io::Reader, AssetLoader, AssetPath, LoadContext},
@@ -139,7 +139,7 @@ pub enum ConfigLoaderError {
 pub struct ConfigLoader;
 
 impl AssetLoader for ConfigLoader {
-    type Asset = pico8::Pico8State;
+    type Asset = pico8::Pico8Asset;
     type Settings = ();
     type Error = ConfigLoaderError;
 
@@ -274,12 +274,10 @@ impl AssetLoader for ConfigLoader {
                 palettes.push(pico8::Palette::from_image(image.get(), palette.row));
             }
         }
-        let pal_map = pico8::PalMap::default();
-        let state = pico8::Pico8State {
+        let state = pico8::Pico8Asset {
 #[cfg(feature = "scripting")]
                 code: config.code.map(|p| load_context.load(&*p)),
                 palettes: palettes.into(),
-            pal_map,
                 border: load_context.loader()
                                     .with_settings(pixel_art_settings)
                                     .load(pico8::PICO8_BORDER),
@@ -321,7 +319,6 @@ impl AssetLoader for ConfigLoader {
                     }
                 })).collect::<Vec<_>>().into(),
                 sprite_sheets: sprite_sheets.into(),
-                draw_state: crate::DrawState::default(),
                 font: config.fonts.into_iter().map(|font|
                                                      match font {
                                                          Font::Default { default: yes } if yes => {
@@ -402,8 +399,8 @@ fn get_layout(
 }
 
 pub fn update_asset(
-    mut reader: EventReader<AssetEvent<pico8::Pico8State>>,
-    mut assets: ResMut<Assets<pico8::Pico8State>>,
+    mut reader: EventReader<AssetEvent<pico8::Pico8Asset>>,
+    mut assets: ResMut<Assets<pico8::Pico8Asset>>,
 
     mut next_state: ResMut<NextState<RunState>>,
     mut pico8_state: ResMut<Pico8State>,
@@ -413,22 +410,23 @@ pub fn update_asset(
     for e in reader.read() {
         info!("update asset event {e:?}");
         if let AssetEvent::LoadedWithDependencies { id } = e {
-            if let Some(state) = assets.remove(*id) {
+            if let Some(pico8_asset) = assets.get(*id) {
                 // XXX: It happens here too!
                 #[cfg(feature = "scripting")]
                 {
-                    if let Some(code) = &state.code {
+                    if let Some(code) = &pico8_asset.code {
                         let path: &AssetPath<'static> = code.path().unwrap();
                         let script_path = (script_settings.script_id_mapper.map)(path);
                         info!("add script component path {}", &script_path);
                         commands.spawn(ScriptComponent(vec![script_path]));
                     }
                 }
-                *pico8_state = state;
+                // pico8_state.pico8_asset = id.into();
+
                 info!("Goto run state");
                 next_state.set(RunState::Run);
             } else {
-                error!("Pico8State not available.");
+                error!("Pico8Asset not available.");
             }
         }
     }
