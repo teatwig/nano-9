@@ -57,7 +57,6 @@ const ANALOG_STICK_THRESHOLD: f32 = 0.1;
 #[derive(Clone, Debug, Reflect)]
 pub struct N9Font {
     pub handle: Handle<Font>,
-    pub height: Option<f32>,
 }
 
 #[cfg(feature = "scripting")]
@@ -1715,7 +1714,6 @@ impl FromWorld for Pico8State {
             border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
             font: vec![N9Font {
                 handle: asset_server.load(PICO8_FONT),
-                height: Some(7.0),
             }]
             .into(),
             draw_state: {

@@ -121,7 +121,6 @@ fn to_state(cart: Cart, load_context: &mut LoadContext) -> Result<Pico8State, Ca
             draw_state: DrawState::default(),
             font: vec![N9Font {
                 handle: load_context.load(PICO8_FONT),
-                height: Some(7.0),
             }]
             .into(),
         };

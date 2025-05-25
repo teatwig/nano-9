@@ -298,13 +298,11 @@ impl AssetLoader for ConfigLoader {
                                                          Font::Default { default: yes } if yes => {
                                                              pico8::N9Font {
                                                                  handle: TextFont::default().font,
-                                                                 height: None,
                                                              }
                                                          },
                                                          Font::Path { path, height: _ } => {
                                                              pico8::N9Font {
                                                                  handle: load_context.load(path),
-                                                                 height: None,
                                                              }
                                                          }
                                                          Font::Default { .. } => { panic!("Must use a path if not default font.") }
