@@ -1,18 +1,15 @@
 use crate::{
-    pico8::{audio::*, image::pixel_art_settings, *},
+    pico8::{image::pixel_art_settings, *},
     DrawState,
 };
 use bevy::asset::{
-    io::{AssetSourceId, Reader},
-    AssetLoader, AssetPath, LoadContext,
+    io::Reader,
+    AssetLoader, LoadContext,
 };
 
 use super::*;
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::asset::ScriptAsset;
-use bitvec::prelude::*;
-use pico8_decompress::*;
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 pub(crate) fn plugin(app: &mut App) {
@@ -33,7 +30,7 @@ impl AssetLoader for P8StateLoader {
         settings: &CartLoaderSettings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
-        let cart = P8CartLoader::default()
+        let cart = P8CartLoader
             .load(reader, settings, load_context)
             .await?;
         std::fs::write("cart-loaded.lua", &cart.lua).unwrap();
@@ -59,7 +56,7 @@ impl AssetLoader for PngStateLoader {
         settings: &CartLoaderSettings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
-        let cart = PngCartLoader::default()
+        let cart = PngCartLoader
             .load(reader, settings, load_context)
             .await?;
         to_state(cart, load_context)

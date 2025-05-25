@@ -1,7 +1,7 @@
 use bevy::{
     asset::embedded_asset,
     audio::PlaybackMode,
-    ecs::system::{SystemParam, SystemState},
+    ecs::system::SystemParam,
     image::{ImageSampler, TextureAccessError},
     input::gamepad::GamepadConnectionEvent,
     prelude::*,
@@ -1672,10 +1672,7 @@ impl Pico8<'_, '_> {
     }
 
     pub fn peek(&mut self, addr: usize) -> Result<u8, Error> {
-        match addr {
-            // 0x5f2d => self.state.peek_keycodes = if value == 0 { false } else { true },
-            _ => Err(Error::UnsupportedPeek(addr)),
-        }
+        Err(Error::UnsupportedPeek(addr))
     }
 
     #[cfg(feature = "scripting")]

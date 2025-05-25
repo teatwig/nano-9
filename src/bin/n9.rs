@@ -11,7 +11,7 @@ use bevy::{
 #[cfg(feature = "minibuffer")]
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::script::ScriptComponent;
-use nano9::{config::Config, error::RunState, pico8::*, *};
+use nano9::{config::Config, pico8::*, *};
 use std::{borrow::Cow, env, ffi::OsStr, fs, io, path::PathBuf, process::ExitCode};
 
 #[allow(dead_code)]

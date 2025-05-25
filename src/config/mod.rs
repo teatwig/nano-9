@@ -2,7 +2,7 @@
 use crate::level::{self, asset::TiledSet, tiled::*};
 use crate::{
     error::RunState,
-    pico8::{self, image::pixel_art_settings, Error, Gfx, Pico8State},
+    pico8::{self, image::pixel_art_settings, Gfx, Pico8State},
 };
 use bevy::{
     asset::{embedded_asset, io::Reader, AssetLoader, AssetPath, LoadContext},
@@ -11,7 +11,7 @@ use bevy::{
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::{asset::ScriptAssetSettings, script::ScriptComponent};
 use serde::{Deserialize, Serialize};
-use std::{ffi::OsStr, io, ops::Deref, path::PathBuf};
+use std::{ffi::OsStr, io, path::PathBuf};
 
 pub const DEFAULT_CANVAS_SIZE: UVec2 = UVec2::splat(128);
 pub const DEFAULT_SCREEN_SIZE: UVec2 = UVec2::splat(512);
@@ -423,7 +423,7 @@ pub fn update_asset(
                     let path: &AssetPath<'static> = state.code.path().unwrap();
                     let script_path = (script_settings.script_id_mapper.map)(path);
                     info!("add script component path {}", &script_path);
-                    commands.spawn(ScriptComponent(vec![script_path.into()]));
+                    commands.spawn(ScriptComponent(vec![script_path]));
                 }
                 *pico8_state = state;
                 info!("Goto run state");

@@ -1,7 +1,4 @@
-use crate::{
-    pico8::{audio::*, image::pixel_art_settings, *},
-    DrawState,
-};
+use crate::pico8::{audio::*, *};
 use bevy::asset::{
     io::{AssetSourceId, Reader},
     AssetLoader, AssetPath, LoadContext,
@@ -410,7 +407,7 @@ impl AssetLoader for PngCartLoader {
         {
             let mut include_paths = vec![];
             // Patch the includes.
-            let mut include_patch = pico8_to_lua::patch_includes(&code, |path| {
+            let include_patch = pico8_to_lua::patch_includes(&code, |path| {
                 include_paths.push(path.to_string());
                 "".into()
             });
@@ -457,7 +454,7 @@ impl AssetLoader for PngCartLoader {
         // let code = parts.lua;
         // cart.lua = Some(load_context.add_labeled_asset("lua".into(), ScriptAsset { bytes: code.into_bytes() }));
         // let gfx = parts.gfx.clone();
-        let mut code_path: PathBuf = load_context.path().into();
+        let code_path: PathBuf = load_context.path().into();
         // let path = code_path.as_mut_os_string();
         // path.push("#lua");
         let parts = Cart {

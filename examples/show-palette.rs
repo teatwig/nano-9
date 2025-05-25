@@ -54,7 +54,7 @@ fn main() -> io::Result<()> {
     let config = Config::gameboy();
     {
         let config_string = toml::to_string(&config).unwrap();
-        let mut memory_dir = MemoryDir {
+        let memory_dir = MemoryDir {
             dir: Dir::default(),
         };
         memory_dir
@@ -68,12 +68,12 @@ fn main() -> io::Result<()> {
             AssetSource::build().with_reader(move || Box::new(reader.clone())),
         );
     }
-    let nano9_plugin = Nano9Plugin { config: config };
+    let nano9_plugin = Nano9Plugin { config };
     app.add_systems(
         PostStartup,
         move |asset_server: Res<AssetServer>,
               mut commands: Commands,
-              mut next_state: ResMut<NextState<RunState>>| {
+              next_state: ResMut<NextState<RunState>>| {
             let pico8_state: Handle<Pico8State> = asset_server.load("memory://Nano9.toml");
             commands.insert_resource(InitState(pico8_state));
         },

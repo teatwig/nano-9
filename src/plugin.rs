@@ -1,6 +1,5 @@
 #![allow(deprecated)]
 use bevy::{
-    asset::AssetPath,
     image::ImageSampler,
     prelude::*,
     reflect::Reflect,
@@ -16,7 +15,7 @@ use bevy::{
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::{
     core::{
-        asset::{AssetPathToScriptIdMapper, Language, ScriptAsset, ScriptAssetSettings},
+        asset::{Language, ScriptAsset, ScriptAssetSettings},
         bindings::{function::namespace::NamespaceBuilder, script_value::ScriptValue},
         callback_labels,
         event::ScriptCallbackEvent,
@@ -529,10 +528,10 @@ pub fn on_asset_change<T: Asset>() -> impl FnMut(EventReader<AssetEvent<T>>) -> 
 
 /// Puts pico8 in run state when ready and pauses it when it is unloaded.
 pub fn run_pico8_when_ready(
-    mut reader: EventReader<AssetEvent<Pico8State>>,
-    mut next_state: ResMut<NextState<RunState>>,
-    mut pico8_states: ResMut<Assets<Pico8State>>,
-    mut pico8_state: ResMut<Pico8State>,
+    reader: EventReader<AssetEvent<Pico8State>>,
+    next_state: ResMut<NextState<RunState>>,
+    pico8_states: ResMut<Assets<Pico8State>>,
+    pico8_state: ResMut<Pico8State>,
 ) {
     // for e in reader.read() {
     //     match e {
