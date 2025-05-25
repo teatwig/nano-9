@@ -79,7 +79,7 @@ pub struct Pico8State {
     pub(crate) pal_map: PalMap,
     pub(crate) palette: usize,
     // XXX: rename to gfx_images?
-    pub(crate) sprite_sheets: Cursor<SpriteSheet>,
+    // pub(crate) sprite_sheets: Cursor<SpriteSheet>,
     pub(crate) maps: Cursor<Map>,
     pub(crate) draw_state: DrawState,
 }
@@ -273,7 +273,7 @@ pub struct Pico8<'w, 's> {
     rand8: Rand8<'w>,
     key_input: ResMut<'w, KeyInput>,
     mouse_input: ResMut<'w, MouseInput>,
-    pico8_assets: Res<'w, Assets<Pico8Asset>>,
+    pico8_assets: ResMut<'w, Assets<Pico8Asset>>,
     pico8_handle: Res<'w, Pico8Handle>,
 }
 
@@ -491,17 +491,17 @@ impl Pico8<'_, '_> {
         let y = screen_pos.y;
         let flip = flip.unwrap_or_default();
         let sheet_index = sheet_index.unwrap_or(0);
-        let sheet = &self.state.sprite_sheets.inner[sheet_index];
+        let sheet = self.pico8_asset()?.sprite_sheets.get(sheet_index).ok_or(Error::NoSuch(format!("image {sheet_index}").into()))?.clone();
         let sprite = Sprite {
-            image: match &sheet.handle {
-                SprHandle::Image(handle) => handle.clone(),
+            image: match sheet.handle {
+                SprHandle::Image(handle) => handle,
                 SprHandle::Gfx(handle) => {
                     let palette = &self.palette(None)?.clone();
                     self.gfx_handles.get_or_create(
                     &palette,
                     &self.state.pal_map,
                     None,
-                    handle,
+                    &handle,
                     &self.gfxs,
                     &mut self.images,
                 )?
@@ -530,6 +530,20 @@ impl Pico8<'_, '_> {
         self.pico8_assets.get(&self.pico8_handle.0).ok_or(Error::NoSuch("Pico8Asset".into()))
     }
 
+    fn sprite_sheet(&self, sheet_index: Option<usize>) -> Result<&SpriteSheet, Error> {
+        let index = sheet_index.unwrap_or(0);
+        self.pico8_asset()?.sprite_sheets.get(index).ok_or(Error::NoSuch(format!("image index {index}").into()))
+    }
+
+    fn pico8_asset_mut(&mut self) -> Result<&mut Pico8Asset, Error> {
+        self.pico8_assets.get_mut(&self.pico8_handle.0).ok_or(Error::NoSuch("Pico8Asset".into()))
+    }
+
+    fn sprite_sheet_mut(&mut self, sheet_index: Option<usize>) -> Result<&mut SpriteSheet, Error> {
+        let index = sheet_index.unwrap_or(0);
+        self.pico8_asset_mut()?.sprite_sheets.get_mut(index).ok_or(Error::NoSuch(format!("image index {index}").into()))
+    }
+
     /// spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
     pub fn spr(
         &mut self,
@@ -544,42 +558,44 @@ impl Pico8<'_, '_> {
         let y = pos.y;
         let flip = flip.unwrap_or_default();
         let (sprites, index): (&SpriteSheet, usize) = match spr.into() {
-            Spr::Cur { sprite } => (&self.state.sprite_sheets, sprite),
-            Spr::From { sheet, sprite } => (&self.state.sprite_sheets.inner[sheet], sprite),
+            Spr::Cur { sprite } => (self.sprite_sheet(None)?, sprite),
+            Spr::From { sheet, sprite } => (self.sprite_sheet(Some(sheet))?, sprite),
             Spr::Set { sheet } => {
-                self.state.sprite_sheets.pos = sheet;
-                return Ok(Entity::PLACEHOLDER);
+                todo!()
+                // self.state.sprite_sheets.pos = sheet;
+                // return Ok(Entity::PLACEHOLDER);
             }
         };
+        let atlas = TextureAtlas {
+            layout: sprites.layout.clone(),
+            index,
+        };
+        let rect = size.map(|v| Rect {
+            min: Vec2::ZERO,
+            max: sprites.sprite_size.as_vec2() * v,
+        });
+        let pixel_size = sprites.sprite_size.as_vec2() * size.unwrap_or(Vec2::ONE) / 2.0;
 
-        let image = match &sprites.handle {
-            SprHandle::Image(handle) => handle.clone(),
+        let image = match sprites.handle.clone() {
+            SprHandle::Image(handle) => handle,
             SprHandle::Gfx(handle) => {
                 let palette = &self.palette(None)?.clone();
                 self.gfx_handles.get_or_create(
                 palette,
                 &self.state.pal_map,
                 None,
-                handle,
+                &handle,
                 &self.gfxs,
                 &mut self.images,
             )?
             }
         };
-        assert!(image.is_strong());
         let mut sprite = {
-            let atlas = TextureAtlas {
-                layout: sprites.layout.clone(),
-                index,
-            };
             Sprite {
                 image,
                 anchor: Anchor::TopLeft,
                 texture_atlas: Some(atlas),
-                rect: size.map(|v| Rect {
-                    min: Vec2::ZERO,
-                    max: sprites.sprite_size.as_vec2() * v,
-                }),
+                rect,
                 flip_x: flip.x,
                 flip_y: flip.y,
                 ..default()
@@ -588,7 +604,6 @@ impl Pico8<'_, '_> {
         let clearable = Clearable::default();
         let mut transform = Transform::from_xyz(x, negate_y(y), clearable.suggest_z());
         if let Some(turns) = turns {
-            let pixel_size = sprites.sprite_size.as_vec2() * size.unwrap_or(Vec2::ONE) / 2.0;
             transform.translation.x += pixel_size.x;
             transform.translation.y += negate_y(pixel_size.y);
             sprite.anchor = Anchor::Center;
@@ -636,13 +651,12 @@ impl Pico8<'_, '_> {
         sheet_index: Option<usize>,
     ) -> Result<(), Error> {
         let color = color.unwrap_or(N9Color::Pen);
-        let sheet_index = sheet_index.unwrap_or(0);
-        let sheet = &self.state.sprite_sheets.inner[sheet_index];
-        match &sheet.handle {
+        let sheet = self.sprite_sheet(sheet_index)?;
+        match sheet.handle.clone() {
             SprHandle::Gfx(handle) => {
                 let gfx = self
                     .gfxs
-                    .get_mut(handle)
+                    .get_mut(&handle)
                     .ok_or(Error::NoSuch("Gfx".into()))?;
                 gfx.set(
                     pos.x as usize,
@@ -665,7 +679,7 @@ impl Pico8<'_, '_> {
                 let c = self.get_color(color)?;
                 let image = self
                     .images
-                    .get_mut(handle)
+                    .get_mut(&handle)
                     .ok_or(Error::NoAsset("canvas".into()))?;
                 image.set_color_at(pos.x, pos.y, c)?;
             }
@@ -678,8 +692,7 @@ impl Pico8<'_, '_> {
         pos: UVec2,
         sheet_index: Option<usize>,
     ) -> Result<Option<PColor>, Error> {
-        let sheet_index = sheet_index.unwrap_or(0);
-        let sheet = &self.state.sprite_sheets.inner[sheet_index];
+        let sheet = self.sprite_sheet(sheet_index)?;
         Ok(match &sheet.handle {
             SprHandle::Gfx(handle) => {
                 let gfx = self.gfxs.get(handle).ok_or(Error::NoSuch("Gfx".into()))?;
@@ -689,7 +702,7 @@ impl Pico8<'_, '_> {
             SprHandle::Image(handle) => {
                 let image = self
                     .images
-                    .get_mut(handle)
+                    .get(handle)
                     .ok_or(Error::NoAsset("canvas".into()))?;
                 Some(PColor::Color(image.get_color_at(pos.x, pos.y)?.into()))
             }
@@ -848,12 +861,14 @@ impl Pico8<'_, '_> {
             Map::P8(ref map) => {
 
                     let palette = self.palette(None)?.clone();
+
+                let sprite_sheets = &self.pico8_asset()?.sprite_sheets.clone();
                 map.map(
                 map_pos,
                 screen_start,
                 size,
                 mask,
-                &self.state.sprite_sheets.inner,
+                &sprite_sheets,
                 &mut self.commands,
                 |handle| {
                     self.gfx_handles.get_or_create(
@@ -1130,22 +1145,22 @@ impl Pico8<'_, '_> {
         Ok(())
     }
 
-    pub fn fget(&self, index: Option<usize>, flag_index: Option<u8>) -> u8 {
+    pub fn fget(&self, index: Option<usize>, flag_index: Option<u8>) -> Result<u8, Error> {
         if index.is_none() {
-            return 0;
+            return Ok(0);
         }
         let index = index.unwrap();
-        let flags = &self.state.sprite_sheets.flags;
+        let flags = &self.sprite_sheet(None)?.flags;
         if let Some(v) = flags.get(index) {
             match flag_index {
                 Some(flag_index) => {
                     if v & (1 << flag_index) != 0 {
-                        1
+                        Ok(1)
                     } else {
-                        0
+                        Ok(0)
                     }
                 }
-                None => *v,
+                None => Ok(*v),
             }
         } else {
             if flags.is_empty() {
@@ -1156,13 +1171,13 @@ impl Pico8<'_, '_> {
                     flags.len()
                 );
             }
-            0
+            Ok(0)
         }
     }
 
-    pub fn fset(&mut self, index: usize, flag_index: Option<u8>, value: u8) {
-        let flags = &mut self.state.sprite_sheets.flags;
-        match flag_index {
+    pub fn fset(&mut self, index: usize, flag_index: Option<u8>, value: u8) -> Result<(), Error> {
+        let flags = &mut self.sprite_sheet_mut(None)?.flags;
+        Ok(match flag_index {
             Some(flag_index) => {
                 if value != 0 {
                     // Set the bit.
@@ -1175,7 +1190,7 @@ impl Pico8<'_, '_> {
             None => {
                 flags[index] = value;
             }
-        }
+        })
     }
 
     #[cfg(feature = "level")]
@@ -1828,7 +1843,6 @@ impl FromWorld for Pico8State {
                 draw_state.pen = PColor::Palette(6);
                 draw_state
             },
-            sprite_sheets: Vec::new().into(),
             maps: Vec::new().into(),
         }
     }

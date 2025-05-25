@@ -328,7 +328,7 @@ pub(crate) fn plugin(app: &mut App) {
             "fget",
             |ctx: FunctionCallContext, n: Option<usize>, f: Option<u8>| {
                 with_pico8(&ctx, move |pico8| {
-                    let v = pico8.fget(n, f);
+                    let v = pico8.fget(n, f)?;
                     Ok(if f.is_some() {
                         ScriptValue::Bool(v == 1)
                     } else {
