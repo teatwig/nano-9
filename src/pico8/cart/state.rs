@@ -104,12 +104,12 @@ fn to_state(cart: Cart, load_context: &mut LoadContext) -> Result<Pico8State, Ca
     let state = Pico8State {
         #[cfg(feature = "scripting")]
         code: if cfg!(feature = "scripting") {
-            load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
+            Some(load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
                 content: code.into_bytes().into_boxed_slice(),
                 asset_path: code_path.into(),
-            })
+            }))
         } else {
-            Handle::default()
+            None
         },
         palettes: vec![Palette::from_slice(&PALETTE)].into(),
         pal_map: PalMap::default(),

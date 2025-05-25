@@ -157,9 +157,6 @@ impl AssetLoader for ConfigLoader {
         if let Some(template) = config.template.take() {
             config.inject_template(&template)?;
         }
-        #[cfg(feature = "scripting")]
-        let code_path = config.code.unwrap_or_else(|| "main.lua".into());
-
         let mut sprite_sheets = vec![];
         for (i, mut sheet) in config.sprite_sheets.into_iter().enumerate() {
             // let flags: Vec<u8>;
@@ -280,7 +277,7 @@ impl AssetLoader for ConfigLoader {
         let pal_map = pico8::PalMap::default();
         let state = pico8::Pico8State {
 #[cfg(feature = "scripting")]
-                code: load_context.load(&*code_path),
+                code: config.code.map(|p| load_context.load(&*p)),
                 palettes: palettes.into(),
             pal_map,
                 border: load_context.loader()
@@ -420,10 +417,12 @@ pub fn update_asset(
                 // XXX: It happens here too!
                 #[cfg(feature = "scripting")]
                 {
-                    let path: &AssetPath<'static> = state.code.path().unwrap();
-                    let script_path = (script_settings.script_id_mapper.map)(path);
-                    info!("add script component path {}", &script_path);
-                    commands.spawn(ScriptComponent(vec![script_path]));
+                    if let Some(code) = &state.code {
+                        let path: &AssetPath<'static> = code.path().unwrap();
+                        let script_path = (script_settings.script_id_mapper.map)(path);
+                        info!("add script component path {}", &script_path);
+                        commands.spawn(ScriptComponent(vec![script_path]));
+                    }
                 }
                 *pico8_state = state;
                 info!("Goto run state");

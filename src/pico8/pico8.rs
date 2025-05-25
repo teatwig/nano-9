@@ -59,7 +59,7 @@ pub struct N9Font {
 #[reflect(Resource)]
 pub struct Pico8State {
     #[cfg(feature = "scripting")]
-    pub code: Handle<ScriptAsset>,
+    pub code: Option<Handle<ScriptAsset>>,
     pub(crate) palettes: Cursor<Palette>,
     #[reflect(ignore)]
     pub(crate) pal_map: PalMap,
@@ -1742,7 +1742,7 @@ impl FromWorld for Pico8State {
 
         Pico8State {
             #[cfg(feature = "scripting")]
-            code: Handle::<ScriptAsset>::default(),
+            code: None,
             palettes: vec![Palette::from_slice(&crate::pico8::PALETTE)].into(),
             // palettes: vec![].into(),
             //     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),

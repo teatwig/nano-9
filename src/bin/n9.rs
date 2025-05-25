@@ -28,6 +28,15 @@ fn usage(mut output: impl io::Write) -> io::Result<()> {
 }
 
 fn main() -> io::Result<ExitCode> {
+    let example_files = [
+        "cart.p8",
+        "cart.p8.png",
+        "code.lua", // Lua
+        "code.pua", // Pico-8 dialect
+        "game-dir",
+        "game-dir/Nano9.toml",
+        "code.n9",
+    ];
     let mut args = env::args();
     let Some(arg) = args.nth(1) else {
         usage(std::io::stderr())?;
@@ -127,7 +136,9 @@ fn main() -> io::Result<ExitCode> {
             move |asset_server: Res<AssetServer>, mut commands: Commands, mut pico8: Pico8| {
                 //, script_settings: Res<ScriptAssetSettings>| {
                 let asset_path = AssetPath::from_path(&path).with_source(&source);
-                pico8.state.code = asset_server.load(&asset_path);
+                pico8.state.code = Some(asset_server.load(&asset_path));
+                // XXX This is weird. Try to get rid of this whole system.
+                //
                 // let script_path = script_settings.script_id_mapper.map(pico8.state.code.path());
                 // commands.spawn(ScriptComponent(vec![asset_path.to_string().into()]));
                 commands.spawn(ScriptComponent(vec![asset_path
