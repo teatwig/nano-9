@@ -54,10 +54,23 @@ pub struct N9Font {
     pub handle: Handle<Font>,
 }
 
+#[derive(Clone, Asset, Debug, Reflect)]
+pub struct Pico8Asset {
+    #[cfg(feature = "scripting")]
+    pub code: Option<Handle<ScriptAsset>>,
+    pub(crate) palettes: Vec<Palette>,
+    pub(crate) border: Handle<Image>,
+    pub(crate) sprite_sheets: Vec<SpriteSheet>,
+    pub(crate) maps: Vec<Map>,
+    pub(crate) font: Vec<N9Font>,
+    pub(crate) audio_banks: Vec<AudioBank>,
+}
+
 /// Pico8State's state.
 #[derive(Resource, Clone, Asset, Debug, Reflect)]
 #[reflect(Resource)]
 pub struct Pico8State {
+    // pub assets: Handle<Pico8Asset>,
     #[cfg(feature = "scripting")]
     pub code: Option<Handle<ScriptAsset>>,
     pub(crate) palettes: Cursor<Palette>,
@@ -261,6 +274,7 @@ pub struct Pico8<'w, 's> {
     rand8: Rand8<'w>,
     key_input: ResMut<'w, KeyInput>,
     mouse_input: ResMut<'w, MouseInput>,
+    pico8_assets: Res<'w, Assets<Pico8Asset>>,
 }
 
 pub(crate) fn fill_input(
@@ -925,9 +939,14 @@ impl Pico8<'_, '_> {
         // mut commands: &mut Commands,
     ) -> Result<(Entity, bool), Error> {
         // let mut text: &str = text.as_ref();
+        let assets = world.get_resource::<Assets<Pico8Asset>>().expect("Pico8Asset");
         let state = world.get_resource::<Pico8State>().expect("Pico8State");
 
-        let font = state.font.handle.clone();
+        let handle: Handle<Pico8Asset> = default();
+        let pico8_asset = assets.get(/*state.*/&handle).ok_or(Error::NoSuch("Pico8Asset".into()))?;
+        let font = pico8_asset.font.get(font_index.unwrap_or(0))
+                                   .ok_or(Error::NoSuch("font".into()))?.handle.clone();
+                                   //state.font.handle.clone();
         // XXX: Should the camera delta apply to the print cursor position?
         let pos = pos
             .map(|p| state.draw_state.apply_camera_delta(p))
