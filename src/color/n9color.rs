@@ -24,6 +24,16 @@ pub enum N9Color {
     Color(LinearRgba),
 }
 
+impl N9Color {
+    pub fn into_pcolor(&self, pen_color: &PColor) -> PColor {
+        match self {
+            N9Color::Pen => *pen_color,
+            N9Color::Palette(n) => PColor::Palette(*n),
+            N9Color::Color(c) => PColor::Color(*c),
+        }
+    }
+}
+
 impl From<PColor> for N9Color {
     fn from(c: PColor) -> Self {
         match c {

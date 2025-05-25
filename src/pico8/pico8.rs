@@ -75,9 +75,9 @@ pub struct Pico8Asset {
 pub struct Pico8State {
     #[cfg(feature = "scripting")]
     pub code: Option<Handle<ScriptAsset>>,
-    pub(crate) palettes: Cursor<Palette>,
     #[reflect(ignore)]
     pub(crate) pal_map: PalMap,
+    pub(crate) palette: usize,
     // XXX: rename to gfx_images?
     pub(crate) border: Handle<Image>,
     pub(crate) sprite_sheets: Cursor<SpriteSheet>,
@@ -276,6 +276,7 @@ pub struct Pico8<'w, 's> {
     key_input: ResMut<'w, KeyInput>,
     mouse_input: ResMut<'w, MouseInput>,
     pico8_assets: Res<'w, Assets<Pico8Asset>>,
+    pico8_handle: Res<'w, Pico8Handle>,
 }
 
 pub(crate) fn fill_input(
@@ -496,14 +497,17 @@ impl Pico8<'_, '_> {
         let sprite = Sprite {
             image: match &sheet.handle {
                 SprHandle::Image(handle) => handle.clone(),
-                SprHandle::Gfx(handle) => self.gfx_handles.get_or_create(
-                    &self.state.palettes,
+                SprHandle::Gfx(handle) => {
+                    let palette = &self.palette(None)?.clone();
+                    self.gfx_handles.get_or_create(
+                    &palette,
                     &self.state.pal_map,
                     None,
                     handle,
                     &self.gfxs,
                     &mut self.images,
-                )?,
+                )?
+                }
             },
             anchor: Anchor::TopLeft,
             rect: Some(sprite_rect),
@@ -522,6 +526,10 @@ impl Pico8<'_, '_> {
                 clearable,
             ))
             .id())
+    }
+
+    fn pico8_asset(&self) -> Result<&Pico8Asset, Error> {
+        self.pico8_assets.get(&self.pico8_handle.0).ok_or(Error::NoSuch("Pico8Asset".into()))
     }
 
     /// spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
@@ -545,16 +553,20 @@ impl Pico8<'_, '_> {
                 return Ok(Entity::PLACEHOLDER);
             }
         };
+
         let image = match &sprites.handle {
             SprHandle::Image(handle) => handle.clone(),
-            SprHandle::Gfx(handle) => self.gfx_handles.get_or_create(
-                &self.state.palettes,
+            SprHandle::Gfx(handle) => {
+                let palette = &self.palette(None)?.clone();
+                self.gfx_handles.get_or_create(
+                palette,
                 &self.state.pal_map,
                 None,
                 handle,
                 &self.gfxs,
                 &mut self.images,
-            )?,
+            )?
+            }
         };
         assert!(image.is_strong());
         let mut sprite = {
@@ -594,7 +606,6 @@ impl Pico8<'_, '_> {
     pub fn cls(&mut self, color: Option<impl Into<PColor>>) -> Result<(), Error> {
         trace!("cls");
         let c = self
-            .state
             .get_color(color.map(|x| x.into()).unwrap_or(Color::BLACK.into()))?;
         self.state.draw_state.clear_screen();
         let image = self
@@ -611,7 +622,7 @@ impl Pico8<'_, '_> {
     }
 
     pub fn pset(&mut self, pos: UVec2, color: Option<N9Color>) -> Result<(), Error> {
-        let c = self.state.get_color(color.unwrap_or(N9Color::Pen))?;
+        let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let image = self
             .images
             .get_mut(&self.canvas.handle)
@@ -653,7 +664,7 @@ impl Pico8<'_, '_> {
                 );
             }
             SprHandle::Image(handle) => {
-                let c = self.state.get_color(color)?;
+                let c = self.get_color(color)?;
                 let image = self
                     .images
                     .get_mut(handle)
@@ -703,19 +714,7 @@ impl Pico8<'_, '_> {
             .spawn((
                 Name::new("rectfill"),
                 if let Some(fill_pat) = &self.state.draw_state.fill_pat {
-                    Sprite {
-                        anchor: Anchor::TopLeft,
-                        // NOTE: Technically we only need a 4x4 image. However, this generates a warning.
-                        //
-                        // ```
-                        // WARN bevy_sprite::texture_slice: One of your tiled
-                        // textures has generated 1089 slices. You might want to
-                        // use higher stretch values to avoid a great
-                        // performance cost
-                        // ```
-                        //
-                        // So we generate an 8x8 to avoid that.
-                        image: self.images.add(
+                    let image =
                             // {
                             //     let a = Gfx::<1>::from_vec(8,8,
                             //                                vec![
@@ -741,14 +740,26 @@ impl Pico8<'_, '_> {
                                 if let Some(c) = c {
                                     // c.map(&self.state.pal_map).write_color(&PALETTE, pixel_bytes);
                                     let _ = c.write_color(
-                                        &self.state.palettes.data,
+                                        &self.pico8_asset()?.palettes[self.state.palette].data,
                                         &self.state.pal_map,
                                         pixel_bytes,
                                     );
                                 }
                                 Ok::<(), Error>(())
-                            })?,
-                        ),
+                            })?;
+                    Sprite {
+                        anchor: Anchor::TopLeft,
+                        // NOTE: Technically we only need a 4x4 image. However, this generates a warning.
+                        //
+                        // ```
+                        // WARN bevy_sprite::texture_slice: One of your tiled
+                        // textures has generated 1089 slices. You might want to
+                        // use higher stretch values to avoid a great
+                        // performance cost
+                        // ```
+                        //
+                        // So we generate an 8x8 to avoid that.
+                        image: self.images.add(image),
                         custom_size: Some(size),
                         image_mode: SpriteImageMode::Tiled {
                             tile_x: true,
@@ -759,7 +770,6 @@ impl Pico8<'_, '_> {
                     }
                 } else {
                     let c = self
-                        .state
                         .get_color(color.map(|x| x.off().into()).unwrap_or(N9Color::Pen))?;
                     Sprite {
                         color: c,
@@ -784,7 +794,7 @@ impl Pico8<'_, '_> {
     ) -> Result<Entity, Error> {
         let upper_left = self.state.draw_state.apply_camera_delta(upper_left);
         let lower_right = self.state.draw_state.apply_camera_delta(lower_right);
-        let c = self.state.get_color(color.unwrap_or(N9Color::Pen))?;
+        let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let size = (lower_right - upper_left) + Vec2::ONE;
         let clearable = Clearable::default();
         let id = self
@@ -812,6 +822,11 @@ impl Pico8<'_, '_> {
         Ok(id)
     }
 
+    fn palette(&self, index: Option<usize>) -> Result<&Palette, Error> {
+        Ok(self.pico8_asset()?.palettes.get(index.unwrap_or(self.state.palette))
+           .ok_or(Error::NoSuch("palette".into()))?)
+    }
+
     pub fn map(
         &mut self,
         map_pos: UVec2,
@@ -832,7 +847,10 @@ impl Pico8<'_, '_> {
             .get(map_index)
             .ok_or(Error::InvalidArgument("no map".into()))?
         {
-            Map::P8(ref map) => map.map(
+            Map::P8(ref map) => {
+
+                    let palette = self.palette(None)?.clone();
+                map.map(
                 map_pos,
                 screen_start,
                 size,
@@ -841,7 +859,7 @@ impl Pico8<'_, '_> {
                 &mut self.commands,
                 |handle| {
                     self.gfx_handles.get_or_create(
-                        &self.state.palettes,
+                        &palette,
                         &self.state.pal_map,
                         None,
                         handle,
@@ -849,7 +867,8 @@ impl Pico8<'_, '_> {
                         &mut self.images,
                     )
                 },
-            ),
+            )
+            }
             #[cfg(feature = "level")]
             Map::Level(ref map) => Ok(map.map(screen_start, 0, &mut self.commands)),
         }
@@ -948,6 +967,8 @@ impl Pico8<'_, '_> {
         let pico8_asset = assets.get(&handle.0).ok_or(Error::NoSuch("Pico8Asset".into()))?;
         let font = pico8_asset.font.get(font_index.unwrap_or(0))
                                    .ok_or(Error::NoSuch("font".into()))?.handle.clone();
+
+        let c = pico8_asset.get_color(color.unwrap_or(N9Color::Pen).into_pcolor(&state.draw_state.pen), state.palette)?;
                                    //state.font.handle.clone();
         // XXX: Should the camera delta apply to the print cursor position?
         let pos = pos
@@ -959,7 +980,6 @@ impl Pico8<'_, '_> {
                 )
             });
         // pos =
-        let c = state.get_color(color.unwrap_or(N9Color::Pen))?;
         let clearable = Clearable::default();
         let add_newline = if text.ends_with('\0') {
             text.pop();
@@ -1264,7 +1284,7 @@ impl Pico8<'_, '_> {
     pub fn line(&mut self, a: IVec2, b: IVec2, color: Option<N9Color>) -> Result<Entity, Error> {
         let a = self.state.draw_state.apply_camera_delta_ivec2(a);
         let b = self.state.draw_state.apply_camera_delta_ivec2(b);
-        let color = self.state.get_color(color.unwrap_or(N9Color::Pen))?;
+        let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let min = a.min(b);
         let delta = b - a;
         let size = UVec2::new(delta.x.unsigned_abs(), delta.y.unsigned_abs()) + UVec2::ONE;
@@ -1323,7 +1343,7 @@ impl Pico8<'_, '_> {
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
         let pos = self.state.draw_state.apply_camera_delta_ivec2(pos);
-        let color = self.state.get_color(color.unwrap_or(N9Color::Pen))?;
+        let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let r: UVec2 = r.into();
         let size: UVec2 = r * UVec2::splat(2) + UVec2::ONE;
         let mut pixmap = Pixmap::new(size.x, size.y).expect("pixmap");
@@ -1385,7 +1405,7 @@ impl Pico8<'_, '_> {
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
         let pos = self.state.draw_state.apply_camera_delta_ivec2(pos);
-        let color = self.state.get_color(color.unwrap_or(N9Color::Pen))?;
+        let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let r: UVec2 = r.into();
         let size: UVec2 = r * UVec2::splat(2) + UVec2::ONE;
         let mut pixmap = Pixmap::new(size.x, size.y).expect("pixmap");
@@ -1451,7 +1471,7 @@ impl Pico8<'_, '_> {
     ) -> Result<Entity, Error> {
         let upper_left = self.state.draw_state.apply_camera_delta_ivec2(upper_left);
         let lower_right = self.state.draw_state.apply_camera_delta_ivec2(lower_right);
-        let color = self.state.get_color(color.unwrap_or(N9Color::Pen))?;
+        let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         // let min = a.min(b);
         let size: UVec2 = ((lower_right - upper_left) + IVec2::ONE)
             .try_into()
@@ -1520,7 +1540,7 @@ impl Pico8<'_, '_> {
     ) -> Result<Entity, Error> {
         let upper_left = self.state.draw_state.apply_camera_delta_ivec2(upper_left);
         let lower_right = self.state.draw_state.apply_camera_delta_ivec2(lower_right);
-        let color = self.state.get_color(color.unwrap_or(N9Color::Pen))?;
+        let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let size: UVec2 = ((lower_right - upper_left) + IVec2::ONE)
             .try_into()
             .unwrap();
@@ -1611,11 +1631,9 @@ impl Pico8<'_, '_> {
         }
     }
 
-    /// Return the number of colors in the palette.
-    pub fn paln(&self, palette_index: Option<usize>) -> Option<usize> {
-        self.state
-            .palettes
-            .get(palette_index)
+    /// Return the number of colors in the current palette.
+    pub fn paln(&self, palette_index: Option<usize>) -> Result<usize, Error> {
+        self.palette(palette_index)
             .map(|pal| pal.data.len())
     }
 
@@ -1636,7 +1654,7 @@ impl Pico8<'_, '_> {
         if let Some(color) = color.map(|x| x.into()) {
             if let PColor::Palette(n) = color {
                 // Check that it's within the palette.
-                if n >= self.state.palettes.data.len() {
+                if n >= self.palette(None)?.data.len() {
                     return Err(Error::NoSuch("palette color index".into()));
                 }
             }
@@ -1714,6 +1732,35 @@ impl Pico8<'_, '_> {
     pub fn canvas_size(&self) -> UVec2 {
         self.canvas.size
     }
+
+    pub(crate) fn get_color(&self, c: impl Into<N9Color>) -> Result<Color, Error> {
+        match c.into() {
+            N9Color::Pen => match self.state.draw_state.pen {
+                PColor::Palette(n) => {
+                    self.palette(None)?.get_color(n).map(|c| c.into())
+                    // let pal = self
+                    //     .images
+                    //     .get(&self.state.palettes.handle)
+                    //     .ok_or(Error::NoAsset("palette".into()))?;
+
+                    // // Strangely. It's not a 1d texture.
+                    // Ok(pal.get_color_at(n as u32, self.state.palettes.row)?)
+                }
+                PColor::Color(c) => Ok(c.into()),
+            },
+            N9Color::Palette(n) => {
+                self.palette(None)?.get_color(n).map(|c| c.into())
+                // let pal = self
+                //     .images
+                //     .get(&self.state.palettes.handle)
+                //     .ok_or(Error::NoAsset("palette".into()))?;
+
+                // // Strangely. It's not a 1d texture.
+                // Ok(pal.get_color_at(n as u32, self.state.palettes.row)?)
+            }
+            N9Color::Color(c) => Ok(c.into()),
+        }
+    }
 }
 
 #[cfg(feature = "fixed")]
@@ -1769,7 +1816,8 @@ impl FromWorld for Pico8State {
         Pico8State {
             #[cfg(feature = "scripting")]
             code: None,
-            palettes: vec![Palette::from_slice(&crate::pico8::PALETTE)].into(),
+            palette: 0,
+            // palettes: vec![Palette::from_slice(&crate::pico8::PALETTE)].into(),
             // palettes: vec![].into(),
             //     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
             //     row: 0,
@@ -1817,33 +1865,14 @@ impl FromWorld for Pico8Asset {
     }
 }
 
-impl Pico8State {
-    pub(crate) fn get_color(&self, c: impl Into<N9Color>) -> Result<Color, Error> {
-        match c.into() {
-            N9Color::Pen => match self.draw_state.pen {
-                PColor::Palette(n) => {
-                    self.palettes.get_color(n).map(|c| c.into())
-                    // let pal = self
-                    //     .images
-                    //     .get(&self.state.palettes.handle)
-                    //     .ok_or(Error::NoAsset("palette".into()))?;
+impl Pico8Asset {
 
-                    // // Strangely. It's not a 1d texture.
-                    // Ok(pal.get_color_at(n as u32, self.state.palettes.row)?)
-                }
-                PColor::Color(c) => Ok(c.into()),
-            },
-            N9Color::Palette(n) => {
-                self.palettes.get_color(n).map(|c| c.into())
-                // let pal = self
-                //     .images
-                //     .get(&self.state.palettes.handle)
-                //     .ok_or(Error::NoAsset("palette".into()))?;
-
-                // // Strangely. It's not a 1d texture.
-                // Ok(pal.get_color_at(n as u32, self.state.palettes.row)?)
+    pub(crate) fn get_color(&self, c: PColor, palette_index: usize) -> Result<Color, Error> {
+        match c {
+            PColor::Palette(n) => {
+                self.palettes[palette_index].get_color(n).map(|c| c.into())
             }
-            N9Color::Color(c) => Ok(c.into()),
+            PColor::Color(c) => Ok(c.into()),
         }
     }
 }

@@ -511,7 +511,7 @@ pub(crate) fn plugin(app: &mut App) {
                 with_pico8(&ctx, move |pico8| {
                     if old.is_some() && new.is_none() && mode.is_none() {
                         // Set the palette.
-                        pico8.state.palettes.pos = old.unwrap();
+                        pico8.state.palette = old.unwrap();
                     } else {
                         pico8.pal_map(
                             old.zip(new),
