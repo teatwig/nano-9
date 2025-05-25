@@ -70,7 +70,7 @@ pub struct Pico8Asset {
 }
 
 /// Pico8State's state.
-#[derive(Resource, Clone, Asset, Debug, Reflect)]
+#[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource)]
 pub struct Pico8State {
     #[cfg(feature = "scripting")]
@@ -80,7 +80,6 @@ pub struct Pico8State {
     pub(crate) palette: usize,
     // XXX: rename to gfx_images?
     // pub(crate) sprite_sheets: Cursor<SpriteSheet>,
-    pub(crate) maps: Cursor<Map>,
     pub(crate) draw_state: DrawState,
 }
 
@@ -496,6 +495,7 @@ impl Pico8<'_, '_> {
             image: match sheet.handle {
                 SprHandle::Image(handle) => handle,
                 SprHandle::Gfx(handle) => {
+                    // XXX: Consider copying palettes to state to avoid cloning.
                     let palette = &self.palette(None)?.clone();
                     self.gfx_handles.get_or_create(
                     &palette,
@@ -535,6 +535,11 @@ impl Pico8<'_, '_> {
         self.pico8_asset()?.sprite_sheets.get(index).ok_or(Error::NoSuch(format!("image index {index}").into()))
     }
 
+    fn sprite_map(&self, map_index: Option<usize>) -> Result<&Map, Error> {
+        let index = map_index.unwrap_or(0);
+        self.pico8_asset()?.maps.get(index).ok_or(Error::NoSuch(format!("map index {index}").into()))
+    }
+
     fn pico8_asset_mut(&mut self) -> Result<&mut Pico8Asset, Error> {
         self.pico8_assets.get_mut(&self.pico8_handle.0).ok_or(Error::NoSuch("Pico8Asset".into()))
     }
@@ -542,6 +547,11 @@ impl Pico8<'_, '_> {
     fn sprite_sheet_mut(&mut self, sheet_index: Option<usize>) -> Result<&mut SpriteSheet, Error> {
         let index = sheet_index.unwrap_or(0);
         self.pico8_asset_mut()?.sprite_sheets.get_mut(index).ok_or(Error::NoSuch(format!("image index {index}").into()))
+    }
+
+    fn sprite_map_mut(&mut self, map_index: Option<usize>) -> Result<&mut Map, Error> {
+        let index = map_index.unwrap_or(0);
+        self.pico8_asset_mut()?.maps.get_mut(index).ok_or(Error::NoSuch(format!("map index {index}").into()))
     }
 
     /// spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
@@ -847,18 +857,13 @@ impl Pico8<'_, '_> {
         map_index: Option<usize>,
     ) -> Result<Entity, Error> {
         screen_start = self.state.draw_state.apply_camera_delta(screen_start);
-        let map_index = map_index.unwrap_or(0);
         if cfg!(feature = "negate-y") {
             screen_start.y = -screen_start.y;
         }
         match self
-            .state
-            .maps
-            .inner
-            .get(map_index)
-            .ok_or(Error::InvalidArgument("no map".into()))?
+            .sprite_map(map_index)?.clone()
         {
-            Map::P8(ref map) => {
+            Map::P8(map) => {
 
                     let palette = self.palette(None)?.clone();
 
@@ -883,7 +888,7 @@ impl Pico8<'_, '_> {
             )
             }
             #[cfg(feature = "level")]
-            Map::Level(ref map) => Ok(map.map(screen_start, 0, &mut self.commands)),
+            Map::Level(map) => Ok(map.map(screen_start, 0, &mut self.commands)),
         }
     }
 
@@ -1201,7 +1206,7 @@ impl Pico8<'_, '_> {
         map_index: Option<usize>,
         layer_index: Option<usize>,
     ) -> Option<tiled::Properties> {
-        let map: &Map = self.state.maps.get(map_index).expect("No such map");
+        let map: &Map = self.sprite_map(map_index).ok()?;
         match *map {
             Map::P8(ref _map) => None,
 
@@ -1216,7 +1221,7 @@ impl Pico8<'_, '_> {
         map_index: Option<usize>,
         layer_index: Option<usize>,
     ) -> Option<usize> {
-        let map: &Map = self.state.maps.get(map_index).expect("No such map");
+        let map: &Map = self.sprite_map(map_index).ok()?;
         match *map {
             Map::P8(ref map) => {
                 Some(map[(pos.x as u32 + pos.y as u32 * MAP_COLUMNS) as usize] as usize)
@@ -1234,16 +1239,17 @@ impl Pico8<'_, '_> {
         map_index: Option<usize>,
         layer_index: Option<usize>,
     ) -> Result<(), Error> {
-        let map: &mut Map = self.state.maps.get_mut(map_index).expect("No such map");
-        match *map {
+        let map = self.sprite_map_mut(map_index)?;
+        match map {
             Map::P8(ref mut map) => map
                 .get_mut((pos.x as u32 + pos.y as u32 * MAP_COLUMNS) as usize)
                 .map(|value| *value = sprite_index as u8)
                 .ok_or(Error::NoSuch("map entry".into())),
             #[cfg(feature = "level")]
             Map::Level(ref mut map) => {
-                self.tiled
-                    .mset(map, pos, sprite_index, map_index, layer_index)
+                todo!()
+                // self.tiled
+                //     .mset(map, pos, sprite_index, map_index, layer_index)
             }
         }
     }
@@ -1843,7 +1849,6 @@ impl FromWorld for Pico8State {
                 draw_state.pen = PColor::Palette(6);
                 draw_state
             },
-            maps: Vec::new().into(),
         }
     }
 }

@@ -14,10 +14,6 @@ use bevy_mod_scripting::core::script::ScriptComponent;
 use nano9::{config::Config, pico8::*, *};
 use std::{borrow::Cow, env, ffi::OsStr, fs, io, path::PathBuf, process::ExitCode};
 
-#[allow(dead_code)]
-#[derive(Resource)]
-struct InitState(Handle<Pico8State>);
-
 fn usage(mut output: impl io::Write) -> io::Result<()> {
     writeln!(output, "usage: n9 <FILE>")?;
     // XXX: Rewrite this to show what it accepts based on its feature flags.
@@ -89,8 +85,8 @@ fn main() -> io::Result<ExitCode> {
         app.add_systems(
             PostStartup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
-                let pico8state: Handle<Pico8State> = asset_server.load("nano9.toml");
-                commands.insert_resource(InitState(pico8state));
+                let pico8_asset: Handle<Pico8Asset> = asset_server.load("nano9.toml");
+                commands.insert_resource(Pico8Handle(pico8_asset));
             },
         );
         nano9_plugin = Nano9Plugin { config };
@@ -103,8 +99,8 @@ fn main() -> io::Result<ExitCode> {
             Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
                 let asset_path = AssetPath::from_path(&path).with_source(&pwd);
-                let pico8state: Handle<Pico8State> = asset_server.load(&asset_path);
-                commands.insert_resource(InitState(pico8state));
+                let pico8_asset: Handle<Pico8Asset> = asset_server.load(&asset_path);
+                commands.insert_resource(Pico8Handle(pico8_asset));
             },
         );
         nano9_plugin = Nano9Plugin {
