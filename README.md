@@ -43,26 +43,41 @@ The goals for Nano-9 are to
   much as possible. I'd prefer for `spr()` to be a thin layer to Bevy's
   `Sprite`, `print()` to create a `Text` component, `map()` to create a
   `bevy_ecs_tilemap::TilemapBundle`. In this way the comfortable world of Pico-8
-  can help introduce one to the Bevy world, and it can also provide affordances
+  can help introduce one to the world of Bevy, and it can also provide affordances
   not possible in Pico-8. For instance one could query on-screen entities for
   collision information.
 
 ## Extensions
 
+There are many extensions to the Pico-8 API usually in the form of extra optional arguments at the end. For instance, Pico-8 has this signature for its `print` function:
+
+```lua
+print(str, [x,] [y,] [col])
+```
+
+Nano-9's is the same with two additional arguments: a font size to change the font's size. And a font index to select which font from the "Nano-9.toml" config file to use.
+
+```lua
+print(str, [x,] [y,] [col,] *[font_size,] [font_index]*)
+```
+
+The rest of the extensions are indicated in italics in the [compatibility](compat.md) document.
+
 ## Current Design Considerations
 
 There are a number of questions that remain unanswered.
 
-### Support Pico-8's Lua dialect?
-I would like to but by what means? Text translation at load time? A compiler
-patch? Currently Nano-9 only supports Lua.
+### Support Pico-8's Lua dialect? Yes.
+I would like to but by what means? Text translation at load time?
 
 There are tools that help one convert Pico-8's dialect into conventional Lua:
 
 - [pico8-to-lua](https://github.com/benwiley4000/pico8-to-lua)
 - [Depicofier](https://github.com/Enichan/Depicofier)
 
-But I haven't seen one that captures every part of Pico-8's dialect.
+Nano-9 ported pico8-to-lua from Lua to Rust and uses that to allow for much of Pico-8's dialect. However, it is not fool proof. It relies on regular expression substitution which do not faithfully parse the Pico-8 dialect for all valid expressions. However, it allows many Pico-8 carts work without any changes.
+
+Still I would be happy to adopt a solution that actually parsed the Pico-8 dialect like Depicofier does for Rust.
 
 ### Opt-in to retained entities 
 One of the principle differences between Pico-8 and Bevy is that Pico-8 has an
