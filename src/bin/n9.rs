@@ -11,7 +11,7 @@ use bevy::{
 #[cfg(feature = "minibuffer")]
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::script::ScriptComponent;
-use nano9::{config::Config, pico8::*, *};
+use nano9::{config::{Config, run_pico8_when_loaded}, pico8::*, *};
 use std::{borrow::Cow, env, ffi::OsStr, fs, io, path::PathBuf, process::ExitCode};
 
 fn usage(mut output: impl io::Write) -> io::Result<()> {
@@ -81,14 +81,12 @@ fn main() -> io::Result<ExitCode> {
                 return Ok(ExitCode::from(2));
             }
         }
-        // let cmd = config.clone();
         app.add_systems(
-            PostStartup,
+            Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
                 let pico8_asset: Handle<Pico8Asset> = asset_server.load("nano9.toml");
                 commands.insert_resource(Pico8Handle::from(pico8_asset));
-            },
-        );
+            });
         nano9_plugin = Nano9Plugin { config };
     } else if script_path.extension() == Some(OsStr::new("p8"))
         || script_path.extension() == Some(OsStr::new("png"))
@@ -175,7 +173,8 @@ fn main() -> io::Result<ExitCode> {
             text_color: Color::WHITE,
             enabled: false,
         },
-    });
+    })
+    .add_systems(PreUpdate, run_pico8_when_loaded);
 
     #[cfg(feature = "minibuffer")]
     app.add_plugins(MinibufferPlugins).add_acts((

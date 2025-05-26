@@ -9,7 +9,7 @@
 - [ ] Fix tiled import for lilly's house inside
 ## Nano-9
 - [ ] try not to clone palettes (introduced during Pico8Asset refactor)
-- [ ] Add the ScriptComponent once
+- [x] Add the ScriptComponent once
 - [x] Load .p8 and .p8.png as a Pico8Asset in addition to Cart.
 - [x] Remove error after reload
 - [ ] Make generic wrt palette bit-depth
@@ -26,33 +26,5 @@
 - [x] show errors
 - [x] make work with local paths
 
-## Gameplay
-- [ ] title screen
-- [x] enemies
-  - [x] attackable
-  - [x] defeated
-  - [ ] attacking
-  - [x] fix overkill
-- [ ] Heart
-  - [x] sprite
-  - [ ] health
-  - [ ] retry button
-  - [x] cattails
-- Cat
-  - [ ] fix butt scratch
-  - [ ] fix double jump
-  - [ ] vary meows
-- Save spot
-- files
-- title screen
-- cutscene
-- boss
-
 ## Bugs
-- [ ] _draw() gets called before Pico8State is loaded.
-
-## Assets
-- Pay $1 or $2 for slime if we use it.
-- Pay $2 for [cat sounds](https://eddie-yu.itch.io/mimi-the-cat-sfx).
-- Pay $1 for [potions and keys](https://dantepixels.itch.io/key-items-16x16)
-- Pay $1 for [bats](https://elthen.itch.io/bat-sprite-pack).
+- [x] _draw() gets called before Pico8State is loaded.

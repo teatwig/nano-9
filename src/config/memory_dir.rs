@@ -7,7 +7,9 @@ use bevy::{
     prelude::*,
 };
 
-/// Plugin provides a "memory://path.ext" asset source.
+/// This plugin provides a "memory://path.ext" asset source.
+///
+/// It is not actually Nano-9 specific.
 ///
 /// ```
 /// fn plugin(app: &mut App) {
