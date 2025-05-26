@@ -37,19 +37,6 @@ impl P8Map {
         mut gfx_to_image: impl FnMut(&Handle<Gfx>) -> Result<Handle<Image>, Error>,
     ) -> Result<Entity, pico8::Error> {
         let map_size = TilemapSize::from(size);
-        // Create a tilemap entity a little early.
-        // We want this entity early because we need to tell each tile which tilemap entity
-        // it is associated with. This is done with the TilemapId component on each tile.
-        // Eventually, we will insert the `TilemapBundle` bundle on the entity, which
-        // will contain various necessary components, such as `TileStorage`.
-
-        // To begin creating the map we will need a `TileStorage` component.
-        // This component is a grid of tile entities and is used to help keep track of individual
-        // tiles in the world. If you have multiple layers of tiles you would have a tilemap entity
-        // per layer, each with their own `TileStorage` component.
-
-        // Spawn the elements of the tilemap.
-        // Alternatively, you can use helpers::filling::fill_tilemap.
         let clearable = Clearable::default();
         let mut tile_storage = TileStorage::empty(map_size);
         let tilemap_entity = commands.spawn(Name::new("map")).id();
@@ -67,8 +54,6 @@ impl P8Map {
                                         (sprite_sheet.flags[*index as usize] & mask == mask)
                                             .then_some(index)
                                     })
-                                // (cart.flags[*index as usize] & mask == mask)
-                                //     .then_some(index)
                             } else {
                                 Some(index)
                             }

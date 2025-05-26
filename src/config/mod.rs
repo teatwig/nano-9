@@ -2,7 +2,7 @@
 use crate::level::{self, asset::TiledSet, tiled::*};
 use crate::{
     error::RunState,
-    pico8::{self, image::pixel_art_settings, Gfx, Pico8Asset, Pico8State},
+    pico8::{self, image::pixel_art_settings, Gfx, Pico8Asset, Pico8Handle, Pico8State},
 };
 use bevy::{
     asset::{embedded_asset, io::Reader, AssetLoader, AssetPath, LoadContext},
@@ -404,29 +404,39 @@ pub fn update_asset(
 
     mut next_state: ResMut<NextState<RunState>>,
     mut pico8_state: ResMut<Pico8State>,
+    mut pico8_handle: Option<ResMut<Pico8Handle>>,
     mut commands: Commands,
     #[cfg(feature = "scripting")] script_settings: Res<ScriptAssetSettings>,
 ) {
     for e in reader.read() {
         info!("update asset event {e:?}");
         if let AssetEvent::LoadedWithDependencies { id } = e {
-            if let Some(pico8_asset) = assets.get(*id) {
-                // XXX: It happens here too!
-                #[cfg(feature = "scripting")]
-                {
-                    if let Some(code) = &pico8_asset.code {
-                        let path: &AssetPath<'static> = code.path().unwrap();
-                        let script_path = (script_settings.script_id_mapper.map)(path);
-                        info!("add script component path {}", &script_path);
-                        commands.spawn(ScriptComponent(vec![script_path]));
+            if let Some(pico8_handle) = pico8_handle {
+                if let Some(pico8_asset) = assets.get(*id) {
+                    if pico8_handle.handle.id() != *id {
+                        warn!("Script loaded but does not match Pico8Handle.");
+                        continue;
                     }
+                    // XXX: It happens here too!
+                    #[cfg(feature = "scripting")]
+                    {
+                        if let Some(code) = &pico8_asset.code {
+                            if pico8_handle.script_component.is_none() {
+                                let path: &AssetPath<'static> = code.path().unwrap();
+                                let script_path = (script_settings.script_id_mapper.map)(path);
+                                info!("Add script component path {}", &script_path);
+                                pico8_handle.script_component =
+                                    Some(commands.spawn(ScriptComponent(vec![script_path])).id());
+                            }
+                        }
+                    }
+                    info!("Goto run state");
+                    next_state.set(RunState::Run);
+                } else {
+                    error!("Pico8Asset not available.");
                 }
-                // pico8_state.pico8_asset = id.into();
-
-                info!("Goto run state");
-                next_state.set(RunState::Run);
             } else {
-                error!("Pico8Asset not available.");
+                warn!("Script loaded but no Pico8Handle is loaded.");
             }
         }
     }
@@ -510,31 +520,7 @@ impl Config {
         let mut config = Config::default();
         config.inject_gameboy();
         config
-        // Self {
-        //     frames_per_second: Some(60),
-        //     screen: Some(Screen {
-        //         canvas_size: UVec2::new(240, 160),
-        //         screen_size: Some(UVec2::new(480, 320)),
-        //     }),
-        //     ..default()
-        //     // palette: Some(PICO8_PALETTE.into()),
-        // }
     }
-
-    // pub fn load_config(&self, asset_server: Res<AssetServer>, mut commands: Commands) {
-    //     let palette: Option<Handle<Image>> = self.palettes.as_deref().map(|path| asset_server.load(path));
-    //     let sprite_sheets: Vec<pico8::SpriteSheet> = self.sprite_sheets.iter().map(|sprite_sheet| pico8::SpriteSheet {
-    //         handle: asset_server.load(&sprite_sheet.path),
-    //         sprite_size: sprite_sheet.sprite_size.unwrap_or(UVec2::splat(8)),
-    //         flags: Vec::new(),
-    //     }).collect();
-
-    //     // let cart: Handle<Cart> = asset_server.load(&script_path);
-    //     // commands.send_event(LoadCart(cart));
-    //     // commands.spawn(ScriptComponent(
-    //     //     vec![format!("{}#lua", &script_path).into()],
-    //     // ));
-    // }
 }
 
 #[cfg(test)]

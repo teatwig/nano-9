@@ -54,8 +54,21 @@ pub struct N9Font {
     pub handle: Handle<Font>,
 }
 
-#[derive(Resource, Debug, Reflect)]
-pub struct Pico8Handle(pub Handle<Pico8Asset>);
+#[derive(Resource, Debug, Reflect, Deref)]
+pub struct Pico8Handle {
+    #[deref]
+    pub handle: Handle<Pico8Asset>,
+    pub script_component: Option<Entity>,
+}
+
+impl From<Handle<Pico8Asset>> for Pico8Handle {
+    fn from(handle: Handle<Pico8Asset>) -> Self {
+        Self {
+            handle,
+            script_component: None,
+        }
+    }
+}
 
 #[derive(Clone, Asset, Debug, Reflect)]
 pub struct Pico8Asset {
@@ -487,7 +500,12 @@ impl Pico8<'_, '_> {
         let y = screen_pos.y;
         let flip = flip.unwrap_or_default();
         let sheet_index = sheet_index.unwrap_or(0);
-        let sheet = self.pico8_asset()?.sprite_sheets.get(sheet_index).ok_or(Error::NoSuch(format!("image {sheet_index}").into()))?.clone();
+        let sheet = self
+            .pico8_asset()?
+            .sprite_sheets
+            .get(sheet_index)
+            .ok_or(Error::NoSuch(format!("image {sheet_index}").into()))?
+            .clone();
         let sprite = Sprite {
             image: match sheet.handle {
                 SprHandle::Image(handle) => handle,
@@ -495,13 +513,13 @@ impl Pico8<'_, '_> {
                     // XXX: Consider copying palettes to state to avoid cloning.
                     let palette = &self.palette(None)?.clone();
                     self.gfx_handles.get_or_create(
-                    &palette,
-                    &self.state.pal_map,
-                    None,
-                    &handle,
-                    &self.gfxs,
-                    &mut self.images,
-                )?
+                        &palette,
+                        &self.state.pal_map,
+                        None,
+                        &handle,
+                        &self.gfxs,
+                        &mut self.images,
+                    )?
                 }
             },
             anchor: Anchor::TopLeft,
@@ -524,31 +542,47 @@ impl Pico8<'_, '_> {
     }
 
     fn pico8_asset(&self) -> Result<&Pico8Asset, Error> {
-        self.pico8_assets.get(&self.pico8_handle.0).ok_or(Error::NoSuch("Pico8Asset".into()))
+        self.pico8_assets
+            .get(&self.pico8_handle.handle)
+            .ok_or(Error::NoSuch("Pico8Asset".into()))
     }
 
     fn sprite_sheet(&self, sheet_index: Option<usize>) -> Result<&SpriteSheet, Error> {
         let index = sheet_index.unwrap_or(0);
-        self.pico8_asset()?.sprite_sheets.get(index).ok_or(Error::NoSuch(format!("image index {index}").into()))
+        self.pico8_asset()?
+            .sprite_sheets
+            .get(index)
+            .ok_or(Error::NoSuch(format!("image index {index}").into()))
     }
 
     fn sprite_map(&self, map_index: Option<usize>) -> Result<&Map, Error> {
         let index = map_index.unwrap_or(0);
-        self.pico8_asset()?.maps.get(index).ok_or(Error::NoSuch(format!("map index {index}").into()))
+        self.pico8_asset()?
+            .maps
+            .get(index)
+            .ok_or(Error::NoSuch(format!("map index {index}").into()))
     }
 
     fn pico8_asset_mut(&mut self) -> Result<&mut Pico8Asset, Error> {
-        self.pico8_assets.get_mut(&self.pico8_handle.0).ok_or(Error::NoSuch("Pico8Asset".into()))
+        self.pico8_assets
+            .get_mut(&self.pico8_handle.handle)
+            .ok_or(Error::NoSuch("Pico8Asset".into()))
     }
 
     fn sprite_sheet_mut(&mut self, sheet_index: Option<usize>) -> Result<&mut SpriteSheet, Error> {
         let index = sheet_index.unwrap_or(0);
-        self.pico8_asset_mut()?.sprite_sheets.get_mut(index).ok_or(Error::NoSuch(format!("image index {index}").into()))
+        self.pico8_asset_mut()?
+            .sprite_sheets
+            .get_mut(index)
+            .ok_or(Error::NoSuch(format!("image index {index}").into()))
     }
 
     fn sprite_map_mut(&mut self, map_index: Option<usize>) -> Result<&mut Map, Error> {
         let index = map_index.unwrap_or(0);
-        self.pico8_asset_mut()?.maps.get_mut(index).ok_or(Error::NoSuch(format!("map index {index}").into()))
+        self.pico8_asset_mut()?
+            .maps
+            .get_mut(index)
+            .ok_or(Error::NoSuch(format!("map index {index}").into()))
     }
 
     /// spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y])
@@ -588,13 +622,13 @@ impl Pico8<'_, '_> {
             SprHandle::Gfx(handle) => {
                 let palette = &self.palette(None)?.clone();
                 self.gfx_handles.get_or_create(
-                palette,
-                &self.state.pal_map,
-                None,
-                &handle,
-                &self.gfxs,
-                &mut self.images,
-            )?
+                    palette,
+                    &self.state.pal_map,
+                    None,
+                    &handle,
+                    &self.gfxs,
+                    &mut self.images,
+                )?
             }
         };
         let mut sprite = {
@@ -625,8 +659,7 @@ impl Pico8<'_, '_> {
     // cls([n])
     pub fn cls(&mut self, color: Option<impl Into<PColor>>) -> Result<(), Error> {
         trace!("cls");
-        let c = self
-            .get_color(color.map(|x| x.into()).unwrap_or(Color::BLACK.into()))?;
+        let c = self.get_color(color.map(|x| x.into()).unwrap_or(Color::BLACK.into()))?;
         self.state.draw_state.clear_screen();
         let image = self
             .images
@@ -787,8 +820,8 @@ impl Pico8<'_, '_> {
                         ..default()
                     }
                 } else {
-                    let c = self
-                        .get_color(color.map(|x| x.off().into()).unwrap_or(N9Color::Pen))?;
+                    let c =
+                        self.get_color(color.map(|x| x.off().into()).unwrap_or(N9Color::Pen))?;
                     Sprite {
                         color: c,
                         anchor: Anchor::TopLeft,
@@ -841,8 +874,11 @@ impl Pico8<'_, '_> {
     }
 
     fn palette(&self, index: Option<usize>) -> Result<&Palette, Error> {
-        Ok(self.pico8_asset()?.palettes.get(index.unwrap_or(self.state.palette))
-           .ok_or(Error::NoSuch("palette".into()))?)
+        Ok(self
+            .pico8_asset()?
+            .palettes
+            .get(index.unwrap_or(self.state.palette))
+            .ok_or(Error::NoSuch("palette".into()))?)
     }
 
     pub fn map(
@@ -857,32 +893,29 @@ impl Pico8<'_, '_> {
         if cfg!(feature = "negate-y") {
             screen_start.y = -screen_start.y;
         }
-        match self
-            .sprite_map(map_index)?.clone()
-        {
+        match self.sprite_map(map_index)?.clone() {
             Map::P8(map) => {
-
-                    let palette = self.palette(None)?.clone();
+                let palette = self.palette(None)?.clone();
 
                 let sprite_sheets = &self.pico8_asset()?.sprite_sheets.clone();
                 map.map(
-                map_pos,
-                screen_start,
-                size,
-                mask,
-                &sprite_sheets,
-                &mut self.commands,
-                |handle| {
-                    self.gfx_handles.get_or_create(
-                        &palette,
-                        &self.state.pal_map,
-                        None,
-                        handle,
-                        &self.gfxs,
-                        &mut self.images,
-                    )
-                },
-            )
+                    map_pos,
+                    screen_start,
+                    size,
+                    mask,
+                    &sprite_sheets,
+                    &mut self.commands,
+                    |handle| {
+                        self.gfx_handles.get_or_create(
+                            &palette,
+                            &self.state.pal_map,
+                            None,
+                            handle,
+                            &self.gfxs,
+                            &mut self.images,
+                        )
+                    },
+                )
             }
             #[cfg(feature = "level")]
             Map::Level(map) => Ok(map.map(screen_start, 0, &mut self.commands)),
@@ -933,7 +966,8 @@ impl Pico8<'_, '_> {
         font_size: Option<f32>,
         font_index: Option<usize>,
     ) -> Result<f32, Error> {
-        let (id, add_newline) = Self::pre_print_world(world, dest, text, pos, color, font_size, font_index)?;
+        let (id, add_newline) =
+            Self::pre_print_world(world, dest, text, pos, color, font_size, font_index)?;
         world
             .run_system_cached(bevy::text::update_text2d_layout)
             .expect("update_text2d_layout");
@@ -964,27 +998,33 @@ impl Pico8<'_, '_> {
     fn pre_print_world(
         world: &mut World,
         entity: Option<Entity>,
-        // &mut self,
         mut text: String,
         pos: Option<Vec2>,
         color: Option<N9Color>,
         font_size: Option<f32>,
         font_index: Option<usize>,
-        // state: &Pico8State,
-        // mut commands: &mut Commands,
     ) -> Result<(Entity, bool), Error> {
-        // let mut text: &str = text.as_ref();
-        let assets = world.get_resource::<Assets<Pico8Asset>>().expect("Pico8Assets");
+        let assets = world
+            .get_resource::<Assets<Pico8Asset>>()
+            .expect("Pico8Assets");
         let state = world.get_resource::<Pico8State>().expect("Pico8State");
+        let pico8_handle = world.get_resource::<Pico8Handle>().expect("Pico8Handle");
+        let pico8_asset = assets
+            .get(&pico8_handle.handle)
+            .ok_or(Error::NoSuch("Pico8Asset".into()))?;
+        let font = pico8_asset
+            .font
+            .get(font_index.unwrap_or(0))
+            .ok_or(Error::NoSuch("font".into()))?
+            .handle
+            .clone();
 
-        let handle = world.get_resource::<Pico8Handle>().expect("Pico8Handle");
-        // let handle: Handle<Pico8Asset> = default();
-        let pico8_asset = assets.get(&handle.0).ok_or(Error::NoSuch("Pico8Asset".into()))?;
-        let font = pico8_asset.font.get(font_index.unwrap_or(0))
-                                   .ok_or(Error::NoSuch("font".into()))?.handle.clone();
-
-        let c = pico8_asset.get_color(color.unwrap_or(N9Color::Pen).into_pcolor(&state.draw_state.pen), state.palette)?;
-                                   //state.font.handle.clone();
+        let c = pico8_asset.get_color(
+            color
+                .unwrap_or(N9Color::Pen)
+                .into_pcolor(&state.draw_state.pen),
+            state.palette,
+        )?;
         // XXX: Should the camera delta apply to the print cursor position?
         let pos = pos
             .map(|p| state.draw_state.apply_camera_delta(p))
@@ -1067,8 +1107,10 @@ impl Pico8<'_, '_> {
                 }
             }
             SfxCommand::Play(n) => {
-                let sfx = self.pico8_asset()?.audio_banks
-                                             .get(bank as usize)
+                let sfx = self
+                    .pico8_asset()?
+                    .audio_banks
+                    .get(bank as usize)
                     .ok_or(Error::NoAsset(format!("bank {bank}").into()))?
                     .get(n as usize)
                     .ok_or(Error::NoAsset(format!("sfx {n}").into()))?
@@ -1121,7 +1163,6 @@ impl Pico8<'_, '_> {
             SfxCommand::Play(n) => {
                 let sfx = self
                     .pico8_asset()?
-
                     .audio_banks
                     .get(bank as usize)
                     .ok_or(Error::NoSuch(format!("audio bank {bank}").into()))?
@@ -1651,8 +1692,7 @@ impl Pico8<'_, '_> {
 
     /// Return the number of colors in the current palette.
     pub fn paln(&self, palette_index: Option<usize>) -> Result<usize, Error> {
-        self.palette(palette_index)
-            .map(|pal| pal.data.len())
+        self.palette(palette_index).map(|pal| pal.data.len())
     }
 
     pub fn palt(&mut self, color_index: Option<usize>, transparent: Option<bool>) {
@@ -1878,12 +1918,9 @@ impl FromWorld for Pico8Asset {
 }
 
 impl Pico8Asset {
-
     pub(crate) fn get_color(&self, c: PColor, palette_index: usize) -> Result<Color, Error> {
         match c {
-            PColor::Palette(n) => {
-                self.palettes[palette_index].get_color(n).map(|c| c.into())
-            }
+            PColor::Palette(n) => self.palettes[palette_index].get_color(n).map(|c| c.into()),
             PColor::Color(c) => Ok(c.into()),
         }
     }

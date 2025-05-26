@@ -260,7 +260,15 @@ pub(crate) fn plugin(app: &mut App) {
                 if world_guard.claim_global_access() {
                     let world = world_guard.as_unsafe_world_cell()?;
                     let world = unsafe { world.world_mut() };
-                    let r = Pico8::print_world(world, None, text.to_string(), pos, c, font_size, font_index);
+                    let r = Pico8::print_world(
+                        world,
+                        None,
+                        text.to_string(),
+                        pos,
+                        c,
+                        font_size,
+                        font_index,
+                    );
                     unsafe { world_guard.release_global_access() };
                     r.map_err(|e| InteropError::external_error(Box::new(e)))
                 } else {

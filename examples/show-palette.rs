@@ -62,8 +62,7 @@ fn main() -> io::Result<()> {
     let nano9_plugin = Nano9Plugin { config };
     app.add_systems(
         PostStartup,
-        move |asset_server: Res<AssetServer>,
-              mut commands: Commands | {
+        move |asset_server: Res<AssetServer>, mut commands: Commands| {
             let pico8_state: Handle<Pico8Asset> = asset_server.load("memory://Nano9.toml");
             commands.insert_resource(Pico8Handle(pico8_state));
         },

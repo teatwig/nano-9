@@ -2,10 +2,7 @@ use crate::{
     pico8::{image::pixel_art_settings, *},
     DrawState,
 };
-use bevy::asset::{
-    io::Reader,
-    AssetLoader, LoadContext,
-};
+use bevy::asset::{io::Reader, AssetLoader, LoadContext};
 
 use super::*;
 #[cfg(feature = "scripting")]
@@ -30,9 +27,7 @@ impl AssetLoader for P8AssetLoader {
         settings: &CartLoaderSettings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
-        let cart = P8CartLoader
-            .load(reader, settings, load_context)
-            .await?;
+        let cart = P8CartLoader.load(reader, settings, load_context).await?;
         std::fs::write("cart-loaded.lua", &cart.lua).unwrap();
         info!("WROTE LOADED CODE to cart-loaded.lua");
         to_asset(cart, load_context)
@@ -56,9 +51,7 @@ impl AssetLoader for PngAssetLoader {
         settings: &CartLoaderSettings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
-        let cart = PngCartLoader
-            .load(reader, settings, load_context)
-            .await?;
+        let cart = PngCartLoader.load(reader, settings, load_context).await?;
         to_asset(cart, load_context)
     }
 
@@ -94,10 +87,12 @@ fn to_asset(cart: Cart, load_context: &mut LoadContext) -> Result<Pico8Asset, Ca
     let asset = Pico8Asset {
         #[cfg(feature = "scripting")]
         code: if cfg!(feature = "scripting") {
-            Some(load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
-                content: code.into_bytes().into_boxed_slice(),
-                asset_path: code_path.into(),
-            }))
+            Some(
+                load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
+                    content: code.into_bytes().into_boxed_slice(),
+                    asset_path: code_path.into(),
+                }),
+            )
         } else {
             None
         },

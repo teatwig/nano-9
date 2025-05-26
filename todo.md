@@ -8,13 +8,14 @@
 - [x] Add sspr for character faces
 - [ ] Fix tiled import for lilly's house inside
 ## Nano-9
-- [ ] Load .p8 and .p8.png as a Pico8State instead of Cart.
+- [ ] try not to clone palettes (introduced during Pico8Asset refactor)
+- [ ] Add the ScriptComponent once
+- [x] Load .p8 and .p8.png as a Pico8Asset in addition to Cart.
 - [x] Remove error after reload
 - [ ] Make generic wrt palette bit-depth
 - [x] Allow multiple palettes
 - [ ] Check collisions example
 - [ ] make sprite flags generic
-- [ ] how to permit bitflags as property?
 - [x] add full screen key (alt-enter)
 - [x] scale image with window
 - [x] implement cls()

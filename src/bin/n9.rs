@@ -86,7 +86,7 @@ fn main() -> io::Result<ExitCode> {
             PostStartup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
                 let pico8_asset: Handle<Pico8Asset> = asset_server.load("nano9.toml");
-                commands.insert_resource(Pico8Handle(pico8_asset));
+                commands.insert_resource(Pico8Handle::from(pico8_asset));
             },
         );
         nano9_plugin = Nano9Plugin { config };
@@ -100,7 +100,7 @@ fn main() -> io::Result<ExitCode> {
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
                 let asset_path = AssetPath::from_path(&path).with_source(&pwd);
                 let pico8_asset: Handle<Pico8Asset> = asset_server.load(&asset_path);
-                commands.insert_resource(Pico8Handle(pico8_asset));
+                commands.insert_resource(Pico8Handle::from(pico8_asset));
             },
         );
         nano9_plugin = Nano9Plugin {
@@ -133,7 +133,7 @@ fn main() -> io::Result<ExitCode> {
                 //, script_settings: Res<ScriptAssetSettings>| {
                 let asset_path = AssetPath::from_path(&path).with_source(&source);
                 let pico8_asset = asset_server.load(&asset_path);
-                commands.insert_resource(Pico8Handle(pico8_asset));
+                commands.insert_resource(Pico8Handle::from(pico8_asset));
                 // XXX This is weird. Try to get rid of this whole system.
                 //
                 // let script_path = script_settings.script_id_mapper.map(pico8.state.code.path());
