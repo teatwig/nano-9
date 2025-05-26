@@ -1,3 +1,6 @@
+mod memory_dir;
+
+pub use memory_dir::*;
 #[cfg(feature = "level")]
 use crate::level::{self, asset::TiledSet, tiled::*};
 use crate::{
