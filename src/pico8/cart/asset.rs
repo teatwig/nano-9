@@ -7,7 +7,7 @@ use bevy::asset::{io::Reader, AssetLoader, LoadContext};
 use super::*;
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::asset::ScriptAsset;
-use std::{borrow::Cow, path::PathBuf};
+use std::{borrow::Cow, path::PathBuf, env};
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_asset_loader::<P8AssetLoader>()
@@ -28,8 +28,10 @@ impl AssetLoader for P8AssetLoader {
         load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let cart = P8CartLoader.load(reader, settings, load_context).await?;
-        std::fs::write("cart-loaded.lua", &cart.lua).unwrap();
-        info!("WROTE LOADED CODE to cart-loaded.lua");
+        if let Ok(filename) =  env::var("NANO9_LUA_CODE") {
+            std::fs::write(&filename, &cart.lua).expect("write NANO9_LUA_CODE");
+            info!("WROTE LOADED CODE to {:?}", filename);
+        }
         to_asset(cart, load_context)
     }
 
