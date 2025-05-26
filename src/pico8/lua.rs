@@ -93,7 +93,7 @@ pub(crate) fn plugin(app: &mut App) {
                 with_pico8(&ctx, |pico8| {
                     // We want to ignore out of bounds errors specifically but possibly not others.
                     // Ok(pico8.pset(x, y, color)?)
-                    let _ = pico8.pset(UVec2::new(x, y), color);
+                    let _ = pico8.pset(UVec2::new(x, y), color.unwrap_or(N9Color::Pen));
                     Ok(())
                 })
             },

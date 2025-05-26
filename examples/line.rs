@@ -11,39 +11,32 @@ use std::{io, path::Path};
 
 #[cfg(feature = "minibuffer")]
 use bevy_minibuffer::prelude::*;
-#[allow(dead_code)]
-#[derive(Resource)]
-struct InitState(Handle<Pico8State>);
-#[derive(Resource)]
-struct MemoryDir {
-    dir: Dir,
-}
 
 fn init(mut pico8: Pico8) {
     pico8.cls(Some(0)).unwrap();
+    pico8.color(Some(1)).unwrap();
 }
 
 fn update(mut pico8: Pico8, mut x: Local<u32>) {
+    // let _ = pico8.pset(UVec2::new(*x, *x), Some(1));
     let _ = pico8.pset(UVec2::new(*x, *x), None);
     *x += 1;
 }
 
 fn main() -> io::Result<()> {
     let mut app = App::new();
-    app.add_systems(Startup, init);
-    app.add_systems(Update, update);
+
+    app.add_systems(OnExit(RunState::Uninit), init);
+    app.add_systems(Update, update.run_if(in_state(RunState::Run)));
     // let config = Config::pico8();
     let config = Config::gameboy();
     {
         let config_string = toml::to_string(&config).unwrap();
-        let memory_dir = MemoryDir {
-            dir: Dir::default(),
-        };
+        let memory_dir = Dir::default();
         memory_dir
-            .dir
             .insert_asset(Path::new("Nano9.toml"), config_string.into_bytes());
         let reader = MemoryAssetReader {
-            root: memory_dir.dir.clone(),
+            root: memory_dir.clone(),
         };
         app.register_asset_source(
             AssetSourceId::from_static("memory"),
@@ -56,11 +49,12 @@ fn main() -> io::Result<()> {
         move |asset_server: Res<AssetServer>,
               mut commands: Commands,
               next_state: ResMut<NextState<RunState>>| {
-            let pico8_state: Handle<Pico8State> = asset_server.load("memory://Nano9.toml");
-            commands.insert_resource(InitState(pico8_state));
+            let pico8_asset: Handle<Pico8Asset> = asset_server.load("memory://Nano9.toml");
+            commands.insert_resource(Pico8Handle::from(pico8_asset));
         },
     )
-    .add_systems(PreUpdate, run_pico8_when_ready);
+    // .add_systems(PreUpdate, run_pico8_when_ready)
+        ;
     app.add_plugins(
         DefaultPlugins
             .set(AudioPlugin {

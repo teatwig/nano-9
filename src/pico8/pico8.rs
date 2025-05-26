@@ -674,8 +674,8 @@ impl Pico8<'_, '_> {
         Ok(())
     }
 
-    pub fn pset(&mut self, pos: UVec2, color: Option<N9Color>) -> Result<(), Error> {
-        let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
+    pub fn pset(&mut self, pos: UVec2, color: impl Into<N9Color>) -> Result<(), Error> {
+        let c = self.get_color(color.into())?;
         let image = self
             .images
             .get_mut(&self.canvas.handle)
@@ -701,16 +701,10 @@ impl Pico8<'_, '_> {
                 gfx.set(
                     pos.x as usize,
                     pos.y as usize,
-                    match color {
-                        N9Color::Palette(n) => Ok(n as u8),
-                        N9Color::Pen => match self.state.draw_state.pen {
-                            PColor::Palette(n) => Ok(n as u8),
-                            PColor::Color(_) => Err(Error::InvalidArgument(
-                                "Cannot write pen `Color` to Gfx asset".into(),
-                            )),
-                        },
-                        N9Color::Color(_) => Err(Error::InvalidArgument(
-                            "Cannot write arg `Color` to Gfx asset".into(),
+                    match color.into_pcolor(&self.state.draw_state.pen) {
+                        PColor::Palette(n) => Ok(n as u8),
+                        PColor::Color(_) => Err(Error::InvalidArgument(
+                            "Cannot write pen `Color` to Gfx asset".into(),
                         )),
                     }?,
                 );
@@ -1792,31 +1786,9 @@ impl Pico8<'_, '_> {
     }
 
     pub(crate) fn get_color(&self, c: impl Into<N9Color>) -> Result<Color, Error> {
-        match c.into() {
-            N9Color::Pen => match self.state.draw_state.pen {
-                PColor::Palette(n) => {
-                    self.palette(None)?.get_color(n).map(|c| c.into())
-                    // let pal = self
-                    //     .images
-                    //     .get(&self.state.palettes.handle)
-                    //     .ok_or(Error::NoAsset("palette".into()))?;
-
-                    // // Strangely. It's not a 1d texture.
-                    // Ok(pal.get_color_at(n as u32, self.state.palettes.row)?)
-                }
-                PColor::Color(c) => Ok(c.into()),
-            },
-            N9Color::Palette(n) => {
-                self.palette(None)?.get_color(n).map(|c| c.into())
-                // let pal = self
-                //     .images
-                //     .get(&self.state.palettes.handle)
-                //     .ok_or(Error::NoAsset("palette".into()))?;
-
-                // // Strangely. It's not a 1d texture.
-                // Ok(pal.get_color_at(n as u32, self.state.palettes.row)?)
-            }
-            N9Color::Color(c) => Ok(c.into()),
+        match c.into().into_pcolor(&self.state.draw_state.pen) {
+            PColor::Palette(n) => self.palette(None)?.get_color(n).map(|c| c.into()),
+            PColor::Color(c) => Ok(c.into()),
         }
     }
 }

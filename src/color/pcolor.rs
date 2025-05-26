@@ -96,6 +96,12 @@ impl From<Color> for PColor {
     }
 }
 
+impl From<LinearRgba> for PColor {
+    fn from(c: LinearRgba) -> Self {
+        PColor::Color(c)
+    }
+}
+
 impl From<usize> for PColor {
     fn from(n: usize) -> Self {
         PColor::Palette(n)
