@@ -6,7 +6,7 @@ use bevy::{
     audio::AudioPlugin,
     prelude::*,
 };
-use nano9::{config::Config, error::RunState, pico8::*, *};
+use nano9::{config::{run_pico8_when_loaded, Config}, error::RunState, pico8::*, *};
 use std::{io, path::Path};
 
 #[cfg(feature = "minibuffer")]
@@ -18,8 +18,8 @@ fn init(mut pico8: Pico8) {
 }
 
 fn update(mut pico8: Pico8, mut x: Local<u32>) {
-    // let _ = pico8.pset(UVec2::new(*x, *x), Some(1));
-    let _ = pico8.pset(UVec2::new(*x, *x), None);
+    let _ = pico8.pset(UVec2::new(*x, *x), Some(2));
+    // let _ = pico8.pset(UVec2::new(*x, *x), None);
     *x += 1;
 }
 
@@ -53,7 +53,7 @@ fn main() -> io::Result<()> {
             commands.insert_resource(Pico8Handle::from(pico8_asset));
         },
     )
-    // .add_systems(PreUpdate, run_pico8_when_ready)
+    .add_systems(PreUpdate, run_pico8_when_loaded)
         ;
     app.add_plugins(
         DefaultPlugins

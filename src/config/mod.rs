@@ -405,6 +405,7 @@ pub fn update_asset(
     mut next_state: ResMut<NextState<RunState>>,
     mut pico8_state: ResMut<Pico8State>,
     mut pico8_handle: Option<ResMut<Pico8Handle>>,
+    #[cfg(feature = "scripting")]
     mut commands: Commands,
     #[cfg(feature = "scripting")] script_settings: Res<ScriptAssetSettings>,
 ) {
@@ -430,8 +431,8 @@ pub fn update_asset(
                             }
                         }
                     }
-                    info!("Goto run state");
-                    next_state.set(RunState::Run);
+                    info!("Goto Loaded state");
+                    next_state.set(RunState::Loaded);
                 } else {
                     error!("Pico8Asset not available.");
                 }
@@ -439,6 +440,18 @@ pub fn update_asset(
                 warn!("Script loaded but no Pico8Handle is loaded.");
             }
         }
+    }
+}
+
+pub fn run_pico8_when_loaded(state: Res<State<RunState>>, mut next_state: ResMut<NextState<RunState>>) {
+    match **state {
+        RunState::Loaded => {
+            next_state.set(RunState::Init);
+        }
+        RunState::Init => {
+            next_state.set(RunState::Run);
+        }
+        _ => ()
     }
 }
 

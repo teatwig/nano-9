@@ -27,6 +27,8 @@ const LEFT_PADDING: Val = Val::Px(10.);
 pub enum RunState {
     #[default]
     Uninit,
+    Loaded,
+    Init,
     Run,
     Pause,
     /// Error messages
