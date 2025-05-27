@@ -5,10 +5,10 @@
 - [x] Add pause or other state to stop Lua evaluation
       Can't use inspector while it's churning.
 - [ ] Add front matter to .n9 file which is .toml followed by .lua
-- [x] Add sspr for character faces
 - [ ] Fix tiled import for lilly's house inside
 ## Nano-9
 - [ ] try not to clone palettes (introduced during Pico8Asset refactor)
+      Extract palettes to GfxHandler?
 - [x] Add the ScriptComponent once
 - [x] Load .p8 and .p8.png as a Pico8Asset in addition to Cart.
 - [x] Remove error after reload

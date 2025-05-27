@@ -58,7 +58,7 @@ print(str, [x,] [y,] [col])
 Nano-9's is the same with two additional arguments: a font size to change the font's size. And a font index to select which font from the "Nano-9.toml" config file to use.
 
 ```lua
-print(str, [x,] [y,] [col,] *[font_size,] [font_index]*)
+print(str, [x,] [y,] [col,] [font_size,] [font_index])
 ```
 
 The rest of the extensions are indicated in italics in the [compatibility](compat.md) document.
