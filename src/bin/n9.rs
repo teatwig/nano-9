@@ -57,6 +57,8 @@ fn main() -> io::Result<ExitCode> {
     builder.watcher = None;
     builder.processed_watcher = None;
 
+    #[cfg(feature = "web")]
+    app.add_plugins(bevy_web_asset::WebAssetPlugin::default());
     app.register_asset_source(&pwd, builder);
     let source = AssetSourceId::Default;
     let nano9_plugin;
@@ -149,7 +151,6 @@ fn main() -> io::Result<ExitCode> {
 
         return Ok(ExitCode::from(1));
     }
-
     app.add_plugins(
         DefaultPlugins
             .set(AudioPlugin {
