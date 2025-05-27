@@ -1,6 +1,7 @@
 mod memory_dir;
 
 pub use memory_dir::*;
+pub mod front_matter;
 #[cfg(feature = "level")]
 use crate::level::{self, asset::TiledSet, tiled::*};
 use crate::{
