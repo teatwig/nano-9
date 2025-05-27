@@ -106,8 +106,7 @@ fn main() -> io::Result<ExitCode> {
         };
     } else if script_path.extension() == Some(OsStr::new("lua")) {
         eprintln!("loading lua");
-        let path = script_path.clone();
-        let asset_path = AssetPath::from_path(&path).with_source(&source);
+        let mut path = script_path.clone();
         if let Some(parent) = path
             .parent()
             .map(Cow::Borrowed)
@@ -115,33 +114,36 @@ fn main() -> io::Result<ExitCode> {
         {
             app.register_asset_source(
                 &source,
-                AssetSourceBuilder::platform_default(parent.to_str().expect("parent dir"), None),
+                AssetSourceBuilder::platform_default(dbg!(parent.to_str().expect("parent dir")), None),
             );
+
+            path = path.file_name().expect("file_name").into();
         }
-        nano9_plugin = Nano9Plugin {
-            config: Config {
+        let asset_path = dbg!(AssetPath::from_path(&path).with_source(&source));
+        let config = Config {
                 code: Some(asset_path.to_string().into()),
                 ..Config::default()
-            }
-            .with_default_font(),
-        };
+            }.with_default_font();
+        nano9_plugin = Nano9Plugin { config };
         app.add_systems(
             Startup,
-            move |asset_server: Res<AssetServer>, mut commands: Commands, mut pico8: Pico8| {
+            move |asset_server: Res<AssetServer>, mut commands: Commands| {
                 //, script_settings: Res<ScriptAssetSettings>| {
                 let asset_path = AssetPath::from_path(&path).with_source(&source);
+                warn!("asset_path {:?}", &asset_path);
                 let pico8_asset = asset_server.load(&asset_path);
                 commands.insert_resource(Pico8Handle::from(pico8_asset));
+
                 // XXX This is weird. Try to get rid of this whole system.
                 //
                 // let script_path = script_settings.script_id_mapper.map(pico8.state.code.path());
                 // commands.spawn(ScriptComponent(vec![asset_path.to_string().into()]));
-                commands.spawn(ScriptComponent(vec![asset_path
-                    .path()
-                    .to_str()
-                    .unwrap()
-                    .to_string()
-                    .into()]));
+                // commands.spawn(ScriptComponent(vec![asset_path
+                //     .path()
+                //     .to_str()
+                //     .unwrap()
+                //     .to_string()
+                //     .into()]));
             },
         );
     } else {
