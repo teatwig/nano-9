@@ -11,7 +11,7 @@ use bevy::{
 #[cfg(feature = "minibuffer")]
 use bevy_minibuffer::prelude::*;
 use bevy_mod_scripting::core::script::ScriptComponent;
-use nano9::{config::{Config, run_pico8_when_loaded}, pico8::*, *};
+use nano9::{config::{Config, front_matter, run_pico8_when_loaded}, pico8::*, *};
 use std::{borrow::Cow, env, ffi::OsStr, fs, io, path::PathBuf, process::ExitCode};
 
 fn usage(mut output: impl io::Write) -> io::Result<()> {
@@ -69,9 +69,11 @@ fn main() -> io::Result<ExitCode> {
                 AssetSourceBuilder::platform_default(parent.to_str().expect("parent dir"), None),
             );
         }
-        // Get rid of this.
+        // OLD SHANE: Get rid of this.
+        //
+        // NEW SHANE: No. We use part of Config to configure the App and can't
+        // do that at load time.
         let content = fs::read_to_string(path)?;
-
         let mut config: Config = toml::from_str::<Config>(&content)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
 
@@ -120,30 +122,26 @@ fn main() -> io::Result<ExitCode> {
             path = path.file_name().expect("file_name").into();
         }
         let asset_path = dbg!(AssetPath::from_path(&path).with_source(&source));
-        let config = Config {
-                code: Some(asset_path.to_string().into()),
-                ..Config::default()
-            }.with_default_font();
+        let mut content = fs::read_to_string(script_path)?;
+
+        let config = if let Some(front_matter) = front_matter::parse_in_place(&mut content) {
+            let mut config: Config = toml::from_str::<Config>(&front_matter)
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
+            if let Some(template) = config.template.take() {
+                config.inject_template(&template)
+                      .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
+            }
+            config
+        } else {
+            Config::pico8()
+        };
         nano9_plugin = Nano9Plugin { config };
         app.add_systems(
             Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
-                //, script_settings: Res<ScriptAssetSettings>| {
                 let asset_path = AssetPath::from_path(&path).with_source(&source);
-                warn!("asset_path {:?}", &asset_path);
                 let pico8_asset = asset_server.load(&asset_path);
                 commands.insert_resource(Pico8Handle::from(pico8_asset));
-
-                // XXX This is weird. Try to get rid of this whole system.
-                //
-                // let script_path = script_settings.script_id_mapper.map(pico8.state.code.path());
-                // commands.spawn(ScriptComponent(vec![asset_path.to_string().into()]));
-                // commands.spawn(ScriptComponent(vec![asset_path
-                //     .path()
-                //     .to_str()
-                //     .unwrap()
-                //     .to_string()
-                //     .into()]));
             },
         );
     } else {
