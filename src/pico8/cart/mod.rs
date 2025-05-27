@@ -6,7 +6,7 @@ use bevy::asset::{
 use bitvec::prelude::*;
 use pico8_decompress::{decompress, extract_bits_from_png};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{borrow::Cow, path::PathBuf};
 
 mod asset;
 
@@ -319,60 +319,8 @@ impl AssetLoader for P8CartLoader {
         let content = String::from_utf8(bytes)?;
         let mut parts = Cart::from_str(&content, settings)?;
         #[cfg(feature = "pico8-to-lua")]
-        {
-            let mut include_paths = vec![];
-            // Patch the includes.
-            let mut include_patch = pico8_to_lua::patch_includes(&parts.lua, |path| {
-                include_paths.push(path.to_string());
-                "".into()
-            });
-            let has_includes = !include_paths.is_empty();
-            if has_includes {
-                // There are included files, let's read them all then add them.
-                let mut path_contents = std::collections::HashMap::new();
-                for path in include_paths.into_iter() {
-                    let mut cart_path: PathBuf = load_context.path().to_owned();
-                    cart_path.pop();
-                    cart_path.push(&path);
-                    dbg!(&cart_path);
-                    let source: AssetSourceId<'static> =
-                        load_context.asset_path().source().clone_owned();
-                    let extension = cart_path.extension().and_then(|s| s.to_str()).unwrap_or("");
-                    match extension {
-                        "p8" | "png" => {
-                            let include_path = AssetPath::from(cart_path).with_source(source);
-                            let cart = load_context
-                                .loader()
-                                .immediate()
-                                .load::<Cart>(include_path)
-                                .await?;
-                            path_contents.insert(path, cart.take().lua);
-                        }
-                        "lua" => {
-                            // Lua or some other code.
-                            let include_path = AssetPath::from(cart_path).with_source(source);
-                            let contents = load_context.read_asset_bytes(&include_path).await?;
-                            path_contents.insert(path, String::from_utf8(contents)?);
-                        }
-                        ext => {
-                            warn!(
-                                "Extension {} not supported. Cannot include {:?}.",
-                                ext, &cart_path
-                            );
-                            path_contents.insert(path, "error(\"Cannot include file\")".into());
-                        }
-                    }
-                }
-
-                include_patch = pico8_to_lua::patch_includes(&parts.lua, |path| {
-                    path_contents.remove(path).unwrap()
-                });
-            }
-            // Patch the code.
-            let result = pico8_to_lua::patch_lua(include_patch);
-            if has_includes || pico8_to_lua::was_patched(&result) {
-                parts.lua = result.to_string();
-            }
+        if let Some(patched_code) = translate_pico8_to_lua(&parts.lua, load_context).await? {
+            parts.lua = patched_code;
         }
         Ok(parts)
     }
@@ -380,6 +328,63 @@ impl AssetLoader for P8CartLoader {
     fn extensions(&self) -> &[&str] {
         &["p8"]
     }
+}
+
+/// Convert Pico-8 dialect to Lua.
+#[cfg(feature = "pico8-to-lua")]
+pub(crate) async fn translate_pico8_to_lua<'a>(lua: &'a str, load_context: &mut LoadContext<'_>) -> Result<Option<String>, CartLoaderError> {
+    // Patch the includes.
+    let include_paths: Vec<String> = pico8_to_lua::find_includes(&lua).collect();            let has_includes = !include_paths.is_empty();
+    let has_includes = !include_paths.is_empty();
+    let mut include_patch: Cow<'_, str> = Cow::Borrowed(&lua);
+    if has_includes {
+        // There are included files, let's read them all then add them.
+        let mut path_contents = std::collections::HashMap::new();
+        for path in include_paths.into_iter() {
+            let mut cart_path: PathBuf = load_context.path().to_owned();
+            cart_path.pop();
+            cart_path.push(&path);
+            dbg!(&cart_path);
+            let source: AssetSourceId<'static> =
+                load_context.asset_path().source().clone_owned();
+            let extension = cart_path.extension().and_then(|s| s.to_str()).unwrap_or("");
+            match extension {
+                "p8" | "png" => {
+                    let include_path = AssetPath::from(cart_path).with_source(source);
+                    let cart = load_context
+                        .loader()
+                        .immediate()
+                        .load::<Cart>(include_path)
+                        .await?;
+                    path_contents.insert(path, cart.take().lua);
+                }
+                "lua" => {
+                    // Lua or some other code.
+                    let include_path = AssetPath::from(cart_path).with_source(source);
+                    let contents = load_context.read_asset_bytes(&include_path).await?;
+                    path_contents.insert(path, String::from_utf8(contents)?);
+                }
+                ext => {
+                    warn!(
+                        "Extension {} not supported. Cannot include {:?}.",
+                        ext, &cart_path
+                    );
+                    path_contents.insert(path, "error(\"Cannot include file\")".into());
+                }
+            }
+        }
+
+        include_patch = pico8_to_lua::patch_includes(lua, |path| {
+            path_contents.remove(path).unwrap()
+        });
+    }
+    // Patch the code.
+    let result = pico8_to_lua::patch_lua(include_patch);
+    Ok(if has_includes || pico8_to_lua::was_patched(&result) {
+        Some(result.to_string())
+    } else {
+        None
+    })
 }
 
 #[derive(Default)]

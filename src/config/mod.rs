@@ -28,8 +28,8 @@ pub(crate) fn plugin(app: &mut App) {
     app
         // .register_type::<AudioBank>()
         // .register_type::<SpriteSheet>()
-        .init_asset_loader::<ConfigLoader>()
-        .add_systems(Update, update_asset);
+        .add_systems(Update, update_asset)
+        .add_plugins(loader::plugin);
 }
 
 #[derive(Default, Debug, Clone, Deserialize, Serialize)]

@@ -1853,7 +1853,9 @@ impl FromWorld for Pico8State {
             pal_map: PalMap::default(),
             draw_state: {
                 let mut draw_state = DrawState::default();
-                draw_state.pen = PColor::Palette(6);
+                // Need to set defaults somewhere.
+                // draw_state.pen = PColor::Palette(6);
+                draw_state.pen = PColor::Palette(1);
                 draw_state
             },
         }
