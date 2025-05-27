@@ -12,6 +12,10 @@ use bevy::{
 /// It is not actually Nano-9 specific.
 ///
 /// ```
+/// use bevy::prelude::*;
+/// use nano9::{config::{Config, MemoryDir}, pico8::{Pico8Asset, Pico8Handle}};
+/// use std::path::Path;
+///
 /// fn plugin(app: &mut App) {
 ///     let config = Config::gameboy();
 ///     // Make our config readable by the Bevy AssetServer.
