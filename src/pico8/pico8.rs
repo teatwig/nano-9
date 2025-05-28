@@ -113,6 +113,7 @@ impl FromScript for Spr {
         _world: WorldAccessGuard<'_>,
     ) -> Result<Self::This<'_>, InteropError> {
         match value {
+            ScriptValue::Float(f) => Ok(Spr::Cur { sprite: f as usize }),
             ScriptValue::Integer(n) => Ok(if n >= 0 {
                 Spr::Cur { sprite: n as usize }
             } else {
@@ -154,6 +155,12 @@ impl From<i64> for Spr {
 impl From<usize> for Spr {
     fn from(sprite: usize) -> Self {
         Spr::Cur { sprite }
+    }
+}
+
+impl From<i32> for Spr {
+    fn from(sprite: i32) -> Self {
+        Spr::Cur { sprite: sprite as usize }
     }
 }
 

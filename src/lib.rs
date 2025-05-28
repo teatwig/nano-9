@@ -13,6 +13,8 @@ pub mod pico8;
 mod plugin;
 #[cfg(feature = "scripting")]
 mod var;
+mod plugins;
+pub mod prelude;
 
 pub use color::*;
 #[cfg(feature = "scripting")]
@@ -26,6 +28,7 @@ pub mod config;
 pub mod conversions;
 pub mod cursor;
 pub mod raycast;
+pub use plugins::*;
 
 pub(crate) fn plugin(app: &mut App) {
     // Add other plugins.

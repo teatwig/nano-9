@@ -56,6 +56,12 @@ pub struct Config {
     pub maps: Vec<Map>,
 }
 
+#[derive(Default, Debug, Clone, Deserialize, Serialize)]
+pub struct Defaults {
+    pub pen_color: Option<usize>,
+    pub font_size: Option<f32>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum AudioBank {
@@ -78,9 +84,9 @@ pub struct Screen {
 //     Tiled { path: PathBuf },
 // }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct SpriteSheet {
-    pub path: PathBuf,
+    pub path: String,
     pub sprite_size: Option<UVec2>,
     pub sprite_counts: Option<UVec2>,
     pub padding: Option<UVec2>,
@@ -147,7 +153,7 @@ pub fn update_asset(
                     info!("Goto Loaded state");
                     next_state.set(RunState::Loaded);
                 } else {
-                    error!("Pico8Asset not available.");
+                    error!("Pico8Asset not available for loaded {:?}.", id);
                 }
             } else {
                 warn!("Script loaded but no Pico8Handle is loaded.");
@@ -277,7 +283,7 @@ sprite_size = [8, 8]
         )
         .unwrap();
         assert_eq!(config.sprite_sheets.len(), 1);
-        assert_eq!(config.sprite_sheets[0].path, Path::new("sprites.png"));
+        assert_eq!(config.sprite_sheets[0].path, "sprites.png");
         assert_eq!(config.sprite_sheets[0].sprite_size, Some(UVec2::splat(8)));
     }
 
@@ -316,7 +322,7 @@ sprite_size = [8, 8]
             Some(UVec2::splat(128))
         );
         assert_eq!(config.sprite_sheets.len(), 1);
-        assert_eq!(config.sprite_sheets[0].path, Path::new("sprites.png"));
+        assert_eq!(config.sprite_sheets[0].path, "sprites.png");
         assert_eq!(config.sprite_sheets[0].sprite_size, Some(UVec2::splat(8)));
     }
 

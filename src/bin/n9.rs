@@ -53,12 +53,11 @@ fn main() -> io::Result<ExitCode> {
     let mut app = App::new();
     let pwd = AssetSourceId::Name("pwd".into());
     let mut builder =
-        AssetSourceBuilder::platform_default(env::current_dir()?.to_str().expect("pwd dir"), None);
+        AssetSourceBuilder::platform_default(dbg!(env::current_dir()?.to_str().expect("pwd dir")), None);
+        // AssetSourceBuilder::platform_default(".", None);
     builder.watcher = None;
     builder.processed_watcher = None;
 
-    #[cfg(feature = "web")]
-    app.add_plugins(bevy_web_asset::WebAssetPlugin::default());
     app.register_asset_source(&pwd, builder);
     let source = AssetSourceId::Default;
     let nano9_plugin;
@@ -116,17 +115,17 @@ fn main() -> io::Result<ExitCode> {
             .map(Cow::Borrowed)
             .or_else(|| env::current_dir().ok().map(Cow::Owned))
         {
-            app.register_asset_source(
-                &source,
-                AssetSourceBuilder::platform_default(dbg!(parent.to_str().expect("parent dir")), None),
-            );
+            // app.register_asset_source(
+            //     &source,
+            //     AssetSourceBuilder::platform_default(dbg!(parent.to_str().expect("parent dir")), None),
+            // );
 
-            path = path.file_name().expect("file_name").into();
+            // path = path.file_name().expect("file_name").into();
         }
         let asset_path = dbg!(AssetPath::from_path(&path).with_source(&source));
         let mut content = fs::read_to_string(script_path)?;
 
-        let config = if let Some(front_matter) = front_matter::parse_in_place(&mut content) {
+        let mut config = if let Some(front_matter) = front_matter::parse_in_place(&mut content) {
             let mut config: Config = toml::from_str::<Config>(&front_matter)
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
             if let Some(template) = config.template.take() {
@@ -137,11 +136,12 @@ fn main() -> io::Result<ExitCode> {
         } else {
             Config::pico8()
         };
+        // config.code = Some(AssetPath::from_path(&path).with_source(&pwd));
         nano9_plugin = Nano9Plugin { config };
         app.add_systems(
             Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
-                let asset_path = AssetPath::from_path(&path).with_source(&source);
+                let asset_path = AssetPath::from_path(&path).with_source(&pwd);
                 let pico8_asset = asset_server.load(&asset_path);
                 commands.insert_resource(Pico8Handle::from(pico8_asset));
             },
@@ -151,15 +151,10 @@ fn main() -> io::Result<ExitCode> {
 
         return Ok(ExitCode::from(1));
     }
+
     app.add_plugins(
-        DefaultPlugins
-            .set(AudioPlugin {
-                global_volume: GlobalVolume::new(0.4),
-                ..default()
-            })
-            .set(nano9_plugin.window_plugin()),
+        Nano9Plugins { config: nano9_plugin.config }
     )
-    .add_plugins(nano9_plugin)
     .add_plugins(FpsOverlayPlugin {
         config: FpsOverlayConfig {
             text_config: TextFont {

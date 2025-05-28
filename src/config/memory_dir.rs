@@ -34,7 +34,7 @@ use bevy::{
 ///         });
 /// }
 /// ```
-#[derive(Debug, Deref, DerefMut)]
+#[derive(Debug, Deref, DerefMut, Resource, Clone)]
 pub struct MemoryDir {
     /// The name of the asset source
     ///
@@ -53,6 +53,17 @@ impl Default for MemoryDir {
     }
 }
 
+
+impl MemoryDir {
+    pub fn new(source_name: &'static str) -> MemoryDir {
+        Self {
+            source: source_name,
+            dir: Dir::default()
+        }
+    }
+
+}
+
 impl Plugin for MemoryDir {
     fn build(&self, app: &mut App) {
         let reader = MemoryAssetReader {
@@ -62,5 +73,6 @@ impl Plugin for MemoryDir {
             AssetSourceId::from_static(self.source),
             AssetSource::build().with_reader(move || Box::new(reader.clone())),
         );
+        app.insert_resource(self.clone());
     }
 }

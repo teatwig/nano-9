@@ -29,8 +29,7 @@ use bevy_mod_scripting::{
 use crate::{
     config::*,
     error::RunState,
-    pico8::FillPat,
-    pico8::{fill_input, Pico8State},
+    pico8::{FillPat,fill_input, Pico8State, Pico8Asset, Pico8Handle},
     PColor,
 };
 
@@ -382,6 +381,28 @@ impl Plugin for Nano9Plugin {
             .map(|s| s.canvas_size)
             .unwrap_or(DEFAULT_CANVAS_SIZE);
 
+        {
+            // Make our config readable by the Bevy AssetServer.
+            //
+            // I kind of hate this because we have to serialize just to
+            // deserialize.
+            let config_string = toml::to_string(&self.config).unwrap();
+            if let Some(memory_dir) = app.world_mut().get_resource_mut::<MemoryDir>() {
+                memory_dir
+                    .insert_asset(std::path::Path::new("Nano9.toml"), config_string.into_bytes());
+                app
+                    .add_systems(
+                        Startup,
+                        |asset_server: Res<AssetServer>,
+                        mut commands: Commands| {
+                            let pico8_asset: Handle<Pico8Asset> = asset_server.load("n9mem://Nano9.toml");
+                            commands.insert_resource(Pico8Handle::from(pico8_asset));
+                        });
+            } else {
+                warn!("No 'n9mem://' asset source configured.");
+            }
+        }
+
         #[cfg(feature = "scripting")]
         {
             let mut lua_scripting_plugin = LuaScriptingPlugin::default().enable_context_sharing();
@@ -477,6 +498,7 @@ impl Plugin for Nano9Plugin {
             app.add_systems(Update, sync_window_size)
                 .add_systems(Update, fullscreen_key);
         }
+
     }
 }
 
@@ -491,7 +513,7 @@ pub fn init_when<T: Asset>(
           state: Res<State<RunState>>| {
         let asset_just_changed = reader
             .read()
-            .inspect(|e| info!("asset event {e:?}"))
+            // .inspect(|e| info!("asset event {e:?}"))
             .any(|e| matches!(e, AssetEvent::Added { .. } | AssetEvent::Modified { .. }));
         match **state {
             RunState::Run => {
@@ -516,7 +538,7 @@ pub fn on_asset_change<T: Asset>() -> impl FnMut(EventReader<AssetEvent<T>>) -> 
     move |mut reader: EventReader<AssetEvent<T>>| {
         reader
             .read()
-            .inspect(|e| info!("asset event {e:?}"))
+            // .inspect(|e| info!("asset event {e:?}"))
             .any(|e| {
                 matches!(
                     e, //AssetEvent::LoadedWithDependencies { .. } |
