@@ -665,7 +665,7 @@ impl Pico8<'_, '_> {
     }
 
     // cls([n])
-    pub fn cls(&mut self, color: Option<impl Into<PColor>>) -> Result<(), Error> {
+    pub fn cls(&mut self, color: Option<impl Into<N9Color>>) -> Result<(), Error> {
         trace!("cls");
         let c = self.get_color(color.map(|x| x.into()).unwrap_or(Color::BLACK.into()))?;
         self.state.draw_state.clear_screen();

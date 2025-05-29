@@ -108,6 +108,12 @@ impl From<usize> for PColor {
     }
 }
 
+impl From<i32> for PColor {
+    fn from(n: i32) -> Self {
+        PColor::Palette(n as usize)
+    }
+}
+
 #[cfg(feature = "scripting")]
 impl FromLua for PColor {
     fn from_lua(value: Value, _: &Lua) -> mlua::Result<Self> {
