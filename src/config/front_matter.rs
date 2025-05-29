@@ -23,7 +23,7 @@ pub const PLUS: FrontMatter = FrontMatter {
 
 pub const LUA: FrontMatter = FrontMatter {
     header: "--[===[\n",
-    footer: "\n--]===]\n",
+    footer: "\n]===]\n",
 };
 
 impl FrontMatter {
@@ -131,7 +131,7 @@ This is the body.";
 --[===[
 title: Test
 date: 2025-05-27
---]===]
+]===]
 # Content
 This is the body.";
         let (fm, body) = LUA.parse(input);

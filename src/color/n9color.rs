@@ -1,8 +1,7 @@
 use super::PColor;
 use bevy::prelude::*;
-use std::{any::TypeId, sync::Arc};
+use std::{any::TypeId};
 
-use crate::ValueExt;
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::{
     core::docgen::typed_through::{ThroughTypeInfo, TypedThrough},

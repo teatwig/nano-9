@@ -104,7 +104,7 @@ impl AssetLoader for LuaLoader {
         let _ = reader.read_to_end(&mut bytes).await?;
         let mut content = String::from_utf8(bytes)?;
 
-        let config = if let Some(front_matter) = front_matter::parse_in_place(&mut content) {
+        let config = if let Some(front_matter) = front_matter::LUA.parse_in_place(&mut content) {
             let mut config: Config = toml::from_str::<Config>(&front_matter)
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
             if let Some(template) = config.template.take() {
@@ -119,7 +119,7 @@ impl AssetLoader for LuaLoader {
 
         let code_path: PathBuf = load_context.path().into();
         let code = content;
-        asset.code = Some(load_context.labeled_asset_scope("lua".into(), move |_load_context| ScriptAsset {
+        asset.code = Some(load_context.add_labeled_asset("lua".into(), ScriptAsset {
             content: code.into_bytes().into_boxed_slice(),
             asset_path: code_path.into(),
         }));

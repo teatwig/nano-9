@@ -51,14 +51,14 @@ fn main() -> io::Result<ExitCode> {
         path
     };
     let mut app = App::new();
-    let pwd = AssetSourceId::Name("pwd".into());
+    let cwd = AssetSourceId::Name("cwd".into());
     let mut builder =
-        AssetSourceBuilder::platform_default(dbg!(env::current_dir()?.to_str().expect("pwd dir")), None);
+        AssetSourceBuilder::platform_default(dbg!(env::current_dir()?.to_str().expect("current dir")), None);
         // AssetSourceBuilder::platform_default(".", None);
     builder.watcher = None;
     builder.processed_watcher = None;
 
-    app.register_asset_source(&pwd, builder);
+    app.register_asset_source(&cwd, builder);
     let source = AssetSourceId::Default;
     let nano9_plugin;
     if script_path.extension() == Some(OsStr::new("toml")) {
@@ -84,48 +84,35 @@ fn main() -> io::Result<ExitCode> {
                 return Ok(ExitCode::from(2));
             }
         }
-        app.add_systems(
-            Startup,
-            move |asset_server: Res<AssetServer>, mut commands: Commands| {
-                let pico8_asset: Handle<Pico8Asset> = asset_server.load("nano9.toml");
-                commands.insert_resource(Pico8Handle::from(pico8_asset));
-            });
         nano9_plugin = Nano9Plugin { config };
     } else if script_path.extension() == Some(OsStr::new("p8"))
         || script_path.extension() == Some(OsStr::new("png"))
     {
         eprintln!("loading cart");
+        let mut config = Config::pico8();
+
+        let asset_path = AssetPath::from_path(&script_path).with_source(&cwd);
+        config.code = Some(asset_path.to_string());
         let path = script_path.clone();
         app.add_systems(
             Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
-                let asset_path = AssetPath::from_path(&path).with_source(&pwd);
-                let pico8_asset: Handle<Pico8Asset> = asset_server.load(&asset_path);
-                commands.insert_resource(Pico8Handle::from(pico8_asset));
+                let asset_path = AssetPath::from_path(&path).with_source(&cwd);
+                // let pico8_asset: Handle<Pico8Asset> = asset_server.load(&asset_path);
+                // commands.insert_resource(Pico8Handle::from(pico8_asset));
+                let cart_image: Handle<Image> = asset_server.load(&asset_path);
+                commands.spawn(Sprite::from(cart_image));
             },
         );
         nano9_plugin = Nano9Plugin {
-            config: Config::pico8(),
+            config,
         };
-    } else if script_path.extension() == Some(OsStr::new("lua")) {
+    } else if script_path.extension() == Some(OsStr::new("lua"))
+    {
         eprintln!("loading lua");
-        let mut path = script_path.clone();
-        if let Some(parent) = path
-            .parent()
-            .map(Cow::Borrowed)
-            .or_else(|| env::current_dir().ok().map(Cow::Owned))
-        {
-            // app.register_asset_source(
-            //     &source,
-            //     AssetSourceBuilder::platform_default(dbg!(parent.to_str().expect("parent dir")), None),
-            // );
+        let mut content = fs::read_to_string(&script_path)?;
 
-            // path = path.file_name().expect("file_name").into();
-        }
-        let asset_path = dbg!(AssetPath::from_path(&path).with_source(&source));
-        let mut content = fs::read_to_string(script_path)?;
-
-        let mut config = if let Some(front_matter) = front_matter::parse_in_place(&mut content) {
+        let mut config = if let Some(front_matter) = front_matter::LUA.parse_in_place(&mut content) {
             let mut config: Config = toml::from_str::<Config>(&front_matter)
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
             if let Some(template) = config.template.take() {
@@ -136,17 +123,8 @@ fn main() -> io::Result<ExitCode> {
         } else {
             Config::pico8()
         };
-        // config.code = Some(AssetPath::from_path(&path).with_source(&pwd).with_label("lua").to_string());
-        config.code = Some(format!("pwd://{}#lua", &path.display()));
+        config.code = Some(AssetPath::from_path(&script_path).with_source(&cwd).to_string());
         nano9_plugin = Nano9Plugin { config };
-        // app.add_systems(
-        //     Startup,
-        //     move |asset_server: Res<AssetServer>, mut commands: Commands| {
-        //         let asset_path = AssetPath::from_path(&path).with_source(&pwd);
-        //         let pico8_asset = asset_server.load(&asset_path);
-        //         commands.insert_resource(Pico8Handle::from(pico8_asset));
-        //     },
-        // );
     } else {
         eprintln!("Only accepts .p8, .lua, and .toml files.");
 

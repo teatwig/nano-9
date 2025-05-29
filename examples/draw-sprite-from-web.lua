@@ -1,9 +1,9 @@
-===
+--[===[
 template = "pico8"
 [[image]]
 path = "BirdSprite.png"
 sprite_size = [16, 16]
-===
+]===]
 function _init()
     color(6)
     print("hello")
