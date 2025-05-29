@@ -32,6 +32,12 @@ pub(crate) fn plugin(app: &mut App) {
         .add_plugins(loader::plugin);
 }
 
+// #[derive(Default, Debug, Clone, Deserialize, Serialize)]
+// pub enum Code {
+//     Path(String),
+//     Content(String),
+// }
+
 #[derive(Default, Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
     pub name: Option<String>,
@@ -49,7 +55,7 @@ pub struct Config {
     #[serde(default, rename = "image")]
     pub sprite_sheets: Vec<SpriteSheet>,
     #[cfg(feature = "scripting")]
-    pub code: Option<PathBuf>,
+    pub code: Option<String>,
     #[serde(default, rename = "audio_bank")]
     pub audio_banks: Vec<AudioBank>,
     #[serde(default, rename = "map")]

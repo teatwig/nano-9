@@ -136,16 +136,17 @@ fn main() -> io::Result<ExitCode> {
         } else {
             Config::pico8()
         };
-        // config.code = Some(AssetPath::from_path(&path).with_source(&pwd));
+        // config.code = Some(AssetPath::from_path(&path).with_source(&pwd).with_label("lua").to_string());
+        config.code = Some(format!("pwd://{}#lua", &path.display()));
         nano9_plugin = Nano9Plugin { config };
-        app.add_systems(
-            Startup,
-            move |asset_server: Res<AssetServer>, mut commands: Commands| {
-                let asset_path = AssetPath::from_path(&path).with_source(&pwd);
-                let pico8_asset = asset_server.load(&asset_path);
-                commands.insert_resource(Pico8Handle::from(pico8_asset));
-            },
-        );
+        // app.add_systems(
+        //     Startup,
+        //     move |asset_server: Res<AssetServer>, mut commands: Commands| {
+        //         let asset_path = AssetPath::from_path(&path).with_source(&pwd);
+        //         let pico8_asset = asset_server.load(&asset_path);
+        //         commands.insert_resource(Pico8Handle::from(pico8_asset));
+        //     },
+        // );
     } else {
         eprintln!("Only accepts .p8, .lua, and .toml files.");
 
