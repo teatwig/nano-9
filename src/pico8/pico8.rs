@@ -1141,7 +1141,7 @@ impl Pico8<'_, '_> {
     pub fn music(
         &mut self,
         n: impl Into<SfxCommand>,
-        fade_ms: Option<u32>,
+        _fade_ms: Option<u32>,
         channel_mask: Option<u8>,
         bank: Option<u8>,
     ) -> Result<(), Error> {

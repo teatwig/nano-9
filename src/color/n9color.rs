@@ -9,9 +9,6 @@ use bevy_mod_scripting::{
         bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
         error::InteropError,
     },
-    lua::mlua::{
-        UserData,
-    },
     GetTypeDependencies,
 };
 
