@@ -27,7 +27,6 @@ use bevy_mod_scripting::{
 use bitvec::prelude::*;
 
 use crate::{
-    cursor::Cursor,
     pico8::{
         self,
         audio::{AudioBank, AudioCommand, SfxChannels, SfxDest},
@@ -522,7 +521,7 @@ impl Pico8<'_, '_> {
                     // XXX: Consider copying palettes to state to avoid cloning.
                     let palette = &self.palette(None)?.clone();
                     self.gfx_handles.get_or_create(
-                        &palette,
+                        palette,
                         &self.state.pal_map,
                         None,
                         &handle,
@@ -877,11 +876,11 @@ impl Pico8<'_, '_> {
     }
 
     fn palette(&self, index: Option<usize>) -> Result<&Palette, Error> {
-        Ok(self
+        self
             .pico8_asset()?
             .palettes
             .get(index.unwrap_or(self.state.palette))
-            .ok_or(Error::NoSuch("palette".into()))?)
+            .ok_or(Error::NoSuch("palette".into()))
     }
 
     pub fn map(
@@ -906,7 +905,7 @@ impl Pico8<'_, '_> {
                     screen_start,
                     size,
                     mask,
-                    &sprite_sheets,
+                    sprite_sheets,
                     &mut self.commands,
                     |handle| {
                         self.gfx_handles.get_or_create(
@@ -1223,7 +1222,7 @@ impl Pico8<'_, '_> {
 
     pub fn fset(&mut self, index: usize, flag_index: Option<u8>, value: u8) -> Result<(), Error> {
         let flags = &mut self.sprite_sheet_mut(None)?.flags;
-        Ok(match flag_index {
+        match flag_index {
             Some(flag_index) => {
                 if value != 0 {
                     // Set the bit.
@@ -1236,7 +1235,8 @@ impl Pico8<'_, '_> {
             None => {
                 flags[index] = value;
             }
-        })
+        };
+        Ok(())
     }
 
     #[cfg(feature = "level")]
@@ -1850,7 +1850,7 @@ pub enum PalModify {
 // XXX: Dump this after refactor.
 impl FromWorld for Pico8State {
     fn from_world(world: &mut World) -> Self {
-        let defaults = world.resource::<pico8::Defaults>().clone();
+        let defaults = world.resource::<pico8::Defaults>();
         let asset_server = world.resource::<AssetServer>();
 
         Pico8State {

@@ -1,18 +1,16 @@
 #[cfg(feature = "level")]
-use crate::level::{self, asset::TiledSet, tiled::*};
+use crate::level::{self};
 use crate::{
     config::{self, *},
-    error::RunState,
-    pico8::{self, image::pixel_art_settings, Gfx, Pico8Asset, Pico8Handle, Pico8State},
+    pico8::{self, image::pixel_art_settings, Gfx, Pico8Asset},
 };
 use bevy::{
-    asset::{embedded_asset, io::Reader, AssetLoader, AssetPath, LoadContext},
+    asset::{io::Reader, AssetLoader, AssetPath, LoadContext},
     prelude::*,
 };
 #[cfg(feature = "scripting")]
-use bevy_mod_scripting::core::{asset::{ScriptAsset, ScriptAssetSettings}, script::ScriptComponent};
-use serde::{Deserialize, Serialize};
-use std::{ffi::OsStr, io, path::PathBuf};
+use bevy_mod_scripting::core::asset::ScriptAsset;
+use std::{io, path::PathBuf};
 
 pub(crate) fn plugin(app: &mut App) {
     app
@@ -262,7 +260,7 @@ async fn into_asset(config: Config, load_context: &mut LoadContext<'_>) -> Resul
         let state = pico8::Pico8Asset {
 #[cfg(feature = "scripting")]
                 code: config.code.map(|p| load_context.load(&*p)),
-                palettes: palettes.into(),
+                palettes,
                 border: load_context.loader()
                                     .with_settings(pixel_art_settings)
                                     .load(pico8::PICO8_BORDER),
@@ -292,7 +290,7 @@ async fn into_asset(config: Config, load_context: &mut LoadContext<'_>) -> Resul
                     } else {
                         Err(ConfigLoaderError::Message(format!("The map path {:?} did not have an extension.", &map.path)))
                     }
-                }).collect::<Result<Vec<_>, _>>()?.into(),
+                }).collect::<Result<Vec<_>, _>>()?,
                 audio_banks: config.audio_banks.into_iter().map(|bank| pico8::audio::AudioBank(match bank {
                     AudioBank::P8 { p8, count } => {
                             (0..count).map(|i|
@@ -302,8 +300,8 @@ async fn into_asset(config: Config, load_context: &mut LoadContext<'_>) -> Resul
                     AudioBank::Paths { paths } => {
                         paths.into_iter().map(|p| pico8::audio::Audio::AudioSource(load_context.load(p))).collect::<Vec<_>>()
                     }
-                })).collect::<Vec<_>>().into(),
-                sprite_sheets: sprite_sheets.into(),
+                })).collect::<Vec<_>>(),
+                sprite_sheets,
                 font: config.fonts.into_iter().map(|font|
                                                      match font {
                                                          config::Font::Default { default: yes } if yes => {
@@ -317,7 +315,7 @@ async fn into_asset(config: Config, load_context: &mut LoadContext<'_>) -> Resul
                                                              }
                                                          }
                                                          config::Font::Default { .. } => { panic!("Must use a path if not default font.") }
-                                                     }).collect::<Vec<_>>().into(),
+                                                     }).collect::<Vec<_>>(),
 
             };
         Ok(state)

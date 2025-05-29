@@ -1,7 +1,4 @@
-use bevy::{
-    audio::AudioPlugin,
-    prelude::*,
-};
+use bevy::prelude::*;
 use nano9::{config::*, error::RunState, pico8::*, *};
 use std::{io, path::Path};
 
@@ -11,7 +8,7 @@ fn init(mut pico8: Pico8) {
     pico8.spr(0, Vec2::ZERO, None, None, None).unwrap();
 }
 
-fn update(mut pico8: Pico8, mut x: Local<u32>) {
+fn update(pico8: Pico8, x: Local<u32>) {
     // let _ = pico8.pset(UVec2::new(*x, *x), Some(2));
     // let _ = pico8.pset(UVec2::new(*x, *x), None);
     // *x += 1;
@@ -29,7 +26,7 @@ fn main() -> io::Result<()> {
     });
     {
         // Make our config readable by the Bevy AssetServer.
-        let mut memory_dir = MemoryDir::default();
+        let memory_dir = MemoryDir::default();
         let config_string = toml::to_string(&config).unwrap();
         memory_dir
             .insert_asset(Path::new("Nano9.toml"), config_string.into_bytes());

@@ -16,7 +16,7 @@ impl PluginGroup for Nano9Plugins {
     fn build(self) -> PluginGroupBuilder {
         let group = PluginGroupBuilder::start::<Self>();
         #[cfg(feature = "web_asset")]
-        let group = group.add(bevy_web_asset::WebAssetPlugin::default());
+        let group = group.add(bevy_web_asset::WebAssetPlugin);
         let group = group.add(MemoryDir::new("n9mem"));
         let nano9_plugin = Nano9Plugin { config: self.config };
         let group = group.add_group(
@@ -26,7 +26,7 @@ impl PluginGroup for Nano9Plugins {
                 ..default()
             })
             .set(nano9_plugin.window_plugin()));
-        let group = group.add(nano9_plugin);
-        group
+        
+        group.add(nano9_plugin)
     }
 }

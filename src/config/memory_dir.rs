@@ -3,7 +3,6 @@ use bevy::{
         memory::{Dir, MemoryAssetReader},
         AssetSource, AssetSourceId,
     },
-    audio::AudioPlugin,
     prelude::*,
 };
 

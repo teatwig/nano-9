@@ -3,16 +3,14 @@ use bevy::{
         io::{AssetSourceBuilder, AssetSourceId},
         AssetPath,
     },
-    audio::AudioPlugin,
     dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin},
     prelude::*,
     text::FontSmoothing,
 };
 #[cfg(feature = "minibuffer")]
 use bevy_minibuffer::prelude::*;
-use bevy_mod_scripting::core::script::ScriptComponent;
-use nano9::{config::{Config, front_matter, run_pico8_when_loaded}, pico8::*, *};
-use std::{borrow::Cow, env, ffi::OsStr, fs, io, path::PathBuf, process::ExitCode};
+use nano9::{config::{Config, front_matter, run_pico8_when_loaded}, pico8::{Pico8Handle, Pico8Asset}, *};
+use std::{env, ffi::OsStr, fs, io, path::PathBuf, process::ExitCode};
 
 fn usage(mut output: impl io::Write) -> io::Result<()> {
     writeln!(output, "usage: n9 <FILE>")?;
@@ -28,7 +26,7 @@ fn main() -> io::Result<ExitCode> {
         "cart.p8",
         "cart.p8.png",
         "code.lua", // Lua
-        "code.pua", // Pico-8 dialect
+        // "code.pua", // Pico-8 dialect
         "game-dir",
         "game-dir/Nano9.toml",
         "code.n9",
@@ -54,7 +52,6 @@ fn main() -> io::Result<ExitCode> {
     let cwd = AssetSourceId::Name("cwd".into());
     let mut builder =
         AssetSourceBuilder::platform_default(dbg!(env::current_dir()?.to_str().expect("current dir")), None);
-        // AssetSourceBuilder::platform_default(".", None);
     builder.watcher = None;
     builder.processed_watcher = None;
 
@@ -91,17 +88,15 @@ fn main() -> io::Result<ExitCode> {
         eprintln!("loading cart");
         let mut config = Config::pico8();
 
-        let asset_path = AssetPath::from_path(&script_path).with_source(&cwd);
-        config.code = Some(asset_path.to_string());
+        // let asset_path = AssetPath::from_path(&script_path).into_owned().with_source(&cwd).with_label("lua");
+        // config.code = Some(asset_path.to_string());
         let path = script_path.clone();
         app.add_systems(
             Startup,
             move |asset_server: Res<AssetServer>, mut commands: Commands| {
                 let asset_path = AssetPath::from_path(&path).with_source(&cwd);
-                // let pico8_asset: Handle<Pico8Asset> = asset_server.load(&asset_path);
-                // commands.insert_resource(Pico8Handle::from(pico8_asset));
-                let cart_image: Handle<Image> = asset_server.load(&asset_path);
-                commands.spawn(Sprite::from(cart_image));
+                let pico8_asset: Handle<Pico8Asset> = asset_server.load(&asset_path);
+                commands.insert_resource(Pico8Handle::from(pico8_asset));
             },
         );
         nano9_plugin = Nano9Plugin {
@@ -126,7 +121,7 @@ fn main() -> io::Result<ExitCode> {
         config.code = Some(AssetPath::from_path(&script_path).with_source(&cwd).to_string());
         nano9_plugin = Nano9Plugin { config };
     } else {
-        eprintln!("Only accepts .p8, .lua, and .toml files.");
+        eprintln!("Only accepts .p8, .png, .lua, and .toml files.");
 
         return Ok(ExitCode::from(1));
     }

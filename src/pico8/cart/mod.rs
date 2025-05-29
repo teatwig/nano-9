@@ -334,9 +334,9 @@ impl AssetLoader for P8CartLoader {
 #[cfg(feature = "pico8-to-lua")]
 pub(crate) async fn translate_pico8_to_lua<'a>(lua: &'a str, load_context: &mut LoadContext<'_>) -> Result<Option<String>, CartLoaderError> {
     // Patch the includes.
-    let include_paths: Vec<String> = pico8_to_lua::find_includes(&lua).collect();            let has_includes = !include_paths.is_empty();
+    let include_paths: Vec<String> = pico8_to_lua::find_includes(lua).collect();
     let has_includes = !include_paths.is_empty();
-    let mut include_patch: Cow<'_, str> = Cow::Borrowed(&lua);
+    let mut include_patch: Cow<'_, str> = Cow::Borrowed(lua);
     if has_includes {
         // There are included files, let's read them all then add them.
         let mut path_contents = std::collections::HashMap::new();
@@ -390,6 +390,16 @@ pub(crate) async fn translate_pico8_to_lua<'a>(lua: &'a str, load_context: &mut 
 #[derive(Default)]
 struct PngCartLoader;
 
+pub(crate) fn log_lua_code(code: &str) {
+    if let Ok(filename) = std::env::var("NANO9_LUA_CODE") {
+        if let Err(e) = std::fs::write(&filename, code) {
+            warn!("Unable to log lua code due to {e}");
+        } else {
+            info!("WROTE LUA CODE to {:?}", filename);
+        }
+    }
+}
+
 impl AssetLoader for PngCartLoader {
     type Asset = Cart;
     type Settings = CartLoaderSettings;
@@ -433,8 +443,7 @@ impl AssetLoader for PngCartLoader {
             let result = pico8_to_lua::patch_lua(include_patch);
             if pico8_to_lua::was_patched(&result) {
                 code = result.to_string();
-                std::fs::write("cart-patched.lua", &code).unwrap();
-                info!("WROTE PATCHED CODE to cart-patched.lua");
+                log_lua_code(&code);
             }
         }
         // use std::io::Write;

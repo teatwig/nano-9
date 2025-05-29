@@ -1,13 +1,10 @@
-use crate::{
-    pico8::{image::pixel_art_settings, *},
-    DrawState,
-};
+use crate::pico8::{image::pixel_art_settings, *};
 use bevy::asset::{io::Reader, AssetLoader, LoadContext};
 
 use super::*;
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::asset::ScriptAsset;
-use std::{borrow::Cow, path::PathBuf, env};
+use std::path::PathBuf;
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_asset_loader::<P8AssetLoader>()
@@ -28,10 +25,7 @@ impl AssetLoader for P8AssetLoader {
         load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let cart = P8CartLoader.load(reader, settings, load_context).await?;
-        if let Ok(filename) =  env::var("NANO9_LUA_CODE") {
-            std::fs::write(&filename, &cart.lua).expect("write NANO9_LUA_CODE");
-            info!("WROTE LOADED CODE to {:?}", filename);
-        }
+        log_lua_code(&cart.lua);
         to_asset(cart, load_context)
     }
 
@@ -98,7 +92,7 @@ fn to_asset(cart: Cart, load_context: &mut LoadContext) -> Result<Pico8Asset, Ca
         } else {
             None
         },
-        palettes: vec![Palette::from_slice(&PALETTE)].into(),
+        palettes: vec![Palette::from_slice(&PALETTE)],
         border: load_context
             .loader()
             .with_settings(pixel_art_settings)
@@ -107,8 +101,7 @@ fn to_asset(cart: Cart, load_context: &mut LoadContext) -> Result<Pico8Asset, Ca
             entries: cart.map.clone(),
             sheet_index: 0,
         }
-        .into()]
-        .into(),
+        .into()],
         audio_banks: vec![AudioBank(
             cart.sfx
                 .into_iter()
@@ -120,13 +113,11 @@ fn to_asset(cart: Cart, load_context: &mut LoadContext) -> Result<Pico8Asset, Ca
                     )
                 })
                 .collect(),
-        )]
-        .into(),
-        sprite_sheets: sprite_sheets.into(),
+        )],
+        sprite_sheets,
         font: vec![N9Font {
             handle: load_context.load(PICO8_FONT),
-        }]
-        .into(),
+        }],
     };
     Ok(asset)
 }

@@ -4,20 +4,18 @@ pub use memory_dir::*;
 mod loader;
 pub use loader::*;
 pub mod front_matter;
-#[cfg(feature = "level")]
-use crate::level::{self, asset::TiledSet, tiled::*};
 use crate::{
     error::RunState,
-    pico8::{self, image::pixel_art_settings, Gfx, Pico8Asset, Pico8Handle, Pico8State},
+    pico8::{self, Pico8Handle, Pico8State},
 };
 use bevy::{
-    asset::{embedded_asset, io::Reader, AssetLoader, AssetPath, LoadContext},
+    asset::{embedded_asset, AssetPath},
     prelude::*,
 };
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::{asset::ScriptAssetSettings, script::ScriptComponent};
 use serde::{Deserialize, Serialize};
-use std::{ffi::OsStr, io, path::PathBuf};
+use std::path::PathBuf;
 
 pub const DEFAULT_CANVAS_SIZE: UVec2 = UVec2::splat(128);
 pub const DEFAULT_SCREEN_SIZE: UVec2 = UVec2::splat(512);
@@ -126,10 +124,10 @@ pub struct Palette {
 
 pub fn update_asset(
     mut reader: EventReader<AssetEvent<pico8::Pico8Asset>>,
-    mut assets: ResMut<Assets<pico8::Pico8Asset>>,
+    assets: ResMut<Assets<pico8::Pico8Asset>>,
 
     mut next_state: ResMut<NextState<RunState>>,
-    mut pico8_state: ResMut<Pico8State>,
+    pico8_state: ResMut<Pico8State>,
     mut pico8_handle: Option<ResMut<Pico8Handle>>,
     #[cfg(feature = "scripting")]
     mut commands: Commands,
@@ -272,7 +270,7 @@ impl Config {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::path::Path;
+    
 
     #[test]
     fn test_config_0() {
