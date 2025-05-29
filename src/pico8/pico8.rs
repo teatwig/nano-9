@@ -29,6 +29,7 @@ use bitvec::prelude::*;
 use crate::{
     cursor::Cursor,
     pico8::{
+        self,
         audio::{AudioBank, AudioCommand, SfxChannels, SfxDest},
         image::pixel_art_settings,
         keyboard::KeyInput,
@@ -291,6 +292,7 @@ pub struct Pico8<'w, 's> {
     mouse_input: ResMut<'w, MouseInput>,
     pico8_assets: ResMut<'w, Assets<Pico8Asset>>,
     pico8_handle: Res<'w, Pico8Handle>,
+    defaults: Res<'w, pico8::Defaults>,
 }
 
 pub(crate) fn fill_input(
@@ -1848,21 +1850,15 @@ pub enum PalModify {
 // XXX: Dump this after refactor.
 impl FromWorld for Pico8State {
     fn from_world(world: &mut World) -> Self {
+        let defaults = world.resource::<pico8::Defaults>().clone();
         let asset_server = world.resource::<AssetServer>();
 
         Pico8State {
             palette: 0,
-            // palettes: vec![Palette::from_slice(&crate::pico8::PALETTE)].into(),
-            // palettes: vec![].into(),
-            //     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
-            //     row: 0,
-            // },
             pal_map: PalMap::default(),
             draw_state: {
                 let mut draw_state = DrawState::default();
-                // Need to set defaults somewhere.
-                // draw_state.pen = PColor::Palette(6);
-                draw_state.pen = PColor::Palette(1);
+                draw_state.pen = PColor::Palette(defaults.pen_color);
                 draw_state
             },
         }
@@ -1876,24 +1872,14 @@ impl FromWorld for Pico8Asset {
         Pico8Asset {
             #[cfg(feature = "scripting")]
             code: None,
-            palettes: vec![Palette::from_slice(&crate::pico8::PALETTE)].into(),
-            // palettes: vec![].into(),
-            //     handle: asset_server.load_with_settings(PICO8_PALETTE, pixel_art_settings),
-            //     row: 0,
-            // },
+            palettes: vec![Palette::from_slice(&crate::pico8::PALETTE)],
             border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
             font: vec![N9Font {
                 handle: asset_server.load(PICO8_FONT),
-            }]
-            .into(),
-            // draw_state: {
-            //     let mut draw_state = DrawState::default();
-            //     draw_state.pen = PColor::Palette(6);
-            //     draw_state
-            // },
-            audio_banks: Vec::new().into(),
-            sprite_sheets: Vec::new().into(),
-            maps: Vec::new().into(),
+            }],
+            audio_banks: Vec::new(),
+            sprite_sheets: Vec::new(),
+            maps: Vec::new(),
         }
     }
 }

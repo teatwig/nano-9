@@ -1,20 +1,7 @@
-use bevy::{
-    asset::io::{
-        memory::{Dir, MemoryAssetReader},
-        AssetSource, AssetSourceId,
-    },
-    audio::AudioPlugin,
-    prelude::*,
-};
-use nano9::{config::Config, error::RunState, pico8::*, *};
-use std::{io, path::Path};
-
-#[cfg(feature = "minibuffer")]
-use bevy_minibuffer::prelude::*;
-#[derive(Resource)]
-struct MemoryDir {
-    dir: Dir,
-}
+/// Draw the palette for a given template.
+use bevy::prelude::*;
+use nano9::prelude::*;
+use std::{io, process::ExitCode};
 
 fn init(mut pico8: Pico8) {
     pico8.cls(Some(0)).unwrap();
@@ -37,70 +24,26 @@ fn init(mut pico8: Pico8) {
     }
 }
 
-fn main() -> io::Result<()> {
-    let mut app = App::new();
+fn main() -> io::Result<ExitCode> {
+    let mut args = std::env::args();
+    if let Some(template) = args.nth(1) {
+        let mut config = Config::default();
+        if let Err(e) = config.inject_template(&template) {
+            eprintln!("error: {e}");
+            return Ok(ExitCode::from(2));
+        }
+        let mut app = App::new();
+        app
+            .add_systems(OnEnter(RunState::Init), init);
 
-    app.add_systems(OnExit(RunState::Uninit), init);
-    let config = Config::pico8();
-    // let config = Config::gameboy();
-    {
-        let config_string = toml::to_string(&config).unwrap();
-        let memory_dir = MemoryDir {
-            dir: Dir::default(),
-        };
-        memory_dir
-            .dir
-            .insert_asset(Path::new("Nano9.toml"), config_string.into_bytes());
-        let reader = MemoryAssetReader {
-            root: memory_dir.dir.clone(),
-        };
-        app.register_asset_source(
-            AssetSourceId::from_static("memory"),
-            AssetSource::build().with_reader(move || Box::new(reader.clone())),
-        );
+        app
+            .add_plugins(Nano9Plugins { config })
+            .add_systems(PreUpdate, run_pico8_when_loaded)
+            .run();
+        Ok(ExitCode::from(0))
+    } else {
+        eprintln!("usage: show-palette <pico8|gameboy>");
+        eprintln!("error: no template given.");
+        Ok(ExitCode::from(1))
     }
-    let nano9_plugin = Nano9Plugin { config };
-    app.add_systems(
-        PostStartup,
-        move |asset_server: Res<AssetServer>, mut commands: Commands| {
-            let pico8_state: Handle<Pico8Asset> = asset_server.load("memory://Nano9.toml");
-            commands.insert_resource(Pico8Handle::from(pico8_state));
-        },
-    );
-    app.add_plugins(
-        DefaultPlugins
-            .set(AudioPlugin {
-                global_volume: GlobalVolume::new(0.4),
-                ..default()
-            })
-            .set(nano9_plugin.window_plugin()),
-    )
-    .add_plugins(nano9_plugin);
-    #[cfg(feature = "minibuffer")]
-    app.add_plugins(MinibufferPlugins).add_acts((
-        BasicActs::default(),
-        acts::universal::UniversalArgActs::default(),
-        acts::tape::TapeActs::default(),
-        crate::minibuffer::Nano9Acts::default(),
-        // CountComponentsActs::default()
-        //     .add::<Text>("text")
-        //     .add::<TilemapType>("map")
-        //     .add::<TilePos>("tile")
-        //     .add::<Sprite>("sprite")
-        //     .add::<Clearable>("clearables"),
-        // toggle_fps, // inspector::AssetActs::default().add::<Image>(),
-    ));
-
-    #[cfg(all(feature = "minibuffer", feature = "inspector"))]
-    app.add_acts((
-        bevy_minibuffer_inspector::WorldActs::default(),
-        bevy_minibuffer_inspector::StateActs::default().add::<RunState>(),
-    ));
-
-    app.run();
-    Ok(())
-}
-
-fn show_asset_changes<T: Asset>(mut reader: EventReader<AssetEvent<T>>) {
-    reader.read().inspect(|e| info!("asset event {e:?}"));
 }

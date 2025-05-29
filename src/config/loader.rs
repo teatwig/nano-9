@@ -49,7 +49,7 @@ pub enum ConfigLoaderError {
         image_size: UVec2,
         sprite_counts: UVec2,
     },
-    #[error("invalid template: {0}")]
+    #[error("invalid template {0:?}")]
     InvalidTemplate(String),
     #[error("include error: {0}")]
     Cart(#[from] pico8::CartLoaderError),

@@ -47,6 +47,7 @@ pub struct Config {
     pub author: Option<String>,
     pub license: Option<String>,
     pub screen: Option<Screen>,
+    pub defaults: Option<Defaults>,
     #[serde(default, rename = "palette")]
     pub palettes: Vec<Palette>,
     // pub nearest_sampling: Option<bool>,
@@ -225,6 +226,13 @@ impl Config {
             self.fonts.push(Font::Path {
                 path: pico8::PICO8_FONT.into(),
                 height: None,
+            });
+        }
+
+        if self.defaults.is_none() {
+            self.defaults = Some(Defaults {
+                font_size: Some(5.0),
+                pen_color: Some(6),
             });
         }
     }

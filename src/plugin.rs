@@ -29,7 +29,7 @@ use bevy_mod_scripting::{
 use crate::{
     config::*,
     error::RunState,
-    pico8::{FillPat,fill_input, Pico8State, Pico8Asset, Pico8Handle},
+    pico8::{self, FillPat,fill_input, Pico8State, Pico8Asset, Pico8Handle},
     PColor,
 };
 
@@ -455,6 +455,7 @@ impl Plugin for Nano9Plugin {
                 16 * 4,
             )),
         })
+        .insert_resource(self.config.defaults.as_ref().map(|x| pico8::Defaults::from_config(x)).unwrap_or_else(|| pico8::Defaults::default()))
         // Insert the config as a resource.
         // TODO: Should we constrain it, if it wasn't provided as an option?
         .insert_resource(Time::<Fixed>::from_seconds(

@@ -26,6 +26,8 @@ pub(crate) use gfx_handles::*;
 pub(crate) mod image;
 pub(crate) mod keyboard;
 pub(crate) mod mouse;
+mod defaults;
+pub(crate) use defaults::*;
 // mod gfx2;
 
 pub(crate) fn plugin(app: &mut App) {
