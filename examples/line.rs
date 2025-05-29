@@ -2,8 +2,8 @@ use bevy::prelude::*;
 use nano9::prelude::*;
 
 fn init(mut pico8: Pico8) {
-    pico8.cls(Some(0)).unwrap();
-    pico8.color(Some(1)).unwrap();
+    pico8.cls(None).unwrap();
+    pico8.color(None).unwrap();
 }
 
 fn update(mut pico8: Pico8, mut x: Local<u32>) {

@@ -4,7 +4,7 @@ use nano9::prelude::*;
 use std::{io, process::ExitCode};
 
 fn init(mut pico8: Pico8) {
-    pico8.cls(Some(0)).unwrap();
+    pico8.cls(None).unwrap();
     let n = pico8.paln(None).unwrap();
 
     let UVec2 {

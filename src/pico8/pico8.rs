@@ -665,9 +665,9 @@ impl Pico8<'_, '_> {
     }
 
     // cls([n])
-    pub fn cls(&mut self, color: Option<impl Into<N9Color>>) -> Result<(), Error> {
+    pub fn cls(&mut self, color: Option<PColor>) -> Result<(), Error> {
         trace!("cls");
-        let c = self.get_color(color.map(|x| x.into()).unwrap_or(Color::BLACK.into()))?;
+        let c = self.get_color(color.unwrap_or(PColor::Palette(0)))?;
         self.state.draw_state.clear_screen();
         let image = self
             .images
@@ -1710,9 +1710,9 @@ impl Pico8<'_, '_> {
         }
     }
 
-    pub fn color(&mut self, color: Option<impl Into<PColor>>) -> Result<PColor, Error> {
+    pub fn color(&mut self, color: Option<PColor>) -> Result<PColor, Error> {
         let last_color = self.state.draw_state.pen;
-        if let Some(color) = color.map(|x| x.into()) {
+        if let Some(color) = color {
             if let PColor::Palette(n) = color {
                 // Check that it's within the palette.
                 if n >= self.palette(None)?.data.len() {

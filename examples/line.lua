@@ -5,5 +5,6 @@ end
 
 function _update()
     pset(x, x)
+    -- can't use pico8 dialect here.
     x = x + 1
 end

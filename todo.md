@@ -6,7 +6,9 @@
       Can't use inspector while it's churning.
 - [ ] Add front matter to .n9 file which is .toml followed by .lua
 - [ ] Fix tiled import for lilly's house inside
+
 ## Nano-9
+- [ ] Make pico-8 dialect work in .lua files.
 - [ ] try not to clone palettes (introduced during Pico8Asset refactor)
       Extract palettes to GfxHandler?
 - [x] Add the ScriptComponent once
