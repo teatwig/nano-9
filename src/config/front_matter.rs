@@ -1,4 +1,3 @@
-
 #[derive(Debug, Clone)]
 pub struct FrontMatter {
     pub header: &'static str,
@@ -33,7 +32,7 @@ impl FrontMatter {
     /// - `&str` containing the rest of the body.
     pub fn parse<'a>(&self, input: &'a str) -> (Option<&'a str>, &'a str) {
         // Strip BOM if present.
-        let input = input.strip_prefix("\u{FEFF}").unwrap_or(input);
+        let input = strip_bom(input);
 
         // Must start with header (front matter opening).
         if !input.starts_with(self.header) {
@@ -41,13 +40,13 @@ impl FrontMatter {
         }
 
         // Position just after the opening delimiter.
-        let after_start = self.header.len();
+        let start = self.header.len();
 
         // Look for the closing delimiter.
-        let rest = &input[after_start..];
-        if let Some(end_pos) = rest.find(self.footer) {
-            let front_matter = &rest[..end_pos];
-            let body_start = after_start + end_pos + self.footer.len();
+        let rest = &input[start..];
+        if let Some(end) = rest.find(self.footer) {
+            let front_matter = &rest[..end];
+            let body_start = start + end + self.footer.len();
             let body = &input[body_start..];
             (Some(front_matter), body)
         } else {
@@ -56,24 +55,27 @@ impl FrontMatter {
         }
     }
 
+    /// Parse front matter if present
+    ///
+    /// Returns the front matter exluding delimiters if present and alters the
+    /// given string to be the rest of the body.
     pub fn parse_in_place(&self, input: &mut String) -> Option<String> {
         // Strip BOM if present.
-        strip_bom_inplace(input);
+        let mut start = bom_len(input);
 
         // Must start with header (front matter opening).
-        if !input.starts_with(self.header) {
+        if !input[start..].starts_with(self.header) {
             return None;
         }
 
         // Position just after the opening delimiter.
-        let after_start = self.header.len();
+        start += self.header.len();
 
         // Look for the closing delimiter.
-        if let Some(end_pos) = input[after_start..].find(self.footer) {
-            let _ = input.drain(0..after_start);
-            let front_matter = input.drain(..end_pos).collect();
-            // Drain footer.
-            let _ = input.drain(0..self.footer.len());
+        if let Some(end) = input[start..].find(self.footer) {
+            let front_matter = input[start..end + start].to_string();
+            // Drain once. Each drain is an memmove.
+            let _ = input.drain(0..start + end + self.footer.len());
             Some(front_matter)
         } else {
             None
@@ -81,11 +83,27 @@ impl FrontMatter {
     }
 }
 
+// Strip BOM if present.
+fn strip_bom(s: &str) -> &str {
+    s.strip_prefix("\u{FEFF}").unwrap_or(s)
+}
 
+// YOUNG ME: Ooo, this is expressive.
 fn strip_bom_inplace(s: &mut String) {
     const BOM: &str = "\u{FEFF}";
     if s.starts_with(BOM) {
+        // OLD ME: Oof, we're gonna memmove the whole string for this?
         s.drain(..BOM.len());
+    }
+}
+
+// OLD ME: But this is performant.
+fn bom_len(s: &str) -> usize {
+    const BOM: &str = "\u{FEFF}";
+    if s.starts_with(BOM) {
+        BOM.len()
+    } else {
+        0
     }
 }
 
