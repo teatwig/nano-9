@@ -19,6 +19,12 @@ pub enum N9Color {
     PColor(PColor)
 }
 
+impl Default for N9Color {
+    fn default() -> N9Color {
+        N9Color::Pen
+    }
+}
+
 impl N9Color {
     pub fn into_pcolor(&self, pen_color: &PColor) -> PColor {
         match self {
