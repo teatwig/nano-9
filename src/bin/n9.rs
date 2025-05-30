@@ -58,72 +58,82 @@ fn main() -> io::Result<ExitCode> {
     app.register_asset_source(&cwd, builder);
     let source = AssetSourceId::Default;
     let nano9_plugin;
-    if script_path.extension() == Some(OsStr::new("toml")) {
-        eprintln!("loading config");
-        let path = &script_path;
-        if let Some(parent) = path.parent() {
-            app.register_asset_source(
-                &source,
-                AssetSourceBuilder::platform_default(parent.to_str().expect("parent dir"), None),
-            );
-        }
-        // OLD SHANE: Get rid of this.
-        //
-        // NEW SHANE: No. We use part of Config to configure the App and can't
-        // do that at load time.
-        let content = fs::read_to_string(path)?;
-        let mut config: Config = toml::from_str::<Config>(&content)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
 
-        if let Some(template) = config.template.take() {
-            if let Err(e) = config.inject_template(&template) {
-                eprintln!("error: {e}");
-                return Ok(ExitCode::from(2));
+    let extension = script_path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or_default();
+    match extension {
+        "toml" => {
+            eprintln!("loading config");
+            let path = &script_path;
+            if let Some(parent) = path.parent() {
+                app.register_asset_source(
+                    &source,
+                    AssetSourceBuilder::platform_default(parent.to_str().expect("parent dir"), None),
+                );
             }
-        }
-        nano9_plugin = Nano9Plugin { config };
-    } else if script_path.extension() == Some(OsStr::new("p8"))
-        || script_path.extension() == Some(OsStr::new("png"))
-    {
-        eprintln!("loading cart");
-        let mut config = Config::pico8();
-
-        // let asset_path = AssetPath::from_path(&script_path).into_owned().with_source(&cwd).with_label("lua");
-        // config.code = Some(asset_path.to_string());
-        let path = script_path.clone();
-        app.add_systems(
-            Startup,
-            move |asset_server: Res<AssetServer>, mut commands: Commands| {
-                let asset_path = AssetPath::from_path(&path).with_source(&cwd);
-                let pico8_asset: Handle<Pico8Asset> = asset_server.load(&asset_path);
-                commands.insert_resource(Pico8Handle::from(pico8_asset));
-            },
-        );
-        nano9_plugin = Nano9Plugin {
-            config,
-        };
-    } else if script_path.extension() == Some(OsStr::new("lua"))
-    {
-        eprintln!("loading lua");
-        let mut content = fs::read_to_string(&script_path)?;
-
-        let mut config = if let Some(front_matter) = front_matter::LUA.parse_in_place(&mut content) {
-            let mut config: Config = toml::from_str::<Config>(&front_matter)
+            // OLD SHANE: Get rid of this.
+            //
+            // NEW SHANE: No. We use part of Config to configure the App and can't
+            // do that at load time.
+            let content = fs::read_to_string(path)?;
+            let mut config: Config = toml::from_str::<Config>(&content)
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
-            if let Some(template) = config.template.take() {
-                config.inject_template(&template)
-                      .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
-            }
-            config
-        } else {
-            Config::pico8()
-        };
-        config.code = Some(AssetPath::from_path(&script_path).with_source(&cwd).to_string());
-        nano9_plugin = Nano9Plugin { config };
-    } else {
-        eprintln!("Only accepts .p8, .png, .lua, and .toml files.");
 
-        return Ok(ExitCode::from(1));
+            if let Some(template) = config.template.take() {
+                if let Err(e) = config.inject_template(&template) {
+                    eprintln!("error: {e}");
+                    return Ok(ExitCode::from(2));
+                }
+            }
+            nano9_plugin = Nano9Plugin { config };
+        }
+        "p8" | "png" => {
+            eprintln!("loading cart");
+            let mut config = Config::pico8();
+
+            // let asset_path = AssetPath::from_path(&script_path).into_owned().with_source(&cwd).with_label("lua");
+            // config.code = Some(asset_path.to_string());
+            let path = script_path.clone();
+            app.add_systems(
+                Startup,
+                move |asset_server: Res<AssetServer>, mut commands: Commands| {
+                    let asset_path = AssetPath::from_path(&path).with_source(&cwd);
+                    let pico8_asset: Handle<Pico8Asset> = asset_server.load(&asset_path);
+                    commands.insert_resource(Pico8Handle::from(pico8_asset));
+                },
+            );
+            nano9_plugin = Nano9Plugin {
+                config,
+            };
+        }
+        "lua" | "p8lua" => {
+            if cfg!(not(feature = "pico8-to-lua")) && extension == "p8lua" {
+                eprintln!("error: Must compile with 'pico8-to-lua' feature to handle 'p8lua' files.");
+                return Ok(ExitCode::from(3));
+            }
+            eprintln!("loading lua");
+            let mut content = fs::read_to_string(&script_path)?;
+
+            let mut config = if let Some(front_matter) = front_matter::LUA.parse_in_place(&mut content) {
+                let mut config: Config = toml::from_str::<Config>(&front_matter)
+                    .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
+                if let Some(template) = config.template.take() {
+                    config.inject_template(&template)
+                          .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
+                }
+                config
+            } else {
+                Config::pico8()
+            };
+            config.code = Some(dbg!(AssetPath::from_path(&script_path).with_source(&cwd).to_string()));
+            nano9_plugin = Nano9Plugin { config };
+        }
+        ext => {
+            eprintln!("Only accepts .p8, .png, .lua, and .toml files.");
+            return Ok(ExitCode::from(1));
+        }
     }
 
     app.add_plugins(
