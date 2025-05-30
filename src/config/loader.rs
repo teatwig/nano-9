@@ -5,17 +5,24 @@ use crate::{
     pico8::{self, image::pixel_art_settings, Gfx, Pico8Asset},
 };
 use bevy::{
-    asset::{io::Reader, AssetLoader, AssetPath, LoadContext},
+    utils::ConditionalSendFuture,
+    asset::{io::{Reader, AsyncWriteExt}, AssetLoader, AssetPath, LoadContext},
     prelude::*,
 };
 #[cfg(feature = "scripting")]
-use bevy_mod_scripting::core::asset::ScriptAsset;
+use bevy_mod_scripting::core::asset::{ScriptAsset};
 use std::{io, path::PathBuf};
 
 pub(crate) fn plugin(app: &mut App) {
+    dbg!("loader::plugin");
     app
         .init_asset_loader::<ConfigLoader>()
-        .init_asset_loader::<LuaLoader>();
+        .init_asset_loader::<LuaLoader>()
+        // .register_asset_processor(LuaProcess {})
+        // .set_default_asset_processor::<LuaProcess>("lua")
+        // .set_default_asset_processor::<LuaProcess>("p8lua")
+        ;
+
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -87,54 +94,127 @@ impl AssetLoader for ConfigLoader {
 #[derive(Default)]
 pub struct LuaLoader;
 
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+pub struct LuaLoaderSettings {
+    pub translate_pico8: Option<bool>,
+}
+
+// impl Default for LuaLoaderSettings {
+//     fn default() -> Self {
+//         Self {
+//             translate_pico8: true,
+//         }
+//     }
+// }
+
+// impl AssetLoader for LuaLoader {
+//     type Asset = pico8::Pico8Asset;
+//     type Settings = ();
+//     type Error = ConfigLoaderError;
+
+//     async fn load(
+//         &self,
+//         reader: &mut dyn Reader,
+//         _settings: &Self::Settings,
+//         load_context: &mut LoadContext<'_>,
+//     ) -> Result<Self::Asset, Self::Error> {
+//         warn!("LUA LOADER");
+//         let mut bytes = Vec::new();
+//         let _ = reader.read_to_end(&mut bytes).await?;
+//         let mut content = String::from_utf8(bytes)?;
+
+//         let config = if let Some(front_matter) = front_matter::LUA.parse_in_place(&mut content) {
+//             let mut config: Config = toml::from_str::<Config>(&front_matter)
+//                 .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
+//             if let Some(template) = config.template.take() {
+//                 config.inject_template(&template)?;
+//             }
+//             config
+//         } else {
+//             Config::pico8()
+//         };
+//         let mut asset = into_asset(config, load_context).await?;
+//         assert!(asset.code.is_none());
+
+//         let code_path: PathBuf = load_context.path().into();
+//         let mut code = content;
+
+//         dbg!(1);
+//         #[cfg(feature = "pico8-to-lua")]
+//         {
+//             if load_context.path().extension().map(|x| x == "p8lua").unwrap_or(false) {
+//         dbg!(2);
+//                 if let Some(patched_code) = pico8::translate_pico8_to_lua(&code, load_context).await? {
+//         dbg!(3);
+//                     code = patched_code;
+//                 }
+//             }
+//         }
+
+//         asset.code = Some(load_context.add_labeled_asset("lua".into(), ScriptAsset {
+//             content: code.into_bytes().into_boxed_slice(),
+//             asset_path: code_path.into(),
+//         }));
+//         Ok(asset)
+//     }
+
+//     fn extensions(&self) -> &[&str] {
+//         static EXTENSIONS: &[&str] = &["lua", "p8lua"];
+//         EXTENSIONS
+//     }
+// }
+
 impl AssetLoader for LuaLoader {
-    type Asset = pico8::Pico8Asset;
-    type Settings = ();
+    type Asset = ScriptAsset;
+    type Settings = LuaLoaderSettings;
     type Error = ConfigLoaderError;
 
     async fn load(
         &self,
         reader: &mut dyn Reader,
-        _settings: &Self::Settings,
+        settings: &Self::Settings,
         load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();
         let _ = reader.read_to_end(&mut bytes).await?;
-        let mut content = String::from_utf8(bytes)?;
+        let content = String::from_utf8(bytes)?;
 
-        let config = if let Some(front_matter) = front_matter::LUA.parse_in_place(&mut content) {
-            let mut config: Config = toml::from_str::<Config>(&front_matter)
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
-            if let Some(template) = config.template.take() {
-                config.inject_template(&template)?;
-            }
-            config
-        } else {
-            Config::pico8()
-        };
-        let mut asset = into_asset(config, load_context).await?;
-        assert!(asset.code.is_none());
+        // We don't need config here. We need it at the beginning during App configuration.
+        //
+        // let config = if let Some(front_matter) = front_matter::LUA.parse_in_place(&mut content) {
+        //     let mut config: Config = toml::from_str::<Config>(&front_matter)
+        //         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
+        //     if let Some(template) = config.template.take() {
+        //         config.inject_template(&template)?;
+        //     }
+        //     config
+        // } else {
+        //     Config::pico8()
+        // };
+        // let mut asset = into_asset(config, load_context).await?;
+        // assert!(asset.code.is_none());
 
         let code_path: PathBuf = load_context.path().into();
-        let code = content;
-        asset.code = Some(load_context.add_labeled_asset("lua".into(), ScriptAsset {
+        let mut code = content;
+        let translate = settings.translate_pico8.or(load_context.path().extension().map(|x| x == "p8lua")).unwrap_or(false);
+        if cfg!(feature = "pico8-to-lua") {
+            if translate {
+                if let Some(patched_code) = pico8::translate_pico8_to_lua(&code, load_context).await? {
+                    code = patched_code;
+                }
+            }
+        } else if translate {
+            warn!("Pico-8 dialect translation requested but 'pico8-to-lua' feature not active.");
+        }
+
+        Ok(ScriptAsset {
             content: code.into_bytes().into_boxed_slice(),
             asset_path: code_path.into(),
-        }));
-        Ok(asset)
-        // #[cfg(feature = "pico8-to-lua")]
-        // if let Some(patched_code) = pico8::translate_pico8_to_lua(&code, load_context).await? {
-        //     code = patched_code;
-        // }
-
-        // asset.code =
-
-        // code: config.code.map(|p| load_context.load(&*p)),
-
+        })
     }
 
     fn extensions(&self) -> &[&str] {
-        static EXTENSIONS: &[&str] = &["lua"];
+        static EXTENSIONS: &[&str] = &["lua", "p8lua"];
         EXTENSIONS
     }
 }
@@ -259,6 +339,7 @@ async fn into_asset(config: Config, load_context: &mut LoadContext<'_>) -> Resul
         }
         let state = pico8::Pico8Asset {
 #[cfg(feature = "scripting")]
+                // code: config.code.map(|p| load_context.loader().with_settings(LuaLoaderSettings::default()).load(&*p)),
                 code: config.code.map(|p| load_context.load(&*p)),
                 palettes,
                 border: load_context.loader()

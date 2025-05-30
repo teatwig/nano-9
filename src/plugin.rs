@@ -435,6 +435,10 @@ impl Plugin for Nano9Plugin {
                         .extension_to_language_map
                         .insert("p8", Language::Lua);
 
+                    settings
+                        .extension_to_language_map
+                        .insert("p8lua", Language::Lua);
+
                     // settings
                     //     .extension_to_language_map
                     //     .insert("png#lua", Language::Lua);

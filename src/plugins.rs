@@ -21,6 +21,10 @@ impl PluginGroup for Nano9Plugins {
         let nano9_plugin = Nano9Plugin { config: self.config };
         let group = group.add_group(
             DefaultPlugins
+                // .set(AssetPlugin {
+                //     mode: AssetMode::Processed,
+                //     ..default()
+                // })
             .set(AudioPlugin {
                 global_volume: GlobalVolume::new(0.4),
                 ..default()
