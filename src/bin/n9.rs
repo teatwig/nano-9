@@ -159,8 +159,8 @@ fn main() -> io::Result<ExitCode> {
     #[cfg(feature = "minibuffer")]
     app.add_plugins(MinibufferPlugins).add_acts((
         BasicActs::default(),
-        acts::universal::UniversalArgActs::default(),
-        acts::tape::TapeActs::default(),
+        // acts::universal::UniversalArgActs::default(),
+        // acts::tape::TapeActs::default(),
         crate::minibuffer::Nano9Acts::default(),
         // CountComponentsActs::default()
         //     .add::<Text>("text")
