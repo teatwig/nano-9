@@ -5,6 +5,9 @@ Nano-9 is Bevy in [Pico-8](https://www.lexaloffle.com/pico-8.php) clothing.
 > [!WARNING]
 > Nano-9 is currently in the early stages of development and is subject to
 > breaking changes and not ready for public consumption. 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/307ff6e1-8682-4b99-979a-fcef7d3ae341"/>
+</p>
 
 ## Goals
 
@@ -156,6 +159,10 @@ OR
 cargo run --example show-palette gameboy
 ```
 ### sprite
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/307ff6e1-8682-4b99-979a-fcef7d3ae341"/>
+</p>
+
 This example animates a sprite from a sprite sheet. This one is particularly
 instructive because it shows the various ways of configuring and organizing a
 Nano-9 game.
