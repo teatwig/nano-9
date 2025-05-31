@@ -1,9 +1,6 @@
 use bevy::prelude::*;
 use nano9::{config::*, error::RunState, pico8::*, *};
 
-fn init(pico8: Pico8) {
-}
-
 fn update(mut pico8: Pico8, mut t: Local<usize>) {
     pico8.cls(None).unwrap();
     let n = ((pico8.time() * 4.0) % 8.0) + 8.0;
@@ -16,7 +13,6 @@ fn update(mut pico8: Pico8, mut t: Local<usize>) {
 
 fn main() {
     let mut app = App::new();
-    app.add_systems(OnEnter(RunState::Init), init);
     app.add_systems(Update, update.run_if(in_state(RunState::Run)));
 
     let mut config = Config::pico8();

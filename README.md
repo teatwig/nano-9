@@ -281,10 +281,8 @@ game, but they yearn to do something that is not possible with Pico-8 itself.
 Like what? There are so many things:
 
 - Maybe use a full screen shader that creates a CRT effect, 
-- maybe embed an arcade game in their actual game that is in fact a
-Pico-8 game,
-- maybe adjust the proportions of the screen so that it's a
-landscape,
+- maybe embed an arcade game in their actual game that is in fact a Pico-8 game,
+- maybe adjust the proportions of the screen so that it's a landscape,
 - maybe use a color palette that best expresses their aesthetic,
 - maybe they need more buttons or access to a thumbstick,
 - or maybe port their game to a console.

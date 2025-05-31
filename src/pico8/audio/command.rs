@@ -255,11 +255,12 @@ impl Command for AudioCommand {
 mod test {
     use super::*;
 
+    #[test]
     fn test_matches_eq() {
         let x = PlaybackMode::Once;
         let y = PlaybackMode::Loop;
-        // assert!(!matches!(x, y));
-        assert!(matches!(x, y));
+        // The y in the match expression below is not the y above this line.
+        assert!(matches!(x, _y));
         assert!(mode_eq(x, y));
     }
 }
