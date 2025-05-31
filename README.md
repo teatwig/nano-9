@@ -29,7 +29,7 @@ The goals for Nano-9 are to
 - Do not provide a comprehensive game development console experience.
 - Do not support `peek()` or `poke()` in their entirety.
 - Do not write P8 or PNG cartridges.
-- Do not use fixed-point numbers.
+- Do not use fixed-point numbers in general.
 - Do not support same performance characteristics.
   
   Let me provide an example where Nano-9 and Pico-8 performance differ. In
@@ -94,7 +94,7 @@ end
 ## Examples
 Many examples are written in both Lua and Rust to demonstrate how one can do
 what they like with either language. The Lua examples can be run with `cargo run
-FILE.lua` or one can install the `n9` binary and do `n9 FILE.lua`.
+FILE.lua`.
 
 ### hello-world
 This one-liner prints "Hello".
@@ -178,6 +178,30 @@ assets must come from an "assets" directory.
 cargo run --example sprite
 ```
 
+### n9 binary
+The `cargo run` command is executing the `n9` binary, which can be installed.
+
+``` sh
+cargo install --path .
+```
+
+Once installed you can run an example like so:
+
+``` sh
+n9 examples/line.lua
+```
+
+However, the "sprite" example will probably produce an error saying it could not
+find an asset in your "$HOME/.cargo/bin/assets" directory. This is due to Bevy's
+standard behavior of looking for an "assets" directory where the executable is
+stored. We can override that behavior by setting the NANO9_ASSET_DIR environment
+variable.
+
+``` sh
+cd nano-9
+NANO9_ASSET_DIR=assets n9 examples/sprite.p8lua
+```
+
 ## Cargo Features
 
 Nano-9 has a number of cargo features to tailor it to your use case. For
@@ -255,8 +279,8 @@ function _update()
 end
 ```
 
-The above code works in Nano-9 in a .p8lua file. Here is the Lua code.
-Note: that Lua does not have the `+=` operator of Pico-8.
+The above code works in Nano-9 in a .p8lua file. Below is the Lua code.
+Note that Lua does not have the `+=` operator of Pico-8.
 
 ``` lua
 x = 0
@@ -266,7 +290,7 @@ function _update()
 end
 ```
 
-Here is what the Rust version of the same thing looks like.
+Here is the Rust version.
 ``` rust
 use bevy::prelude::*;
 use nano9::prelude::*;
