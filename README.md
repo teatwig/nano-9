@@ -47,6 +47,31 @@ The goals for Nano-9 are to
   not possible in Pico-8. For instance one could query on-screen entities for
   collision information.
 
+## Install
+
+### As a repository
+
+Recommended to easily exercise the examples.
+
+``` sh
+git clone https://github.com/shanecelis/nano-9.git
+```
+
+### As a library
+
+Recommended if you are writing your game in Rust and not Lua.
+
+``` sh
+cargo add nano9@0.1.0-alpha.1
+```
+
+### As a command line tool n9
+
+Recommended if you are writing your game in Lua and not Rust.
+``` sh
+cargo install nano9@0.1.0-alpha.1
+```
+
 ## API Extensions
 
 There are many extensions to the Pico-8 API usually in the form of extra
