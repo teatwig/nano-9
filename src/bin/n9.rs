@@ -10,7 +10,7 @@ use bevy::{
 #[cfg(feature = "minibuffer")]
 use bevy_minibuffer::prelude::*;
 use nano9::{config::{Config, front_matter, run_pico8_when_loaded}, pico8::{Pico8Handle, Pico8Asset}, *};
-use std::{env, ffi::OsStr, fs, io, path::PathBuf, process::ExitCode};
+use std::{env, ffi::OsStr, fs, io, path::{Path, PathBuf}, process::ExitCode};
 
 fn usage(mut output: impl io::Write) -> io::Result<()> {
     writeln!(output, "usage: n9 <FILE>")?;
@@ -54,9 +54,24 @@ fn main() -> io::Result<ExitCode> {
         AssetSourceBuilder::platform_default(dbg!(env::current_dir()?.to_str().expect("current dir")), None);
     builder.watcher = None;
     builder.processed_watcher = None;
-
     app.register_asset_source(&cwd, builder);
-    let source = AssetSourceId::Default;
+
+    let set_default_source = if let Some(dir_name) = env::var_os("NANO9_ASSET_DIR") {
+        let mut asset_dir: PathBuf = dir_name.into();
+        if asset_dir.is_relative() {
+            let mut cur_dir = env::current_dir()?;
+            cur_dir.push(&asset_dir);
+            asset_dir = cur_dir;
+        }
+        app.register_asset_source(
+            &AssetSourceId::Default,
+            AssetSourceBuilder::platform_default(asset_dir.to_str().expect("asset dir"), None),
+        );
+        true
+    } else {
+        false
+    };
+
     let nano9_plugin;
 
     let extension = script_path
@@ -67,9 +82,11 @@ fn main() -> io::Result<ExitCode> {
         "toml" => {
             eprintln!("loading config");
             let path = &script_path;
-            if let Some(parent) = path.parent() {
+            if set_default_source {
+                eprintln!("warn: NANO9_ASSET_DIR environment variable overriding Nano-9.toml's directory.");
+            } else if let Some(parent) = path.parent() {
                 app.register_asset_source(
-                    &source,
+                    &AssetSourceId::Default,
                     AssetSourceBuilder::platform_default(parent.to_str().expect("parent dir"), None),
                 );
             }
