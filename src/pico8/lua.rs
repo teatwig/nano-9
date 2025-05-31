@@ -544,6 +544,26 @@ pub(crate) fn plugin(app: &mut App) {
             },
         )
         .register(
+            "sset",
+            |ctx: FunctionCallContext,
+             x: u32,
+             y: u32,
+             color: Option<N9Color>,
+             sprite_index: Option<usize>| {
+                with_pico8(&ctx, move |pico8| {
+                    pico8.sset(UVec2::new(x, y), color, sprite_index)
+                })
+            },
+        )
+        .register(
+            "sget",
+            |ctx: FunctionCallContext, x: u32, y: u32, sprite_index: Option<usize>| {
+                with_pico8(&ctx, move |pico8| {
+                    pico8.sget(UVec2::new(x, y), sprite_index)
+                })
+            },
+        )
+        .register(
             "color",
             |ctx: FunctionCallContext, color: Option<PColor>| {
                 with_pico8(&ctx, move |pico8| pico8.color(color))
@@ -624,26 +644,6 @@ pub(crate) fn plugin(app: &mut App) {
                 pico8.props(id).map(|p| from_properties(&p))
             })
         })
-        .register(
-            "sset",
-            |ctx: FunctionCallContext,
-             x: u32,
-             y: u32,
-             color: Option<N9Color>,
-             sprite_index: Option<usize>| {
-                with_pico8(&ctx, move |pico8| {
-                    pico8.sset(UVec2::new(x, y), color, sprite_index)
-                })
-            },
-        )
-        .register(
-            "sget",
-            |ctx: FunctionCallContext, x: u32, y: u32, sprite_index: Option<usize>| {
-                with_pico8(&ctx, move |pico8| {
-                    pico8.sget(UVec2::new(x, y), sprite_index)
-                })
-            },
-        )
         // .register(
         //     "sset",
         //     |ctx: FunctionCallContext, id: i64, sprite_index: usize| {
