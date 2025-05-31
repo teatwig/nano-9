@@ -261,6 +261,6 @@ mod test {
         let y = PlaybackMode::Loop;
         // The y in the match expression below is not the y above this line.
         assert!(matches!(x, _y));
-        assert!(mode_eq(x, y));
+        assert!(!mode_eq(x, y));
     }
 }

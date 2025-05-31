@@ -203,6 +203,14 @@ assets must come from an "assets" directory.
 cargo run --example sprite
 ```
 
+#### sprite/Cargo.toml
+There is one final form that a Nano-9 game may take and that's as its own cargo
+project. There isn't an example for this one included in the repository. Until
+there is the best example is a game jam that my nine-year-old daughter and I
+made called [frog-oclock](https://github.com/rylandvonhunter/frog-oclock). That
+project uses Lua and Rust. It is mainly a Lua project, but in the Rust code you
+can see where an old TV post processing effect is commented out.
+
 ### n9 binary
 The `cargo run` command is executing the `n9` binary, which can be installed.
 
