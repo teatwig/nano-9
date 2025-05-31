@@ -79,9 +79,7 @@ impl AssetLoader for ConfigLoader {
         let content = std::str::from_utf8(&bytes)?;
         let mut config: Config = toml::from_str::<Config>(content)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
-        if let Some(template) = config.template.take() {
-            config.inject_template(&template)?;
-        }
+        config.inject_template(None)?;
         into_asset(config, load_context).await
     }
 

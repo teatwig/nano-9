@@ -186,12 +186,14 @@ impl Config {
         config
     }
 
-    pub fn inject_template(&mut self, template_name: &str) -> Result<(), ConfigLoaderError> {
-        match template_name {
-            "gameboy" => self.inject_gameboy(),
-            "pico8" => self.inject_pico8(),
-            x => {
-                return Err(ConfigLoaderError::InvalidTemplate(x.to_string()));
+    pub fn inject_template(&mut self, template_name: Option<&str>) -> Result<(), ConfigLoaderError> {
+        if let Some(template_name) = template_name.or(self.template.as_deref()) {
+            match template_name {
+                "gameboy" => self.inject_gameboy(),
+                "pico8" => self.inject_pico8(),
+                x => {
+                    return Err(ConfigLoaderError::InvalidTemplate(x.to_string()));
+                }
             }
         }
         Ok(())

@@ -98,11 +98,9 @@ fn main() -> io::Result<ExitCode> {
             let mut config: Config = toml::from_str::<Config>(&content)
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
 
-            if let Some(template) = config.template.take() {
-                if let Err(e) = config.inject_template(&template) {
-                    eprintln!("error: {e}");
-                    return Ok(ExitCode::from(2));
-                }
+            if let Err(e) = config.inject_template(None) {
+                eprintln!("error: {e}");
+                return Ok(ExitCode::from(2));
             }
             nano9_plugin = Nano9Plugin { config };
         }
@@ -136,10 +134,8 @@ fn main() -> io::Result<ExitCode> {
             let mut config = if let Some(front_matter) = front_matter::LUA.parse_in_place(&mut content) {
                 let mut config: Config = toml::from_str::<Config>(&front_matter)
                     .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
-                if let Some(template) = config.template.take() {
-                    config.inject_template(&template)
-                          .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
-                }
+                config.inject_template(None)
+                        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
                 config
             } else {
                 Config::pico8()
