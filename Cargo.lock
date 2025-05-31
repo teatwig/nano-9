@@ -957,6 +957,8 @@ dependencies = [
 [[package]]
 name = "bevy_ecs_tiled"
 version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3c83101ffb04b2ade1b2996fb430bd279b38b4a55c6503b1ab2e13e49ade03b"
 dependencies = [
  "bevy",
  "bevy_ecs_tilemap",
@@ -971,6 +973,8 @@ dependencies = [
 [[package]]
 name = "bevy_ecs_tilemap"
 version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d860132718d33627950294b0f316310f1dae789fb995deb4516ebdd7f3e6219"
 dependencies = [
  "bevy",
  "bevy_internal",
@@ -1334,6 +1338,8 @@ dependencies = [
 [[package]]
 name = "bevy_mod_scripting"
 version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e217946be7886f2fb50cc70955271edae508fb7838cbe31b9301f062ed1be3e3"
 dependencies = [
  "bevy",
  "bevy_mod_scripting_core",
@@ -1345,6 +1351,8 @@ dependencies = [
 [[package]]
 name = "bevy_mod_scripting_core"
 version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97524ea0e6fd0bb54105e01eb143c1dcb6dad6e6fb897c1f6425ab1c2b99a1bc"
 dependencies = [
  "bevy",
  "bevy_mod_debugdump",
@@ -1365,6 +1373,8 @@ dependencies = [
 [[package]]
 name = "bevy_mod_scripting_derive"
 version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ff9f59d2acb456af685165c02a8f8ef91da1522af0caa6eab825436f13ccb2b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1374,6 +1384,8 @@ dependencies = [
 [[package]]
 name = "bevy_mod_scripting_functions"
 version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2faf119d7cbd8bb391e463f0bacd5ab9800af005a964701965bab79ba855cd2c"
 dependencies = [
  "bevy",
  "bevy_mod_scripting_core",
@@ -1388,6 +1400,8 @@ dependencies = [
 [[package]]
 name = "bevy_mod_scripting_lua"
 version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3bc16bdc621963a7d37e874f8653ec0de97dff01e3fc21c00f495fa8ebb7d036"
 dependencies = [
  "bevy",
  "bevy_mod_scripting_core",
@@ -1664,6 +1678,8 @@ dependencies = [
 [[package]]
 name = "bevy_system_reflection"
 version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "775adbef1c623779f2a5545fa34a10996ab8498e352632d4b8a6e379e7612e00"
 dependencies = [
  "bevy",
  "dot-writer",
@@ -3991,15 +4007,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
-name = "ldtk_rust"
-version = "0.6.1"
-source = "git+https://github.com/nomnomab/ldtk_rust.git?branch=1.5.3#b055018c3a03f767dc2506bc2bf44f35957b417a"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "lewton"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4325,7 +4332,7 @@ dependencies = [
 
 [[package]]
 name = "nano9"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 dependencies = [
  "atomicow",
  "bevy",
@@ -4345,7 +4352,6 @@ dependencies = [
  "fixed",
  "futures-lite 2.6.0",
  "keyseq",
- "ldtk_rust",
  "pico8-to-lua",
  "pico8_decompress",
  "png",
@@ -4356,6 +4362,7 @@ dependencies = [
  "tiled",
  "tiny-skia",
  "toml 0.8.20",
+ "version-sync",
 ]
 
 [[package]]

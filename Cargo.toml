@@ -1,6 +1,6 @@
 [package]
 name = "nano9"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2021"
 
 [dependencies]
@@ -19,7 +19,7 @@ rand = "0.8.5"
 tiny-skia = "0.11.4"
 toml = "0.8.19"
 atomicow = "1.0.0"
-ldtk_rust = { version = "0.6.1", optional = true }
+# ldtk_rust = { version = "0.6.1", optional = true }
 serde_json = { version = "1.0", optional = true }
 bevy_ecs_tiled = { version = "0.6", optional = true }
 bitflags = "2.8.0"
@@ -35,22 +35,25 @@ fixed = { version = "1.29.0", optional = true }
 bevy_web_asset = { version = "0.10.0", optional = true, default-features = false }
 
 [features]
-default = [ "level", "negate-y", "pico8-to-lua", "fixed", "scripting", "web_asset" ]
+default = [ "negate-y", "pico8-to-lua", "fixed", "scripting" ]
 negate-y = []
-# level = [ "dep:bevy_ecs_ldtk", "dep:ldtk_rust", "dep:serde_json"]
-# level = [ "dep:bevy_ecs_tiled", "dep:serde_json", "bevy_ecs_tiled/user_properties" ]
-level = [ "dep:bevy_ecs_tiled", "dep:serde_json", "dep:futures-lite" ]
-user_properties = [ "bevy_ecs_tiled/user_properties" ]
-# level = [ "dep:bevy_ecs_tiled", "dep:serde_json" ]
 inspector = [ "minibuffer", "dep:bevy_minibuffer_inspector" ]
 minibuffer = [ "dep:bevy_minibuffer" ]
-pico8-to-lua = ["dep:pico8-to-lua"]
-fixed = ["dep:fixed"]
+pico8-to-lua = [ "dep:pico8-to-lua" ]
+fixed = [ "dep:fixed" ]
 scripting = [ "dep:bevy_mod_scripting" ]
-web_asset = ["dep:bevy_web_asset"]
+web_asset = [ "dep:bevy_web_asset" ]
+# Features after this line are not supported yet.
+# -----------------------------------------------
+# level = [ "dep:bevy_ecs_ldtk", "dep:ldtk_rust", "dep:serde_json"]
+# level = [ "dep:bevy_ecs_tiled", "dep:serde_json", "bevy_ecs_tiled/user_properties" ]
+user_properties = [ "bevy_ecs_tiled/user_properties" ]
+# level = [ "dep:bevy_ecs_tiled", "dep:serde_json" ]
+level = [ "dep:bevy_ecs_tiled", "dep:serde_json", "dep:futures-lite" ]
 
 [dev-dependencies]
 bevy = "0.15"
+version-sync = "0.9.5"
 
 [[bin]]
 name = "n9"
@@ -61,13 +64,13 @@ required-features = [ "scripting" ]
 [patch."https://github.com/shanecelis/pico8_decompress.git"]
 pico8_decompress = { path = "../pico8_decompress" }
 [patch.crates-io]
-bevy_ecs_tiled = { path = "../bevy_ecs_tiled" }
-bevy_mod_scripting = { path = "../bevy_mod_scripting" }
+# bevy_ecs_tiled = { path = "../bevy_ecs_tiled" }
+# bevy_mod_scripting = { path = "../bevy_mod_scripting" }
 # bevy_minibuffer = { path = "../bevy_minibuffer" }
 # bevy_asky = { path = "../bevy_asky" }
 # bevy_ecs_ldtk = { path = "../bevy_ecs_ldtk" }
-bevy_ecs_tilemap = { path = "../bevy_ecs_tilemap" }
-ldtk_rust = { git = "https://github.com/nomnomab/ldtk_rust.git", branch = "1.5.3" }
+# bevy_ecs_tilemap = { path = "../bevy_ecs_tilemap" }
+# ldtk_rust = { git = "https://github.com/nomnomab/ldtk_rust.git", branch = "1.5.3" }
 # bevy_minibuffer_inspector = { path = "../bevy_minibuffer_inspector" }
 # bevy-inspector-egui = { git = "https://github.com/jakobhellermann/bevy-inspector-egui" }
 # bevy-inspector-egui = { path = "../bevy-inspector-egui/crates/bevy-inspector-egui" }
