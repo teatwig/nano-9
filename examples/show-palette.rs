@@ -28,7 +28,7 @@ fn main() -> io::Result<ExitCode> {
     let mut args = std::env::args();
     if let Some(template) = args.nth(1) {
         let mut config = Config::default();
-        if let Err(e) = config.inject_template(&template) {
+        if let Err(e) = config.inject_template(None) {
             eprintln!("error: {e}");
             return Ok(ExitCode::from(2));
         }

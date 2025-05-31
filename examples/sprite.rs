@@ -1,8 +1,7 @@
 use bevy::prelude::*;
 use nano9::{config::*, error::RunState, pico8::*, *};
-use std::{io, path::Path};
 
-fn init(mut pico8: Pico8) {
+fn init(pico8: Pico8) {
 }
 
 fn update(mut pico8: Pico8, mut t: Local<usize>) {

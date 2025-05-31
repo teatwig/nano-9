@@ -10,7 +10,7 @@ use bevy::{
 #[cfg(feature = "minibuffer")]
 use bevy_minibuffer::prelude::*;
 use nano9::{config::{Config, front_matter, run_pico8_when_loaded}, pico8::{Pico8Handle, Pico8Asset}, *};
-use std::{env, ffi::OsStr, fs, io, path::{Path, PathBuf}, process::ExitCode};
+use std::{env, fs, io, path::PathBuf, process::ExitCode};
 
 fn usage(mut output: impl io::Write) -> io::Result<()> {
     writeln!(output, "usage: n9 <FILE>")?;
@@ -106,7 +106,7 @@ fn main() -> io::Result<ExitCode> {
         }
         "p8" | "png" => {
             eprintln!("loading cart");
-            let mut config = Config::pico8();
+            let config = Config::pico8();
 
             // let asset_path = AssetPath::from_path(&script_path).into_owned().with_source(&cwd).with_label("lua");
             // config.code = Some(asset_path.to_string());

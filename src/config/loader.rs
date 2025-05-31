@@ -5,8 +5,7 @@ use crate::{
     pico8::{self, image::pixel_art_settings, Gfx, Pico8Asset},
 };
 use bevy::{
-    utils::ConditionalSendFuture,
-    asset::{io::{Reader, AsyncWriteExt}, AssetLoader, AssetPath, LoadContext},
+    asset::{io::Reader, AssetLoader, AssetPath, LoadContext},
     prelude::*,
 };
 #[cfg(feature = "scripting")]

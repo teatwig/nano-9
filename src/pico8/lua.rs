@@ -7,7 +7,7 @@ use bevy_mod_scripting::core::{
     bindings::{
         access_map::ReflectAccessId,
         function::{
-            from::{FromScript, Val},
+            from::FromScript,
             into_ref::IntoScriptRef,
             namespace::{GlobalNamespace, NamespaceBuilder},
             script_function::FunctionCallContext,
@@ -20,7 +20,7 @@ use bevy_mod_scripting::core::{
 
 use crate::{
     color::FillColor,
-    pico8::{Error, PalModify, Pico8, PropBy, SfxCommand, Spr},
+    pico8::{Error, PalModify, Pico8, SfxCommand, Spr},
     DropPolicy, N9Color, N9Entity, PColor,
 };
 
