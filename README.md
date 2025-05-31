@@ -2,12 +2,16 @@
 
 Nano-9 is Bevy in [Pico-8](https://www.lexaloffle.com/pico-8.php) clothing.
 
+Take your Pico-8 skills straight into Bevy!
+
+<figure>
+  <img src=""/>
+  <figcaption>Frog o'clock made for the 1-BIT JAM 6</figcaption>
+</figure>
+
 > [!WARNING]
 > Nano-9 is currently in the early stages of development and is subject to
 > breaking changes and only ready for alpha testing. 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/307ff6e1-8682-4b99-979a-fcef7d3ae341"/>
-</p>
 
 ## Goals
 
