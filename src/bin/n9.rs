@@ -22,15 +22,15 @@ fn usage(mut output: impl io::Write) -> io::Result<()> {
 }
 
 fn main() -> io::Result<ExitCode> {
-    let example_files = [
-        "cart.p8",
-        "cart.p8.png",
-        "code.lua", // Lua
-        // "code.pua", // Pico-8 dialect
-        "game-dir",
-        "game-dir/Nano9.toml",
-        "code.n9",
-    ];
+    // let example_files = [
+    //     "cart.p8",
+    //     "cart.p8.png",
+    //     "code.lua", // Lua
+    //     // "code.pua", // Pico-8 dialect
+    //     "game-dir",
+    //     "game-dir/Nano9.toml",
+    //     "code.n9",
+    // ];
     let mut args = env::args();
     let Some(arg) = args.nth(1) else {
         usage(std::io::stderr())?;
@@ -143,16 +143,13 @@ fn main() -> io::Result<ExitCode> {
             config.code = Some(dbg!(AssetPath::from_path(&script_path).with_source(&cwd).to_string()));
             nano9_plugin = Nano9Plugin { config };
         }
-        ext => {
-            eprintln!("Only accepts .p8, .png, .lua, and .toml files.");
+        _ext => {
+            eprintln!("Only accepts .p8, .png, .lua, .p8lua, and .toml files.");
             return Ok(ExitCode::from(1));
         }
     }
-
-    app.add_plugins(
-        Nano9Plugins { config: nano9_plugin.config }
-    )
-    .add_plugins(FpsOverlayPlugin {
+    app.add_plugins(Nano9Plugins { config: nano9_plugin.config })
+       .add_plugins(FpsOverlayPlugin {
         config: FpsOverlayConfig {
             text_config: TextFont {
                 // Here we define size of our overlay

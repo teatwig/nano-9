@@ -6,7 +6,7 @@ pub use loader::*;
 pub mod front_matter;
 use crate::{
     error::RunState,
-    pico8::{self, Pico8Handle, Pico8State},
+    pico8::{self, Pico8Handle},
 };
 use bevy::{
     asset::{embedded_asset, AssetPath},
@@ -127,7 +127,6 @@ pub fn update_asset(
     assets: ResMut<Assets<pico8::Pico8Asset>>,
 
     mut next_state: ResMut<NextState<RunState>>,
-    pico8_state: ResMut<Pico8State>,
     mut pico8_handle: Option<ResMut<Pico8Handle>>,
     #[cfg(feature = "scripting")]
     mut commands: Commands,

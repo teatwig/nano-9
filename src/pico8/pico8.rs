@@ -271,6 +271,7 @@ impl From<Error> for LuaError {
 }
 
 #[derive(SystemParam)]
+#[allow(dead_code)]
 pub struct Pico8<'w, 's> {
     // TODO: Turn these image operations into triggers so that the Pico8 system
     // parameter will not preclude users from accessing images in their rust
@@ -609,8 +610,8 @@ impl Pico8<'_, '_> {
         let (sprites, index): (&SpriteSheet, usize) = match spr.into() {
             Spr::Cur { sprite } => (self.sprite_sheet(None)?, sprite),
             Spr::From { sheet, sprite } => (self.sprite_sheet(Some(sheet))?, sprite),
-            Spr::Set { sheet } => {
-                todo!()
+            Spr::Set { sheet: _ } => {
+                todo!("sheet set not implemented and maybe shouldn't be");
                 // self.state.sprite_sheets.pos = sheet;
                 // return Ok(Entity::PLACEHOLDER);
             }
@@ -954,7 +955,9 @@ impl Pico8<'_, '_> {
         let text = text.into();
         let id = self.commands.spawn_empty().id();
         self.commands.queue(move |world: &mut World| {
-            Self::print_world(world, Some(id), text, pos, color, font_size, font_index);
+            if let Err(e) = Self::print_world(world, Some(id), text, pos, color, font_size, font_index) {
+                warn!("print error {e}");
+            }
         });
         Ok(id)
     }
@@ -1147,7 +1150,6 @@ impl Pico8<'_, '_> {
     ) -> Result<(), Error> {
         let n = n.into();
         let bank = bank.unwrap_or(0);
-        return Ok(());
         match n {
             SfxCommand::Release => {
                 panic!("Music does not accept a release command.");
@@ -1260,7 +1262,7 @@ impl Pico8<'_, '_> {
         &self,
         pos: Vec2,
         map_index: Option<usize>,
-        layer_index: Option<usize>,
+        _layer_index: Option<usize>,
     ) -> Option<usize> {
         let map: &Map = self.sprite_map(map_index).ok()?;
         match *map {
@@ -1278,7 +1280,7 @@ impl Pico8<'_, '_> {
         pos: Vec2,
         sprite_index: usize,
         map_index: Option<usize>,
-        layer_index: Option<usize>,
+        _layer_index: Option<usize>,
     ) -> Result<(), Error> {
         let map = self.sprite_map_mut(map_index)?;
         match map {
@@ -1768,7 +1770,7 @@ impl Pico8<'_, '_> {
     }
 
     #[cfg(feature = "scripting")]
-    pub fn stat(&mut self, n: u8, value: Option<u8>) -> Result<ScriptValue, Error> {
+    pub fn stat(&mut self, n: u8, _value: Option<u8>) -> Result<ScriptValue, Error> {
         match n {
             30 => Ok(ScriptValue::Bool(!self.key_input.buffer.is_empty())),
             31 => self.key_input.pop().map(|string_maybe| {
@@ -1851,8 +1853,6 @@ pub enum PalModify {
 impl FromWorld for Pico8State {
     fn from_world(world: &mut World) -> Self {
         let defaults = world.resource::<pico8::Defaults>();
-        let asset_server = world.resource::<AssetServer>();
-
         Pico8State {
             palette: 0,
             pal_map: PalMap::default(),

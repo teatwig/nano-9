@@ -67,7 +67,7 @@ impl GfxHandles {
                     entry.insert(handle).clone()
                 } else {
                     let gfx = gfxs.get(gfx).ok_or(Error::NoSuch("gfx asset".into()))?;
-                    let image = if let Some(fill_pat) = fill_pat {
+                    let image = if let Some(_fill_pat) = fill_pat {
                         todo!();
                     } else {
                         gfx.try_to_image(|i, _, bytes| {

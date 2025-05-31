@@ -350,8 +350,7 @@ pub(crate) fn plugin(app: &mut App) {
             |ctx: FunctionCallContext, n: usize, f_or_v: u8, v: Option<u8>| {
                 let (f, v) = v.map(|v| (Some(f_or_v), v)).unwrap_or((None, f_or_v));
                 with_pico8(&ctx, move |pico8| {
-                    pico8.fset(n, f, v);
-                    Ok(())
+                    pico8.fset(n, f, v)
                 })
             },
         )

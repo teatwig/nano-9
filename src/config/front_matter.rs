@@ -89,13 +89,13 @@ fn strip_bom(s: &str) -> &str {
 }
 
 // YOUNG ME: Ooo, this is expressive.
-fn strip_bom_inplace(s: &mut String) {
-    const BOM: &str = "\u{FEFF}";
-    if s.starts_with(BOM) {
-        // OLD ME: Oof, we're gonna memmove the whole string for this?
-        s.drain(..BOM.len());
-    }
-}
+// fn strip_bom_inplace(s: &mut String) {
+//     const BOM: &str = "\u{FEFF}";
+//     if s.starts_with(BOM) {
+//         // OLD ME: Oof, we're gonna memmove the whole string for this?
+//         s.drain(..BOM.len());
+//     }
+// }
 
 // OLD ME: But this is performant.
 fn bom_len(s: &str) -> usize {
