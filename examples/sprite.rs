@@ -3,18 +3,16 @@ use nano9::{config::*, error::RunState, pico8::*, *};
 use std::{io, path::Path};
 
 fn init(mut pico8: Pico8) {
-    pico8.cls(None).unwrap();
-    // pico8.color(Some(1)).unwrap();
-    pico8.spr(0, Vec2::ZERO, None, None, None).unwrap();
 }
 
-fn update(mut pico8: Pico8) {
+fn update(mut pico8: Pico8, mut t: Local<usize>) {
     pico8.cls(None).unwrap();
-    let t = pico8.time();
+    let n = ((pico8.time() * 4.0) % 8.0) + 8.0;
+    let x = *t % 128;
+    let y = *t / 128;
 
-    let n = t % 8.0 + 8.0;
-
-    pico8.spr(n as usize, Vec2::ZERO, None, None, None).unwrap();
+    pico8.spr(n as usize, Vec2::new(x as f32, y as f32), None, Some(BVec2::new(true, false)), None).unwrap();
+    *t += 1;
 }
 
 fn main() {
@@ -34,8 +32,4 @@ fn main() {
         .add_plugins(Nano9Plugins { config })
         .add_systems(PreUpdate, run_pico8_when_loaded)
         .run();
-}
-
-fn show_asset_changes<T: Asset>(mut reader: EventReader<AssetEvent<T>>) {
-    reader.read().inspect(|e| info!("asset event {e:?}"));
 }

@@ -1,3 +1,5 @@
+#![doc(html_root_url = "https://docs.rs/nano9/0.1.0-alpha.1")]
+#![doc = include_str!("../README.md")]
 #![allow(clippy::type_complexity)]
 use bevy::prelude::*;
 mod color;
@@ -39,8 +41,4 @@ pub(crate) fn plugin(app: &mut App) {
         #[cfg(feature = "level")]
         app.add_plugins(level::plugin);
     }
-
-    // Enable dev tools for dev builds.
-    // #[cfg(feature = "dev")]
-    // app.add_plugins(dev_tools::plugin);
 }
