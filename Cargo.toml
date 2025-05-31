@@ -1,7 +1,20 @@
 [package]
 name = "nano9"
+description = "A Pico-8 compatibility layer for Bevy"
+authors = ["Shane Celis <shane.celis@gmail.com>"]
 version = "0.1.0-alpha.1"
 edition = "2021"
+keywords = [
+    "bevy",
+    "gamedev",
+    "pico-8",
+]
+categories = [
+    "game-development"
+]
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/shanecelis/nano-9"
 
 [dependencies]
 bevy = { version = "0.15", features = [ "bevy_dev_tools", "asset_processor" ] }
