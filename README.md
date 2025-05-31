@@ -47,47 +47,36 @@ The goals for Nano-9 are to
   not possible in Pico-8. For instance one could query on-screen entities for
   collision information.
 
-## Extensions
+## API Extensions
 
-There are many extensions to the Pico-8 API usually in the form of extra optional arguments at the end. For instance, Pico-8 has this signature for its `print` function:
+There are many extensions to the Pico-8 API usually in the form of extra
+optional arguments at the end. For instance, Pico-8 has this signature for its
+`print` function:
 
 ```lua
 print(str, [x,] [y,] [col])
 ```
 
-Nano-9's is the same with two additional arguments: a font size to change the font's size. And a font index to select which font from the "Nano-9.toml" config file to use.
+Nano-9's is the same with two additional arguments: font size and a font index
+to select which font from the "Nano-9.toml" config file to use.
 
 ```lua
 print(str, [x,] [y,] [col,] [font_size,] [font_index])
 ```
 
-The rest of the extensions are indicated in italics in the [compatibility](compat.md) document.
-
-## Current Design Considerations
-
-There are a number of questions that remain unanswered.
-
-### Support Pico-8's Lua dialect? Yes.
-I would like to but by what means? Text translation at load time?
-
-There are tools that help one convert Pico-8's dialect into conventional Lua:
-
-- [pico8-to-lua](https://github.com/benwiley4000/pico8-to-lua)
-- [Depicofier](https://github.com/Enichan/Depicofier)
-
-Nano-9 ported pico8-to-lua from Lua to Rust and uses that to allow for much of Pico-8's dialect. However, it is not fool proof. It relies on regular expression substitution which do not faithfully parse the Pico-8 dialect for all valid expressions. However, it allows many Pico-8 carts work without any changes.
-
-Still I would be happy to adopt a solution that actually parsed the Pico-8 dialect like Depicofier does for Rust.
+The rest of the extensions are indicated in italics in the
+[compatibility](compat.md) document.
 
 ### Opt-in to retained entities 
-One of the principle differences between Pico-8 and Bevy is that Pico-8 has an
-uses an immediate rendering system. If one wants to render a character, one
-renders its sprite every frame by calling `spr()`. Bevy in contrast uses a
-retained rendering system. One spawns a `Sprite` and that persists and is
-rendered every frame until it is despawned.
+One of the principle differences between Pico-8 and Bevy is that Pico-8 uses an
+immediate rendering system. If one wants to render a character, one renders its
+sprite every frame by calling `spr()`. Bevy in contrast uses a retained
+rendering system. One spawns a `Sprite` and that persists and is rendered every
+frame until it is despawned.
 
-One can imagine though that perhaps Nano-9's `spr()` function could be used like
-so:
+Nano-9 extends Pico-8's API for `spr()` by returning an `N9Entity`. This has a
+handful of methods: `retain([z_position])`, `name([name])`, `pos(x, y, z)`,
+`vis([visible])`, and `despawn()`.
 
 ``` lua
 function _init()
@@ -102,10 +91,135 @@ function _update()
 end
 ```
 
-One could opt-in to retained functionality. Is this a good idea? Retained mode
-is more complicated to maintain but it is more performant. Happy to hear
-feedback on this. This feature is implemented and available. It seems helpful
-for maps which are heavier than sprites.
+## Examples
+Many examples are written in both Lua and Rust to demonstrate how one can do
+what they like with either language. The Lua examples can be run with `cargo run
+FILE.lua` or one can install the `n9` binary and do `n9 FILE.lua`.
+
+### hello-world
+This one-liner prints "Hello".
+
+To run the Lua version:
+``` sh
+cargo run examples/hello-world.lua
+```
+To run the Rust version:
+``` sh
+cargo run --example hello-world
+```
+### line
+This example draws a line from the top-left to the bottom-right, one pixel per
+frame.
+
+``` sh
+cargo run examples/line.lua
+```
+OR
+``` sh
+cargo run --example line; # Rust
+```
+### show-palette
+This example draws the color palette as columns on the screen. You can choose
+between the two templates: pico8 and gameboy. This example does not have a Lua
+counterpart yet.
+
+``` sh
+cargo run --example show-palette pico8
+```
+OR
+``` sh
+cargo run --example show-palette gameboy
+```
+### sprite
+This example animates a sprite from a sprite sheet. This one is particularly
+instructive because it shows the various ways of configuring and organizing a
+Nano-9 game.
+
+#### sprite/Nano9.toml
+
+This is the conventional configuration where script, configuration, and assets
+all go into one directory.
+
+``` sh
+cargo run example/sprite/Nano9.toml
+```
+OR
+``` sh
+cargo run example/sprite
+```
+
+#### sprite.p8lua
+
+This one-file solution includes the following "front matter" to specify its
+configuration: 
+
+``` lua
+--[===[
+template = "pico8"
+[[image]]
+path = "BirdSprite.png"
+sprite_size = [16, 16]
+]===]
+```
+
+The front matter is interpreted by Lua as a comment, but the header and footer
+must be exactly as they are in order for Nano-9 to process it as TOML
+configuration data. The assets must come from an "assets" directory.
+
+``` sh
+cargo run examples/sprite.p8lua
+```
+
+#### sprite.rs
+This example shows how one can configure Nano-9 within their Rust code. The
+assets must come from an "assets" directory.
+
+``` sh
+cargo run --example sprite
+```
+
+## Cargo Features
+
+Nano-9 has a number of cargo features to tailor it to your use case. For
+instance you can use it without "scripting", which means it will have no Lua
+runtime at all.
+
+### "scripting" (enabled by default)
+Enables Lua scripting.
+
+### "negate-y" (enabled by default)
+Pico-8's positive y-axis points down the screen. Bevy's positive y-axis points
+up by convention. This feature ensures that conversion happens. If it's
+disabled, there will be no conversion, so it would be like using Pico-8 but with
+y = 0 being the top of the screen and y = -127 being the bottom of the screen.
+
+### "fixed" (enabled by default)
+Pico-8's numbers are all 32-bit fixed-point numbers. Nano-9 using `f32`
+generally. However, for a number of bit-twiddling functions like `shl()`,
+`shr()`, `lshr()`, `rotr()`, and `rotl()` that difference may be noticeable. The
+"fixed" feature converts `f32` to a fixed-point, does the operation then
+converts it back to `f32`. If it's disabled, those bit operations are simply not
+available (but perhaps they should be in the future).
+
+### "pico8-to-lua" (enabled by default)
+This enables conversion of Pico-8's dialect to regular Lua code.
+
+### "web_asset" (disabled by default)
+This enables one to place "http[s]://" URLs that will be resolved in the
+Nano9.toml configuration file.
+
+### "minibuffer" (disabled by default)
+This enables [bevy_minibuffer](https://github.com/shanecelis/bevy_minibuffer)
+for the "n9" CLI tool. It only has a few key bindings:
+
+| ACT               | KEY BINDING |
+|-------------------|-------------|
+| toggle_pause      | Space N P   |
+| lua_eval          | Space N E   |
+
+### "inspector" (disabled by default)
+This enables
+[bevy_minibuffer_inspector](https://github.com/shanecelis/bevy_minibuffer_inspector) which allows one initiate [bevy-inspector-egui](https://github.com/jakobhellermann/bevy-inspector-egui) from Minibuffer.
 
 ## FAQ
 
@@ -141,8 +255,8 @@ function _update()
 end
 ```
 
-Here is the Nano-9 code. Note: that it does not have the `+=` operator of
-Pico-8. It's vanilla Lua code.
+The above code works in Nano-9 in a .p8lua file. Here is the Lua code.
+Note: that Lua does not have the `+=` operator of Pico-8.
 
 ``` lua
 x = 0
@@ -151,18 +265,34 @@ function _update()
     x = x + 1
 end
 ```
-Here is what the Rust version of the same thing looks like.
 
+Here is what the Rust version of the same thing looks like.
 ``` rust
-fn update(mut pico8: Pico8, mut x: Local<u32>) -> Result<(), Pico8Error> {
-    pico8.pset(*x, *x)?;
+use bevy::prelude::*;
+use nano9::prelude::*;
+
+fn update(mut pico8: Pico8, mut x: Local<u32>) {
+    let _ = pico8.pset(UVec2::new(*x, *x), None);
     *x += 1;
-    Ok(())
 }
 ```
 
-This is not to suggest that the Rust version is preferable, only that it's
-available.
+### Does Nano-9 support Pico-8's Lua dialect?
+
+Yes. Carts in .p8 or .png format can use Pico-8's dialect and its "#include"
+syntax.
+
+Files with the .lua extension will be interpreted as vanilla Lua files. Files
+with the .p8lua extension will be translated to Lua from the Pico-8 dialect
+using [pico8-to-lua](https://github.com/benwiley4000/pico8-to-lua). To see the
+translated files, set the environment variable NANO9_LUA_CODE to a filename, and
+Nano-9 will write the translated code and log it.
+
+Note: pico8-to-lua is not fool proof. It relies on regular expression
+substitution which do not faithfully parse the Pico-8 dialect for all valid
+expressions. However, it allows many Pico-8 carts work without any changes. It
+would be preferable to adopt a solution that actually parsed the Pico-8 dialect
+like [Depicofier](https://github.com/Enichan/Depicofier) but for Rust.
 
 ### Can I use this to port my game to a console?
 
@@ -277,3 +407,7 @@ which this project would not have been made.
 Many thanks to the whole [Bevy team](https://bevyengine.org/community/people/)
 for creating an exciting new open source game engine that has been a joy to work
 with.
+
+Many thanks to [ma9ici4n](https://itch.io/profile/ma9ici4n) for their
+[16xBird](https://ma9ici4n.itch.io/pixel-art-bird-16x16) which is used in the
+sprite example.
