@@ -456,7 +456,9 @@ impl Plugin for Nano9Plugin {
             // focused_mode: bevy::winit::UpdateMode::Continuous,
             focused_mode: bevy::winit::UpdateMode::reactive(Duration::from_millis(16)),
             unfocused_mode: bevy::winit::UpdateMode::reactive_low_power(Duration::from_millis(
-                16 * 4,
+                // We could run it slower here, but that feels bad actually.
+                // 16 * 4,
+                16,
             )),
         })
         .insert_resource(self.config.defaults.as_ref().map(pico8::Defaults::from_config).unwrap_or_default())

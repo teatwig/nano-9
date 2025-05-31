@@ -10,7 +10,8 @@ use bevy_mod_scripting::core::{
         function::{namespace::NamespaceBuilder, script_function::FunctionCallContext},
         script_value::ScriptValue,
     },
-    error::{InteropError, ScriptCallbackEvent},
+    event::ScriptCallbackEvent,
+    error::InteropError,
 };
 // mod count;
 // pub use count::*;
