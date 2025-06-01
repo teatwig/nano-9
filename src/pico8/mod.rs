@@ -1,6 +1,9 @@
-use bevy::prelude::*;
-mod pico8;
-pub use pico8::*;
+use bevy::{
+    prelude::*,
+    asset::embedded_asset,
+};
+mod api;
+pub use api::*;
 // pub mod cartridge;
 mod cart;
 pub use cart::*;
@@ -29,9 +32,16 @@ pub(crate) mod mouse;
 mod defaults;
 pub(crate) use defaults::*;
 // mod gfx2;
+pub const PICO8_PALETTE: &str = "embedded://nano9/pico8/pico-8-palette.png";
+pub const PICO8_BORDER: &str = "embedded://nano9/pico8/rect-border.png";
+pub const PICO8_FONT: &str = "embedded://nano9/pico8/pico-8.ttf";
 
 pub(crate) fn plugin(app: &mut App) {
-    app.add_plugins(pico8::plugin)
+
+    embedded_asset!(app, "pico-8-palette.png");
+    embedded_asset!(app, "rect-border.png");
+    embedded_asset!(app, "pico-8.ttf");
+    app.add_plugins(api::plugin)
         .add_plugins(clear::plugin)
         .add_plugins(audio::plugin)
         .add_plugins(rand::plugin)

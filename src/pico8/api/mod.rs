@@ -1,10 +1,18 @@
+mod error;
+pub use error::*;
+mod asset;
+pub use asset::*;
+use super::*;
+mod spr;
+pub use spr::*;
+mod state;
+pub use state::*;
+
 use bevy::{
-    asset::embedded_asset,
     audio::PlaybackMode,
     ecs::system::SystemParam,
-    image::{ImageSampler, TextureAccessError},
+    image::ImageSampler,
     input::gamepad::GamepadConnectionEvent,
-    prelude::*,
     render::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
@@ -15,15 +23,11 @@ use bevy::{
 use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 
 #[cfg(feature = "scripting")]
-use bevy_mod_scripting::{
-    core::{
-        asset::ScriptAsset,
+use bevy_mod_scripting::core::{
         bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
         docgen::typed_through::{ThroughTypeInfo, TypedThrough},
         error::InteropError,
-    },
-    lua::mlua::prelude::LuaError,
-};
+    };
 use bitvec::prelude::*;
 
 use crate::{
@@ -41,9 +45,6 @@ use crate::{
 
 use std::{any::TypeId, borrow::Cow, f32::consts::PI};
 
-pub const PICO8_PALETTE: &str = "embedded://nano9/pico8/pico-8-palette.png";
-pub const PICO8_BORDER: &str = "embedded://nano9/pico8/rect-border.png";
-pub const PICO8_FONT: &str = "embedded://nano9/pico8/pico-8.ttf";
 pub const MAP_COLUMNS: u32 = 128;
 pub const PICO8_SPRITE_SIZE: UVec2 = UVec2::new(8, 8);
 pub const PICO8_TILE_COUNT: UVec2 = UVec2::new(16, 16);
@@ -68,112 +69,6 @@ impl From<Handle<Pico8Asset>> for Pico8Handle {
             script_component: None,
         }
     }
-}
-
-#[derive(Clone, Asset, Debug, Reflect)]
-pub struct Pico8Asset {
-    #[cfg(feature = "scripting")]
-    pub code: Option<Handle<ScriptAsset>>,
-    pub(crate) palettes: Vec<Palette>,
-    pub(crate) border: Handle<Image>,
-    pub(crate) sprite_sheets: Vec<SpriteSheet>,
-    pub(crate) maps: Vec<Map>,
-    pub(crate) font: Vec<N9Font>,
-    pub(crate) audio_banks: Vec<AudioBank>,
-}
-
-/// Pico8State's state.
-#[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource)]
-pub struct Pico8State {
-    #[reflect(ignore)]
-    pub(crate) pal_map: PalMap,
-    /// Current palette
-    pub(crate) palette: usize,
-    pub(crate) draw_state: DrawState,
-}
-
-#[derive(Reflect, Clone, Debug, Copy)]
-pub enum Spr {
-    /// Sprite at current spritesheet.
-    Cur { sprite: usize },
-    /// Sprite from given spritesheet.
-    From { sprite: usize, sheet: usize },
-    /// Set spritesheet.
-    ///
-    /// XXX: Not sure I like this.
-    Set { sheet: usize },
-}
-
-#[cfg(feature = "scripting")]
-impl FromScript for Spr {
-    type This<'w> = Self;
-    fn from_script(
-        value: ScriptValue,
-        _world: WorldAccessGuard<'_>,
-    ) -> Result<Self::This<'_>, InteropError> {
-        match value {
-            ScriptValue::Float(f) => Ok(Spr::Cur { sprite: f as usize }),
-            ScriptValue::Integer(n) => Ok(if n >= 0 {
-                Spr::Cur { sprite: n as usize }
-            } else {
-                Spr::Set {
-                    sheet: n.unsigned_abs() as usize,
-                }
-            }),
-            ScriptValue::List(list) => {
-                assert_eq!(list.len(), 2, "Expect two elements for spr.");
-                let mut iter = list.into_iter().map(|v| match v {
-                    ScriptValue::Integer(n) => Ok(n as usize),
-                    x => Err(InteropError::external_error(Box::new(
-                        Error::InvalidArgument(format!("{x:?}").into()),
-                    ))),
-                });
-                let sprite = iter.next().expect("sprite index")?;
-                let sheet = iter.next().expect("sheet index")?;
-                Ok(Spr::From { sprite, sheet })
-            }
-            _ => Err(InteropError::impossible_conversion(TypeId::of::<Spr>())),
-        }
-    }
-}
-
-impl From<i64> for Spr {
-    fn from(index: i64) -> Self {
-        if index >= 0 {
-            Spr::Cur {
-                sprite: index as usize,
-            }
-        } else {
-            Spr::Set {
-                sheet: index.abs().saturating_sub(1) as usize,
-            }
-        }
-    }
-}
-
-impl From<usize> for Spr {
-    fn from(sprite: usize) -> Self {
-        Spr::Cur { sprite }
-    }
-}
-
-impl From<i32> for Spr {
-    fn from(sprite: i32) -> Self {
-        Spr::Cur { sprite: sprite as usize }
-    }
-}
-
-impl From<(usize, usize)> for Spr {
-    fn from((sprite, sheet): (usize, usize)) -> Self {
-        Spr::From { sprite, sheet }
-    }
-}
-
-#[derive(Debug, Clone, Reflect)]
-pub enum SprHandle {
-    Gfx(Handle<Gfx>),
-    Image(Handle<Image>),
 }
 
 #[derive(Debug, Clone, Reflect)]
@@ -232,41 +127,6 @@ pub struct PlayerInputs(Vec<Buttons>);
 impl Default for PlayerInputs {
     fn default() -> Self {
         PlayerInputs(vec![Buttons::default(); 2])
-    }
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error("no such {0:?}")]
-    NoSuch(Cow<'static, str>),
-    #[error("no asset {0:?} loaded")]
-    NoAsset(Cow<'static, str>),
-    // #[error("invalid {0:?}")]
-    // Invalid(Cow<'static, str>),
-    #[error("texture access error: {0}")]
-    TextureAccess(#[from] TextureAccessError),
-    #[error("no such button: {0}")]
-    NoSuchButton(u8),
-    #[error("invalid argument {0}")]
-    InvalidArgument(Cow<'static, str>),
-    #[error("unsupported {0}")]
-    Unsupported(Cow<'static, str>),
-    #[error("no sfx channel {0}")]
-    NoChannel(u8),
-    #[error("all sfx channels are busy")]
-    ChannelsBusy,
-    #[error("unsupported poke at address {0}")]
-    UnsupportedPoke(usize),
-    #[error("unsupported peek at address {0}")]
-    UnsupportedPeek(usize),
-    #[error("unsupported stat at address {0}")]
-    UnsupportedStat(u8),
-}
-
-#[cfg(feature = "scripting")]
-impl From<Error> for LuaError {
-    fn from(e: Error) -> Self {
-        LuaError::RuntimeError(format!("pico8 error: {e}"))
     }
 }
 
@@ -1894,9 +1754,6 @@ impl Pico8Asset {
 }
 
 pub(crate) fn plugin(app: &mut App) {
-    embedded_asset!(app, "pico-8-palette.png");
-    embedded_asset!(app, "rect-border.png");
-    embedded_asset!(app, "pico-8.ttf");
     app.register_type::<Pico8Asset>()
         .register_type::<Pico8State>()
         .register_type::<N9Font>()
