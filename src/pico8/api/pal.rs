@@ -19,6 +19,15 @@ pub(crate) fn plugin(app: &mut App) {
     lua::plugin(app);
 }
 
+#[derive(Default, Debug, Clone)]
+pub enum PalModify {
+    #[default]
+    Following,
+    Present,
+    Secondary,
+}
+
+
 impl super::Pico8<'_, '_> {
     pub(crate) fn palette(&self, index: Option<usize>) -> Result<&Palette, Error> {
         self
@@ -26,6 +35,27 @@ impl super::Pico8<'_, '_> {
             .palettes
             .get(index.unwrap_or(self.state.palette))
             .ok_or(Error::NoSuch("palette".into()))
+    }
+
+    pub(crate) fn get_color(&self, c: impl Into<N9Color>) -> Result<Color, Error> {
+        match c.into().into_pcolor(&self.state.draw_state.pen) {
+            PColor::Palette(n) => self.palette(None)?.get_color(n).map(|c| c.into()),
+            PColor::Color(c) => Ok(c.into()),
+        }
+    }
+
+    pub fn color(&mut self, color: Option<PColor>) -> Result<PColor, Error> {
+        let last_color = self.state.draw_state.pen;
+        if let Some(color) = color {
+            if let PColor::Palette(n) = color {
+                // Check that it's within the palette.
+                if n >= self.palette(None)?.data.len() {
+                    return Err(Error::NoSuch("palette color index".into()));
+                }
+            }
+            self.state.draw_state.pen = color;
+        }
+        Ok(last_color)
     }
 
     pub fn pal_map(&mut self, original_to_new: Option<(usize, usize)>, mode: Option<PalModify>) {
@@ -112,6 +142,12 @@ pub(crate) fn plugin(app: &mut App) {
                     pico8.palt(color, transparency);
                     Ok(())
                 })
+            },
+        )
+        .register(
+            "color",
+            |ctx: FunctionCallContext, color: Option<PColor>| {
+                with_pico8(&ctx, move |pico8| pico8.color(color))
             },
         )
 

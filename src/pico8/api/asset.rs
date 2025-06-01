@@ -27,3 +27,31 @@ pub struct SpriteSheet {
     pub sprite_size: UVec2,
     pub flags: Vec<u8>,
 }
+
+impl FromWorld for Pico8Asset {
+    fn from_world(world: &mut World) -> Self {
+        let asset_server = world.resource::<AssetServer>();
+
+        Pico8Asset {
+            #[cfg(feature = "scripting")]
+            code: None,
+            palettes: vec![Palette::from_slice(&crate::pico8::PALETTE)],
+            border: asset_server.load_with_settings(PICO8_BORDER, pixel_art_settings),
+            font: vec![N9Font {
+                handle: asset_server.load(PICO8_FONT),
+            }],
+            audio_banks: Vec::new(),
+            sprite_sheets: Vec::new(),
+            maps: Vec::new(),
+        }
+    }
+}
+
+impl Pico8Asset {
+    pub(crate) fn get_color(&self, c: PColor, palette_index: usize) -> Result<Color, Error> {
+        match c {
+            PColor::Palette(n) => self.palettes[palette_index].get_color(n).map(|c| c.into()),
+            PColor::Color(c) => Ok(c.into()),
+        }
+    }
+}

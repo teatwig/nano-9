@@ -19,6 +19,17 @@ pub(crate) fn plugin(app: &mut App) {
 }
 
 impl super::Pico8<'_, '_> {
+    pub fn cursor(&mut self, pos: Option<Vec2>, color: Option<PColor>) -> (Vec2, PColor) {
+        let last_pos = self.state.draw_state.print_cursor;
+        let last_color = self.state.draw_state.pen;
+        if let Some(pos) = pos.map(|p| self.state.draw_state.apply_camera_delta(p)) {
+            self.state.draw_state.print_cursor = pos;
+        }
+        if let Some(color) = color {
+            self.state.draw_state.pen = color;
+        }
+        (last_pos, last_color)
+    }
     /// print(text, [x,] [y,] [color,] [font_size])
     ///
     /// Print the given text. The Lua `print()` function will return the new x
@@ -146,6 +157,33 @@ impl super::Pico8<'_, '_> {
         ));
         Ok((id, add_newline))
     }
+
+    pub fn sub(string: &str, start: isize, end: Option<isize>) -> String {
+        let count = string.chars().count() as isize;
+        let start = if start < 0 {
+            (count - start - 1) as usize
+        } else {
+            (start - 1) as usize
+        };
+        match end {
+            Some(end) => {
+                let end = if end < 0 {
+                    (count - end) as usize
+                } else {
+                    end as usize
+                };
+                if start <= end {
+                    string.chars().skip(start).take(end - start).collect()
+                    // BUG: This cuts unicode boundaries.
+                    // Ok(string[start..end].to_string())
+                } else {
+                    String::new()
+                }
+            }
+            None => string.chars().skip(start).collect(),
+        }
+    }
+
 }
 
 #[cfg(feature = "scripting")]
@@ -221,6 +259,28 @@ pub(crate) fn plugin(app: &mut App) {
                 }
             },
         )
+        .register(
+            "_cursor",
+            |ctx: FunctionCallContext, x: Option<f32>, y: Option<f32>, color: Option<PColor>| {
+                let (last_pos, last_color) = with_pico8(&ctx, move |pico8| {
+                    let pos = if x.is_some() || y.is_some() {
+                        Some(Vec2::new(x.unwrap_or(0.0), y.unwrap_or(0.0)))
+                    } else {
+                        None
+                    };
+
+                    Ok(pico8.cursor(pos, color))
+                })?;
+                Ok(ScriptValue::List(vec![
+                    ScriptValue::Float(last_pos.x as f64),
+                    ScriptValue::Float(last_pos.y as f64),
+                    last_color.into_script(ctx.world()?)?,
+                ]))
+            },
+        )
+        .register("sub", |s: String, start: isize, end: Option<isize>| {
+            Pico8::sub(&s, start, end)
+        })
 
         ;
 }

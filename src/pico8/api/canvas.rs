@@ -1,0 +1,96 @@
+
+
+use super::*;
+
+#[cfg(feature = "scripting")]
+use bevy_mod_scripting::core::{
+        bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
+        error::InteropError,
+    };
+
+use crate::pico8::{
+        Gfx,
+    };
+
+use std::any::TypeId;
+
+pub(crate) fn plugin(app: &mut App) {
+    #[cfg(feature = "scripting")]
+    lua::plugin(app);
+}
+
+impl super::Pico8<'_, '_> {
+    // cls([n])
+    pub fn cls(&mut self, color: Option<PColor>) -> Result<(), Error> {
+        trace!("cls");
+        let c = self.get_color(color.unwrap_or(PColor::Palette(0)))?;
+        self.state.draw_state.clear_screen();
+        let image = self
+            .images
+            .get_mut(&self.canvas.handle)
+            .ok_or(Error::NoAsset("canvas".into()))?;
+        for i in 0..image.width() {
+            for j in 0..image.height() {
+                image.set_color_at(i, j, c)?;
+            }
+        }
+        self.commands.send_event(ClearEvent::default());
+        Ok(())
+    }
+
+    pub fn pset(&mut self, pos: UVec2, color: impl Into<N9Color>) -> Result<(), Error> {
+        let c = self.get_color(color.into())?;
+        let image = self
+            .images
+            .get_mut(&self.canvas.handle)
+            .ok_or(Error::NoAsset("canvas".into()))?;
+        image.set_color_at(pos.x, pos.y, c)?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "scripting")]
+mod lua {
+    use super::*;
+    use crate::{N9Entity, DropPolicy, pico8::lua::with_pico8};
+
+use bevy_mod_scripting::core::{
+    bindings::{
+        access_map::ReflectAccessId,
+        function::{
+            from::FromScript,
+            into_ref::IntoScriptRef,
+            namespace::{GlobalNamespace, NamespaceBuilder},
+            script_function::FunctionCallContext,
+        },
+        script_value::ScriptValue,
+        IntoScript, ReflectReference,
+    },
+    error::InteropError,
+};
+pub(crate) fn plugin(app: &mut App) {
+    // callbacks can receive any `ToLuaMulti` arguments, here '()' and
+    // return any `FromLuaMulti` arguments, here a `usize`
+    // check the Rlua documentation for more details
+    let world = app.world_mut();
+
+    NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
+        .register("cls", |ctx: FunctionCallContext, c: Option<PColor>| {
+            with_pico8(&ctx, |pico8| pico8.cls(c))
+        })
+        .register(
+            "pset",
+            |ctx: FunctionCallContext, x: u32, y: u32, color: Option<N9Color>| {
+                with_pico8(&ctx, |pico8| {
+                    // We want to ignore out of bounds errors specifically but possibly not others.
+                    // Ok(pico8.pset(x, y, color)?)
+                    let _ = pico8.pset(UVec2::new(x, y), color.unwrap_or(N9Color::Pen));
+                    Ok(())
+                })
+            },
+        )
+
+        ;
+}
+
+}

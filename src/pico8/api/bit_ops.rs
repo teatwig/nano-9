@@ -102,3 +102,44 @@ pub(crate) fn plugin(app: &mut App) {
 }
 
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[cfg(feature = "fixed")]
+    mod fixed {
+        use super::*;
+        #[test]
+        fn test_shr() {
+            assert_eq!(0.5, Pico8::shr(1.0, 1));
+            assert_eq!(-0.5, Pico8::shr(-1.0, 1));
+        }
+
+        #[test]
+        fn test_lshr() {
+            assert_eq!(0.5, Pico8::lshr(1.0, 1));
+            assert_eq!(32767.5, Pico8::lshr(-1.0, 1));
+            assert_eq!(8191.875, Pico8::lshr(-1.0, 3));
+        }
+
+        #[test]
+        fn test_shl() {
+            assert_eq!(2.0, Pico8::shl(1.0, 1));
+        }
+
+        #[test]
+        fn test_rotr() {
+            assert_eq!(Pico8::rotr(64.0, 3), 8.0);
+            assert_eq!(Pico8::rotr(1.0, 3), 0.125);
+            assert_eq!(Pico8::rotr(-4096.0, 12), 15.0);
+        }
+
+        #[test]
+        fn test_rotl() {
+            assert_eq!(Pico8::rotl(8.0, 3), 64.0);
+            assert_eq!(Pico8::rotl(0.125, 3), 1.0);
+            assert_eq!(Pico8::rotl(-4096.0, 12), 0.05859375);
+        }
+    }
+}
