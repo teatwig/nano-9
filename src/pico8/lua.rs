@@ -7,24 +7,15 @@ use bevy_mod_scripting::core::{
     bindings::{
         access_map::ReflectAccessId,
         function::{
-            from::FromScript,
-            into_ref::IntoScriptRef,
             namespace::{GlobalNamespace, NamespaceBuilder},
             script_function::FunctionCallContext,
         },
-        script_value::ScriptValue,
-        IntoScript, ReflectReference,
     },
     error::InteropError,
 };
 
-use crate::{
-    color::FillColor,
-    pico8::{Error, PalModify, Pico8, SfxCommand, Spr},
-    DropPolicy, N9Color, N9Entity, PColor,
-};
+use crate::pico8::{Error, Pico8};
 
-use std::borrow::Cow;
 #[cfg(feature = "level")]
 use std::collections::HashMap;
 

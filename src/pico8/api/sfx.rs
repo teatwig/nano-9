@@ -1,17 +1,7 @@
 use super::*;
 use bevy::{
     audio::PlaybackMode,
-    ecs::system::SystemParam,
-    image::ImageSampler,
-    input::gamepad::GamepadConnectionEvent,
-    render::{
-        render_asset::RenderAssetUsages,
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
-    },
-    sprite::Anchor,
-    text::TextLayoutInfo,
 };
-use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 
 #[cfg(feature = "scripting")]
 // #[cfg(feature = "scripting")]
@@ -21,18 +11,9 @@ use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 //         error::InteropError,
 //     };
 
-use crate::{
-    pico8::{
-        self,
-        audio::{AudioBank, AudioCommand, SfxChannels, SfxDest},
-        image::pixel_art_settings,
-        keyboard::KeyInput,
-        mouse::MouseInput,
-        rand::Rand8,
-        ClearEvent, Clearable, Gfx, GfxHandles, Map, PalMap, Palette,
-    },
-    DrawState, FillColor, N9Canvas, N9Color, Nano9Camera, PColor, ValueExt,
-};
+use crate::pico8::{
+        audio::{AudioCommand, SfxDest},
+    };
 
 pub(crate) fn plugin(app: &mut App) {
     #[cfg(feature = "scripting")]
@@ -175,20 +156,10 @@ mod lua {
     use super::*;
     use crate::pico8::lua::with_pico8;
 
-use bevy_mod_scripting::core::{
-    bindings::{
-        access_map::ReflectAccessId,
-        function::{
-            from::FromScript,
-            into_ref::IntoScriptRef,
+use bevy_mod_scripting::core::bindings::function::{
             namespace::{GlobalNamespace, NamespaceBuilder},
             script_function::FunctionCallContext,
-        },
-        script_value::ScriptValue,
-        IntoScript, ReflectReference,
-    },
-    error::InteropError,
-};
+        };
 pub(crate) fn plugin(app: &mut App) {
     // callbacks can receive any `ToLuaMulti` arguments, here '()' and
     // return any `FromLuaMulti` arguments, here a `usize`

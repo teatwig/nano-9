@@ -371,20 +371,15 @@ mod lua {
     use super::*;
     use crate::{N9Entity, DropPolicy, pico8::lua::with_pico8};
 
-use bevy_mod_scripting::core::{
-    bindings::{
-        access_map::ReflectAccessId,
+use bevy_mod_scripting::core::bindings::{
         function::{
             from::FromScript,
             into_ref::IntoScriptRef,
             namespace::{GlobalNamespace, NamespaceBuilder},
             script_function::FunctionCallContext,
         },
-        script_value::ScriptValue,
-        IntoScript, ReflectReference,
-    },
-    error::InteropError,
-};
+        script_value::ScriptValue, ReflectReference,
+    };
 pub(crate) fn plugin(app: &mut App) {
     // callbacks can receive any `ToLuaMulti` arguments, here '()' and
     // return any `FromLuaMulti` arguments, here a `usize`

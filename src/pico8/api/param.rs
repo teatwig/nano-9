@@ -1,40 +1,17 @@
 use super::*;
-use bevy::{
-    audio::PlaybackMode,
-    ecs::system::SystemParam,
-    image::ImageSampler,
-    input::gamepad::GamepadConnectionEvent,
-    render::{
-        render_asset::RenderAssetUsages,
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
-    },
-    sprite::Anchor,
-    text::TextLayoutInfo,
-    prelude::*,
-};
-use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
+use bevy::ecs::system::SystemParam;
 
-#[cfg(feature = "scripting")]
-use bevy_mod_scripting::core::{
-        bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
-        docgen::typed_through::{ThroughTypeInfo, TypedThrough},
-        error::InteropError,
-    };
 
 use crate::{
     pico8::{
         self,
-        audio::{AudioBank, AudioCommand, SfxChannels, SfxDest},
-        image::pixel_art_settings,
+        audio::SfxChannels,
         keyboard::KeyInput,
         mouse::MouseInput,
-        rand::Rand8,
-        ClearEvent, Clearable, Gfx, GfxHandles, Map, PalMap, Palette,
-    },
-    DrawState, FillColor, N9Canvas, N9Color, Nano9Camera, PColor, ValueExt,
+        rand::Rand8, Gfx, GfxHandles,
+    }, N9Canvas,
 };
 
-use std::{any::TypeId, borrow::Cow, f32::consts::PI};
 
 
 #[derive(SystemParam)]

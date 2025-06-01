@@ -18,35 +18,23 @@ pub use param::*;
 mod sfx;
 pub use sfx::*;
 mod map;
-pub use map::*;
 mod print;
-pub use print::*;
 mod rect;
-pub use rect::*;
 mod circ;
-pub use circ::*;
 mod oval;
-pub use oval::*;
 mod pal;
 pub use pal::*;
 mod bit_ops;
-pub use bit_ops::*;
 mod line;
-pub use line::*;
 mod poke;
-pub use poke::*;
 mod canvas;
-pub use canvas::*;
 mod time;
-pub use time::*;
 #[cfg(feature = "level")]
 mod level;
 #[cfg(feature = "level")]
 pub use level::*;
 
 use bevy::{
-    audio::PlaybackMode,
-    ecs::system::SystemParam,
     image::ImageSampler,
     input::gamepad::GamepadConnectionEvent,
     render::{
@@ -58,27 +46,18 @@ use bevy::{
 };
 use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 
-#[cfg(feature = "scripting")]
-use bevy_mod_scripting::core::{
-        bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
-        docgen::typed_through::{ThroughTypeInfo, TypedThrough},
-        error::InteropError,
-    };
 
 use crate::{
     pico8::{
         self,
-        audio::{AudioBank, AudioCommand, SfxChannels, SfxDest},
+        audio::AudioBank,
         image::pixel_art_settings,
-        keyboard::KeyInput,
-        mouse::MouseInput,
-        rand::Rand8,
-        ClearEvent, Clearable, Gfx, GfxHandles, Map, PalMap, Palette,
+        ClearEvent, Clearable, Map, PalMap, Palette,
     },
-    DrawState, FillColor, N9Canvas, N9Color, Nano9Camera, PColor, ValueExt,
+    DrawState, FillColor, N9Color, Nano9Camera, PColor,
 };
 
-use std::{any::TypeId, borrow::Cow, f32::consts::PI};
+use std::{borrow::Cow, f32::consts::PI};
 
 pub const MAP_COLUMNS: u32 = 128;
 pub const PICO8_SPRITE_SIZE: UVec2 = UVec2::new(8, 8);
@@ -177,7 +156,7 @@ impl Pico8<'_, '_> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    
 
     #[test]
     fn test_suffix_match() {
