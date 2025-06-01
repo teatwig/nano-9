@@ -11,6 +11,12 @@ mod handle;
 pub use handle::*;
 pub mod input;
 use input::*;
+mod event;
+use event::*;
+mod param;
+pub use param::*;
+mod sfx;
+pub use sfx::*;
 
 use bevy::{
     audio::PlaybackMode,
@@ -53,60 +59,32 @@ pub const PICO8_SPRITE_SIZE: UVec2 = UVec2::new(8, 8);
 pub const PICO8_TILE_COUNT: UVec2 = UVec2::new(16, 16);
 
 const ANALOG_STICK_THRESHOLD: f32 = 0.1;
-#[derive(Clone, Debug, Reflect)]
-pub struct N9Font {
-    pub handle: Handle<Font>,
-}
 
-#[derive(Debug, Clone, Reflect)]
-pub struct SpriteSheet {
-    pub handle: SprHandle,
-    pub layout: Handle<TextureAtlasLayout>,
-    pub sprite_size: UVec2,
-    pub flags: Vec<u8>,
-}
-
-#[derive(Event, Debug)]
-struct UpdateCameraPos(Vec2);
-
-#[derive(SystemParam)]
-#[allow(dead_code)]
-pub struct Pico8<'w, 's> {
-    // TODO: Turn these image operations into triggers so that the Pico8 system
-    // parameter will not preclude users from accessing images in their rust
-    // systems.
-    images: ResMut<'w, Assets<Image>>,
-    pub state: ResMut<'w, Pico8State>,
-    commands: Commands<'w, 's>,
-    canvas: Res<'w, N9Canvas>,
-    player_inputs: Res<'w, PlayerInputs>,
-    sfx_channels: Res<'w, SfxChannels>,
-    time: Res<'w, Time>,
-    #[cfg(feature = "level")]
-    tiled: crate::level::tiled::Level<'w, 's>,
-    gfxs: ResMut<'w, Assets<Gfx>>,
-    gfx_handles: ResMut<'w, GfxHandles>,
-    rand8: Rand8<'w>,
-    key_input: ResMut<'w, KeyInput>,
-    mouse_input: ResMut<'w, MouseInput>,
-    pico8_assets: ResMut<'w, Assets<Pico8Asset>>,
-    pico8_handle: Res<'w, Pico8Handle>,
-    defaults: Res<'w, pico8::Defaults>,
+pub(crate) fn plugin(app: &mut App) {
+    app.register_type::<Pico8Asset>()
+        .register_type::<Pico8State>()
+        .register_type::<N9Font>()
+        .register_type::<Palette>()
+        .register_type::<SpriteSheet>()
+        .init_asset::<Pico8Asset>()
+        .init_resource::<Pico8State>()
+        .init_resource::<PlayerInputs>()
+        .add_observer(
+            |trigger: Trigger<UpdateCameraPos>,
+             camera: Single<&mut Transform, With<Nano9Camera>>| {
+                let pos = trigger.event();
+                let mut camera = camera.into_inner();
+                camera.translation.x = pos.0.x;
+                camera.translation.y = negate_y(pos.0.y);
+            },
+        )
+        .add_plugins((
+            sfx::plugin,
+            ))
+        ;
 }
 
 
-#[derive(Debug, Clone, Copy)]
-pub enum SfxCommand {
-    Play(u8),
-    Release,
-    Stop,
-}
-
-impl From<u8> for SfxCommand {
-    fn from(x: u8) -> Self {
-        SfxCommand::Play(x)
-    }
-}
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
@@ -781,121 +759,6 @@ impl Pico8<'_, '_> {
         });
     }
 
-    // sfx( n, [channel,] [offset,] [length] )
-    pub fn sfx(
-        &mut self,
-        n: impl Into<SfxCommand>,
-        channel: Option<u8>,
-        offset: Option<u8>,
-        length: Option<u8>,
-        bank: Option<u8>,
-    ) -> Result<(), Error> {
-        assert!(offset.is_none(), "offset not implemented");
-        assert!(length.is_none(), "length not implemented");
-        let n = n.into();
-        let bank = bank.unwrap_or(0);
-        match n {
-            SfxCommand::Release => {
-                if let Some(chan) = channel {
-                    // let chan = self.sfx_channels[chan as usize];
-                    self.commands
-                        .queue(AudioCommand::Release(SfxDest::Channel(chan)));
-                } else {
-                    self.commands.queue(AudioCommand::Release(SfxDest::Any));
-                }
-            }
-            SfxCommand::Stop => {
-                if let Some(chan) = channel {
-                    // let chan = self.sfx_channels[chan as usize];
-                    self.commands.queue(AudioCommand::Stop(
-                        SfxDest::Channel(chan),
-                        Some(PlaybackMode::Remove),
-                    ));
-                } else {
-                    self.commands
-                        .queue(AudioCommand::Stop(SfxDest::All, Some(PlaybackMode::Remove)));
-                }
-            }
-            SfxCommand::Play(n) => {
-                let sfx = self
-                    .pico8_asset()?
-                    .audio_banks
-                    .get(bank as usize)
-                    .ok_or(Error::NoAsset(format!("bank {bank}").into()))?
-                    .get(n as usize)
-                    .ok_or(Error::NoAsset(format!("sfx {n}").into()))?
-                    .clone();
-
-                if let Some(chan) = channel {
-                    // let chan = self.sfx_channels[chan as usize];
-                    self.commands.queue(AudioCommand::Play(
-                        sfx,
-                        SfxDest::Channel(chan),
-                        PlaybackSettings::REMOVE,
-                    ));
-                } else {
-                    self.commands.queue(AudioCommand::Play(
-                        sfx,
-                        SfxDest::Any,
-                        PlaybackSettings::REMOVE,
-                    ));
-                }
-            }
-        }
-        Ok(())
-    }
-
-    // music( n, [facems,] [channelmask,] )
-    pub fn music(
-        &mut self,
-        n: impl Into<SfxCommand>,
-        _fade_ms: Option<u32>,
-        channel_mask: Option<u8>,
-        bank: Option<u8>,
-    ) -> Result<(), Error> {
-        let n = n.into();
-        let bank = bank.unwrap_or(0);
-        match n {
-            SfxCommand::Release => {
-                panic!("Music does not accept a release command.");
-            }
-            SfxCommand::Stop => {
-                // if let Some(chan) = channel {
-                //     let chan = self.sfx_channels[chan as usize];
-                //     self.commands
-                //         .queue(AudioCommand::Stop(SfxDest::Channel(chan), Some(PlaybackMode::Loop)));
-                // } else {
-                self.commands
-                    .queue(AudioCommand::Stop(SfxDest::All, Some(PlaybackMode::Loop)));
-                // }
-            }
-            SfxCommand::Play(n) => {
-                let sfx = self
-                    .pico8_asset()?
-                    .audio_banks
-                    .get(bank as usize)
-                    .ok_or(Error::NoSuch(format!("audio bank {bank}").into()))?
-                    .get(n as usize)
-                    .ok_or(Error::NoAsset(format!("music {n}").into()))?
-                    .clone();
-
-                if let Some(mask) = channel_mask {
-                    self.commands.queue(AudioCommand::Play(
-                        sfx,
-                        SfxDest::ChannelMask(mask),
-                        PlaybackSettings::LOOP,
-                    ));
-                } else {
-                    self.commands.queue(AudioCommand::Play(
-                        sfx,
-                        SfxDest::Any,
-                        PlaybackSettings::LOOP,
-                    ));
-                }
-            }
-        }
-        Ok(())
-    }
 
     pub fn fget(&self, index: Option<usize>, flag_index: Option<u8>) -> Result<u8, Error> {
         if index.is_none() {
@@ -1596,26 +1459,6 @@ impl Pico8Asset {
             PColor::Color(c) => Ok(c.into()),
         }
     }
-}
-
-pub(crate) fn plugin(app: &mut App) {
-    app.register_type::<Pico8Asset>()
-        .register_type::<Pico8State>()
-        .register_type::<N9Font>()
-        .register_type::<Palette>()
-        .register_type::<SpriteSheet>()
-        .init_asset::<Pico8Asset>()
-        .init_resource::<Pico8State>()
-        .init_resource::<PlayerInputs>()
-        .add_observer(
-            |trigger: Trigger<UpdateCameraPos>,
-             camera: Single<&mut Transform, With<Nano9Camera>>| {
-                let pos = trigger.event();
-                let mut camera = camera.into_inner();
-                camera.translation.x = pos.0.x;
-                camera.translation.y = negate_y(pos.0.y);
-            },
-        );
 }
 
 #[cfg(test)]

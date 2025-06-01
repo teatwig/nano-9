@@ -14,3 +14,16 @@ pub struct Pico8Asset {
     pub(crate) font: Vec<N9Font>,
     pub(crate) audio_banks: Vec<AudioBank>,
 }
+
+#[derive(Clone, Debug, Reflect)]
+pub struct N9Font {
+    pub handle: Handle<Font>,
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct SpriteSheet {
+    pub handle: SprHandle,
+    pub layout: Handle<TextureAtlasLayout>,
+    pub sprite_size: UVec2,
+    pub flags: Vec<u8>,
+}
