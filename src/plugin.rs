@@ -29,7 +29,7 @@ use bevy_mod_scripting::{
 use crate::{
     config::*,
     error::RunState,
-    pico8::{self, FillPat,fill_input, Pico8Asset, Pico8Handle},
+    pico8::{self, FillPat, input::fill_input, Pico8Asset, Pico8Handle},
     PColor,
 };
 
