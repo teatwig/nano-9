@@ -16,9 +16,6 @@ use bevy_mod_scripting::core::{
 
 use crate::pico8::{Error, Pico8};
 
-#[cfg(feature = "level")]
-use std::collections::HashMap;
-
 pub(crate) fn with_system_param<
     S: SystemParam + 'static,
     X,
@@ -57,21 +54,7 @@ pub(crate) fn with_pico8<X>(
 }
 
 pub(crate) fn plugin(app: &mut App) {
-    // callbacks can receive any `ToLuaMulti` arguments, here '()' and
-    // return any `FromLuaMulti` arguments, here a `usize`
-    // check the Rlua documentation for more details
     let world = app.world_mut();
-
-    NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-        .register("exit", |ctx: FunctionCallContext, error: Option<u8>| {
-            with_pico8(&ctx, move |pico8| {
-                pico8.exit(error);
-                Ok(())
-            })
-        })
-        .register("fillp", |ctx: FunctionCallContext, pattern: Option<u16>| {
-            with_pico8(&ctx, move |pico8| Ok(pico8.fillp(pattern)))
-        });
 
     #[cfg(feature = "level")]
     NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)

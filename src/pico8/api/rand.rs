@@ -50,9 +50,6 @@ use bevy_mod_scripting::core::{
     error::InteropError,
 };
 pub(crate) fn plugin(app: &mut App) {
-    // callbacks can receive any `ToLuaMulti` arguments, here '()' and
-    // return any `FromLuaMulti` arguments, here a `usize`
-    // check the Rlua documentation for more details
     let world = app.world_mut();
 
     NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)

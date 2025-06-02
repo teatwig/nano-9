@@ -33,6 +33,18 @@ impl super::Pico8<'_, '_> {
         image.set_color_at(pos.x, pos.y, c)?;
         Ok(())
     }
+
+    // XXX: pget needed
+    // pub fn pget()
+
+    /// Return the size of the canvas
+    ///
+    /// This is not the window dimensions, which are physical pixels. Instead it
+    /// is the number of "logical" pixels, which may be comprised of many
+    /// physical pixels.
+    pub fn canvas_size(&self) -> UVec2 {
+        self.canvas.size
+    }
 }
 
 #[cfg(feature = "scripting")]
@@ -45,9 +57,6 @@ mod lua {
         script_function::FunctionCallContext,
     };
     pub(crate) fn plugin(app: &mut App) {
-        // callbacks can receive any `ToLuaMulti` arguments, here '()' and
-        // return any `FromLuaMulti` arguments, here a `usize`
-        // check the Rlua documentation for more details
         let world = app.world_mut();
 
         NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)

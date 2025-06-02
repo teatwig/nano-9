@@ -129,6 +129,23 @@ impl super::Pico8<'_, '_> {
         self.state.draw_state.mark_drawn();
         Ok(id)
     }
+
+    pub fn fillp(&mut self, pattern: Option<u16>) -> u16 {
+        let last: u16 = self
+            .state
+            .draw_state
+            .fill_pat
+            .map(|x| x.into())
+            .unwrap_or(0);
+        if let Some(pattern) = pattern {
+            if pattern == 0 {
+                self.state.draw_state.fill_pat = None;
+            } else {
+                self.state.draw_state.fill_pat = Some(pattern.into());
+            }
+        }
+        last
+    }
 }
 
 #[cfg(feature = "scripting")]
@@ -141,9 +158,6 @@ mod lua {
         script_function::FunctionCallContext,
     };
     pub(crate) fn plugin(app: &mut App) {
-        // callbacks can receive any `ToLuaMulti` arguments, here '()' and
-        // return any `FromLuaMulti` arguments, here a `usize`
-        // check the Rlua documentation for more details
         let world = app.world_mut();
 
         NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
@@ -163,6 +177,9 @@ mod lua {
                     })
                 },
             )
+            .register("fillp", |ctx: FunctionCallContext, pattern: Option<u16>| {
+                with_pico8(&ctx, move |pico8| Ok(pico8.fillp(pattern)))
+            })
             .register(
                 "rect",
                 |ctx: FunctionCallContext,

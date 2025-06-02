@@ -111,43 +111,6 @@ pub fn negate_y(y: f32) -> f32 {
     }
 }
 
-impl Pico8<'_, '_> {
-    pub fn exit(&mut self, error: Option<u8>) {
-        self.commands.send_event(match error {
-            Some(n) => std::num::NonZero::new(n)
-                .map(AppExit::Error)
-                .unwrap_or(AppExit::Success),
-            None => AppExit::Success,
-        });
-    }
-
-    pub fn fillp(&mut self, pattern: Option<u16>) -> u16 {
-        let last: u16 = self
-            .state
-            .draw_state
-            .fill_pat
-            .map(|x| x.into())
-            .unwrap_or(0);
-        if let Some(pattern) = pattern {
-            if pattern == 0 {
-                self.state.draw_state.fill_pat = None;
-            } else {
-                self.state.draw_state.fill_pat = Some(pattern.into());
-            }
-        }
-        last
-    }
-
-    /// Return the size of the canvas
-    ///
-    /// This is not the window dimensions, which are physical pixels. Instead it
-    /// is the number of "logical" pixels, which may be comprised of many
-    /// physical pixels.
-    pub fn canvas_size(&self) -> UVec2 {
-        self.canvas.size
-    }
-}
-
 #[cfg(test)]
 mod test {
 
