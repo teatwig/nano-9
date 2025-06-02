@@ -13,14 +13,12 @@ fn update(mut pico8: Pico8, mut x: Local<u32>) {
 
 fn main() {
     let mut app = App::new();
-    app
-        .add_systems(OnEnter(RunState::Init), init)
+    app.add_systems(OnEnter(RunState::Init), init)
         .add_systems(Update, update.run_if(in_state(RunState::Run)));
 
     let config = Config::pico8();
     // let config = Config::gameboy();
-    app
-        .add_plugins(Nano9Plugins { config })
+    app.add_plugins(Nano9Plugins { config })
         .add_systems(PreUpdate, run_pico8_when_loaded)
         .run();
 }

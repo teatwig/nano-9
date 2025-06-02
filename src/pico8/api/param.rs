@@ -1,18 +1,13 @@
 use super::*;
 use bevy::ecs::system::SystemParam;
 
-
 use crate::{
     pico8::{
-        self,
-        audio::SfxChannels,
-        keyboard::KeyInput,
-        mouse::MouseInput,
-        rand::Rand8, Gfx, GfxHandles,
-    }, N9Canvas,
+        self, audio::SfxChannels, keyboard::KeyInput, mouse::MouseInput, rand::Rand8, Gfx,
+        GfxHandles,
+    },
+    N9Canvas,
 };
-
-
 
 #[derive(SystemParam)]
 #[allow(dead_code)]

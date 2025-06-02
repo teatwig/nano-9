@@ -1,7 +1,6 @@
 pub use super::{
-    Nano9Plugin,
-    Nano9Plugins,
-    config::{Config, run_pico8_when_loaded, SpriteSheet},
-    pico8::{Pico8},
+    config::{run_pico8_when_loaded, Config, SpriteSheet},
     error::RunState,
+    pico8::Pico8,
+    Nano9Plugin, Nano9Plugins,
 };

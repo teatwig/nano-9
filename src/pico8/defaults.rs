@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::config;
+use bevy::prelude::*;
 
 #[derive(Debug, Resource)]
 pub struct Defaults {
@@ -23,5 +23,4 @@ impl Defaults {
             font_size: config_defaults.font_size.unwrap_or(5.0),
         }
     }
-
 }

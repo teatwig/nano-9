@@ -1,8 +1,8 @@
 mod error;
 pub use error::*;
 mod asset;
-pub use asset::*;
 use super::*;
+pub use asset::*;
 mod spr;
 pub use spr::*;
 mod state;
@@ -17,20 +17,20 @@ mod param;
 pub use param::*;
 mod sfx;
 pub use sfx::*;
-mod map;
-mod print;
-mod rect;
 mod circ;
+mod map;
 mod oval;
 mod pal;
+mod print;
+mod rect;
 pub use pal::*;
 mod bit_ops;
-mod line;
-mod poke;
 mod canvas;
-mod time;
 #[cfg(feature = "level")]
 mod level;
+mod line;
+mod poke;
+mod time;
 #[cfg(feature = "level")]
 pub use level::*;
 
@@ -46,13 +46,10 @@ use bevy::{
 };
 use tiny_skia::{self, FillRule, Paint, PathBuilder, Pixmap, Stroke};
 
-
 use crate::{
     pico8::{
-        self,
-        audio::AudioBank,
-        image::pixel_art_settings,
-        ClearEvent, Clearable, Map, PalMap, Palette,
+        self, audio::AudioBank, image::pixel_art_settings, ClearEvent, Clearable, Map, PalMap,
+        Palette,
     },
     DrawState, FillColor, N9Color, Nano9Camera, PColor,
 };
@@ -101,8 +98,7 @@ pub(crate) fn plugin(app: &mut App) {
             time::plugin,
             #[cfg(feature = "level")]
             level::plugin,
-            ))
-        ;
+        ));
 }
 
 /// Negates y IF the feature "negate-y" is enabled.
@@ -116,7 +112,6 @@ pub fn negate_y(y: f32) -> f32 {
 }
 
 impl Pico8<'_, '_> {
-
     pub fn exit(&mut self, error: Option<u8>) {
         self.commands.send_event(match error {
             Some(n) => std::num::NonZero::new(n)
@@ -151,12 +146,10 @@ impl Pico8<'_, '_> {
     pub fn canvas_size(&self) -> UVec2 {
         self.canvas.size
     }
-
 }
 
 #[cfg(test)]
 mod test {
-    
 
     #[test]
     fn test_suffix_match() {

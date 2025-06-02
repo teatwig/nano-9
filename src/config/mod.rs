@@ -121,15 +121,13 @@ pub struct Palette {
     pub row: Option<u32>,
 }
 
-
 pub fn update_asset(
     mut reader: EventReader<AssetEvent<pico8::Pico8Asset>>,
     assets: ResMut<Assets<pico8::Pico8Asset>>,
 
     mut next_state: ResMut<NextState<RunState>>,
     mut pico8_handle: Option<ResMut<Pico8Handle>>,
-    #[cfg(feature = "scripting")]
-    mut commands: Commands,
+    #[cfg(feature = "scripting")] mut commands: Commands,
     #[cfg(feature = "scripting")] script_settings: Res<ScriptAssetSettings>,
 ) {
     for e in reader.read() {
@@ -166,7 +164,10 @@ pub fn update_asset(
     }
 }
 
-pub fn run_pico8_when_loaded(state: Res<State<RunState>>, mut next_state: ResMut<NextState<RunState>>) {
+pub fn run_pico8_when_loaded(
+    state: Res<State<RunState>>,
+    mut next_state: ResMut<NextState<RunState>>,
+) {
     match **state {
         RunState::Loaded => {
             next_state.set(RunState::Init);
@@ -174,7 +175,7 @@ pub fn run_pico8_when_loaded(state: Res<State<RunState>>, mut next_state: ResMut
         RunState::Init => {
             next_state.set(RunState::Run);
         }
-        _ => ()
+        _ => (),
     }
 }
 
@@ -185,7 +186,10 @@ impl Config {
         config
     }
 
-    pub fn inject_template(&mut self, template_name: Option<&str>) -> Result<(), ConfigLoaderError> {
+    pub fn inject_template(
+        &mut self,
+        template_name: Option<&str>,
+    ) -> Result<(), ConfigLoaderError> {
         if let Some(template_name) = template_name.or(self.template.as_deref()) {
             match template_name {
                 "gameboy" => self.inject_gameboy(),
@@ -271,7 +275,6 @@ impl Config {
 #[cfg(test)]
 mod test {
     use super::*;
-    
 
     #[test]
     fn test_config_0() {

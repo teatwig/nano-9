@@ -71,8 +71,7 @@ pub(crate) fn plugin(app: &mut App) {
         })
         .register("fillp", |ctx: FunctionCallContext, pattern: Option<u16>| {
             with_pico8(&ctx, move |pico8| Ok(pico8.fillp(pattern)))
-        })
-        ;
+        });
 
     #[cfg(feature = "level")]
     NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
@@ -107,4 +106,3 @@ pub(crate) fn plugin(app: &mut App) {
             info!("print id {}", &id.0);
         });
 }
-

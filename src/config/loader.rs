@@ -9,7 +9,7 @@ use bevy::{
     prelude::*,
 };
 #[cfg(feature = "scripting")]
-use bevy_mod_scripting::core::asset::{ScriptAsset};
+use bevy_mod_scripting::core::asset::ScriptAsset;
 use std::{io, path::PathBuf};
 
 pub(crate) fn plugin(app: &mut App) {
@@ -21,7 +21,6 @@ pub(crate) fn plugin(app: &mut App) {
         // .set_default_asset_processor::<LuaProcess>("lua")
         // .set_default_asset_processor::<LuaProcess>("p8lua")
         ;
-
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -193,10 +192,15 @@ impl AssetLoader for LuaLoader {
 
         let code_path: PathBuf = load_context.path().into();
         let mut code = content;
-        let translate = settings.translate_pico8.or(load_context.path().extension().map(|x| x == "p8lua")).unwrap_or(false);
+        let translate = settings
+            .translate_pico8
+            .or(load_context.path().extension().map(|x| x == "p8lua"))
+            .unwrap_or(false);
         if cfg!(feature = "pico8-to-lua") {
             if translate {
-                if let Some(patched_code) = pico8::translate_pico8_to_lua(&code, load_context).await? {
+                if let Some(patched_code) =
+                    pico8::translate_pico8_to_lua(&code, load_context).await?
+                {
                     code = patched_code;
                 }
             }
@@ -221,125 +225,127 @@ impl AssetLoader for LuaLoader {
     }
 }
 
-async fn into_asset(config: Config, load_context: &mut LoadContext<'_>) -> Result<Pico8Asset, ConfigLoaderError> {
-        let mut sprite_sheets = vec![];
-        for (i, mut sheet) in config.sprite_sheets.into_iter().enumerate() {
-            // let flags: Vec<u8>;
-            // if sheet.path.extension() == Some(OsStr::new("tsx")) {
-            //     #[cfg(feature = "level")]
-            //     {
-            //         let tiledset = load_context
-            //             .loader()
-            //             .immediate()
-            //             .load::<TiledSet>(&*sheet.path)
-            //             .await?;
-            //         let tileset = &tiledset.get().0;
-            //         let handle = load_context
-            //             .add_labeled_asset(format!("atlas{i}"), layout_from_tileset(tileset));
-            //         let tile_size = UVec2::new(tileset.tile_width, tileset.tile_height);
-            //         if let Some(sprite_size) = sheet.sprite_size {
-            //             assert_eq!(sprite_size, tile_size);
-            //         }
-            //         let flags = flags_from_tileset(tileset);
-            //         sprite_sheets.push(pico8::SpriteSheet {
-            //             handle: pico8::SprHandle::Image(
-            //                 load_context
-            //                     .loader()
-            //                     .with_settings(pixel_art_settings)
-            //                     .load(
-            //                         &*tileset
-            //                             .image
-            //                             .as_ref()
-            //                             .ok_or(ConfigLoaderError::Message(format!(
-            //                                 "could not load .tsx image {i}"
-            //                             )))?
-            //                             .source,
-            //                     ),
-            //             ),
-            //             sprite_size: tile_size,
-            //             flags,
-            //             layout: handle,
-            //         })
-            //     }
-            //     #[cfg(not(feature = "level"))]
-            //     panic!(
-            //         "Can not load {:?} file without 'level' feature.",
-            //         &sheet.path
-            //     );
-            // } else if sheet.path.extension() == Some(OsStr::new("p8")) {
-            //     todo!()
-            // } else {
-                let (handle, layout_maybe) = if sheet.indexed {
-                    let bytes = load_context.read_asset_bytes(&*sheet.path).await?;
-                    let gfx = Gfx::from_png(&bytes)?;
-                    let image_size = UVec2::new(gfx.width as u32, gfx.height as u32);
-                    let layout = get_layout(
-                        i,
-                        image_size,
-                        &mut sheet.sprite_size,
-                        sheet.sprite_counts,
-                        sheet.padding,
-                        sheet.offset,
-                    )?
-                    .map(|layout| load_context.add_labeled_asset(format!("atlas{i}"), layout));
-                    (
-                        pico8::SprHandle::Gfx(
-                            load_context.add_labeled_asset(format!("spritesheet{i}"), gfx),
-                        ),
-                        layout,
-                    )
-                } else {
-                    let loaded = load_context
-                        .loader()
-                        .immediate()
-                        .with_settings(pixel_art_settings)
-                        .load::<Image>(dbg!(&*sheet.path))
-                        .await?;
-                    let image_size = loaded.get().size();
-                    let layout = get_layout(
-                        i,
-                        image_size,
-                        &mut sheet.sprite_size,
-                        sheet.sprite_counts,
-                        sheet.padding,
-                        sheet.offset,
-                    )?
-                    .map(|layout| load_context.add_labeled_asset(format!("atlas{i}"), layout));
-
-                    (
-                        pico8::SprHandle::Image(
-                            load_context
-                                .add_loaded_labeled_asset(format!("spritesheet{i}"), loaded),
-                        ),
-                        layout,
-                    )
-                };
-                sprite_sheets.push(pico8::SpriteSheet {
-                    handle,
-                    sprite_size: sheet.sprite_size.unwrap_or(UVec2::splat(8)),
-                    flags: vec![],
-                    layout: layout_maybe.unwrap_or(Handle::default()),
-                })
-            // }
-        }
-        let mut palettes = Vec::new();
-        if config.palettes.is_empty() {
-            warn!("No palettes were provided.");
-            // XXX: Should we provide a default pico8 palette?
-            // config.palettes.push(Palette { path: pico8::PICO8_PALETTE.to_string(), row: None });
+async fn into_asset(
+    config: Config,
+    load_context: &mut LoadContext<'_>,
+) -> Result<Pico8Asset, ConfigLoaderError> {
+    let mut sprite_sheets = vec![];
+    for (i, mut sheet) in config.sprite_sheets.into_iter().enumerate() {
+        // let flags: Vec<u8>;
+        // if sheet.path.extension() == Some(OsStr::new("tsx")) {
+        //     #[cfg(feature = "level")]
+        //     {
+        //         let tiledset = load_context
+        //             .loader()
+        //             .immediate()
+        //             .load::<TiledSet>(&*sheet.path)
+        //             .await?;
+        //         let tileset = &tiledset.get().0;
+        //         let handle = load_context
+        //             .add_labeled_asset(format!("atlas{i}"), layout_from_tileset(tileset));
+        //         let tile_size = UVec2::new(tileset.tile_width, tileset.tile_height);
+        //         if let Some(sprite_size) = sheet.sprite_size {
+        //             assert_eq!(sprite_size, tile_size);
+        //         }
+        //         let flags = flags_from_tileset(tileset);
+        //         sprite_sheets.push(pico8::SpriteSheet {
+        //             handle: pico8::SprHandle::Image(
+        //                 load_context
+        //                     .loader()
+        //                     .with_settings(pixel_art_settings)
+        //                     .load(
+        //                         &*tileset
+        //                             .image
+        //                             .as_ref()
+        //                             .ok_or(ConfigLoaderError::Message(format!(
+        //                                 "could not load .tsx image {i}"
+        //                             )))?
+        //                             .source,
+        //                     ),
+        //             ),
+        //             sprite_size: tile_size,
+        //             flags,
+        //             layout: handle,
+        //         })
+        //     }
+        //     #[cfg(not(feature = "level"))]
+        //     panic!(
+        //         "Can not load {:?} file without 'level' feature.",
+        //         &sheet.path
+        //     );
+        // } else if sheet.path.extension() == Some(OsStr::new("p8")) {
+        //     todo!()
+        // } else {
+        let (handle, layout_maybe) = if sheet.indexed {
+            let bytes = load_context.read_asset_bytes(&*sheet.path).await?;
+            let gfx = Gfx::from_png(&bytes)?;
+            let image_size = UVec2::new(gfx.width as u32, gfx.height as u32);
+            let layout = get_layout(
+                i,
+                image_size,
+                &mut sheet.sprite_size,
+                sheet.sprite_counts,
+                sheet.padding,
+                sheet.offset,
+            )?
+            .map(|layout| load_context.add_labeled_asset(format!("atlas{i}"), layout));
+            (
+                pico8::SprHandle::Gfx(
+                    load_context.add_labeled_asset(format!("spritesheet{i}"), gfx),
+                ),
+                layout,
+            )
         } else {
-            palettes = Vec::with_capacity(config.palettes.len());
-            for palette in config.palettes.iter() {
-                let image = load_context
-                    .loader()
-                    .immediate()
-                    .with_settings(pixel_art_settings)
-                    .load(&palette.path)
-                    .await?;
-                palettes.push(pico8::Palette::from_image(image.get(), palette.row));
-            }
+            let loaded = load_context
+                .loader()
+                .immediate()
+                .with_settings(pixel_art_settings)
+                .load::<Image>(dbg!(&*sheet.path))
+                .await?;
+            let image_size = loaded.get().size();
+            let layout = get_layout(
+                i,
+                image_size,
+                &mut sheet.sprite_size,
+                sheet.sprite_counts,
+                sheet.padding,
+                sheet.offset,
+            )?
+            .map(|layout| load_context.add_labeled_asset(format!("atlas{i}"), layout));
+
+            (
+                pico8::SprHandle::Image(
+                    load_context.add_loaded_labeled_asset(format!("spritesheet{i}"), loaded),
+                ),
+                layout,
+            )
+        };
+        sprite_sheets.push(pico8::SpriteSheet {
+            handle,
+            sprite_size: sheet.sprite_size.unwrap_or(UVec2::splat(8)),
+            flags: vec![],
+            layout: layout_maybe.unwrap_or(Handle::default()),
+        })
+        // }
+    }
+    let mut palettes = Vec::new();
+    if config.palettes.is_empty() {
+        warn!("No palettes were provided.");
+        // XXX: Should we provide a default pico8 palette?
+        // config.palettes.push(Palette { path: pico8::PICO8_PALETTE.to_string(), row: None });
+    } else {
+        palettes = Vec::with_capacity(config.palettes.len());
+        for palette in config.palettes.iter() {
+            let image = load_context
+                .loader()
+                .immediate()
+                .with_settings(pixel_art_settings)
+                .load(&palette.path)
+                .await?;
+            palettes.push(pico8::Palette::from_image(image.get(), palette.row));
         }
-        let state = pico8::Pico8Asset {
+    }
+    let state = pico8::Pico8Asset {
 #[cfg(feature = "scripting")]
                 // code: config.code.map(|p| load_context.loader().with_settings(LuaLoaderSettings::default()).load(&*p)),
                 code: config.code.map(|p| load_context.load(&*p)),
@@ -401,7 +407,7 @@ async fn into_asset(config: Config, load_context: &mut LoadContext<'_>) -> Resul
                                                      }).collect::<Vec<_>>(),
 
             };
-        Ok(state)
+    Ok(state)
 }
 
 fn get_layout(

@@ -1,6 +1,6 @@
+use super::*;
 use bevy::prelude::*;
 use bitvec::prelude::*;
-use super::*;
 
 pub(crate) fn plugin(app: &mut App) {
     #[cfg(feature = "scripting")]
@@ -69,7 +69,6 @@ impl super::Pico8<'_, '_> {
         };
         buttons.btn(b)
     }
-
 }
 
 pub(crate) fn fill_input(
@@ -172,33 +171,30 @@ mod lua {
     use super::*;
     use crate::pico8::lua::with_pico8;
 
-use bevy_mod_scripting::core::bindings::function::{
-            namespace::{GlobalNamespace, NamespaceBuilder},
-            script_function::FunctionCallContext,
-        };
-pub(crate) fn plugin(app: &mut App) {
-    // callbacks can receive any `ToLuaMulti` arguments, here '()' and
-    // return any `FromLuaMulti` arguments, here a `usize`
-    // check the Rlua documentation for more details
-    let world = app.world_mut();
+    use bevy_mod_scripting::core::bindings::function::{
+        namespace::{GlobalNamespace, NamespaceBuilder},
+        script_function::FunctionCallContext,
+    };
+    pub(crate) fn plugin(app: &mut App) {
+        // callbacks can receive any `ToLuaMulti` arguments, here '()' and
+        // return any `FromLuaMulti` arguments, here a `usize`
+        // check the Rlua documentation for more details
+        let world = app.world_mut();
 
-    NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-        .register(
-            "btnp",
-            |ctx: FunctionCallContext, b: Option<u8>, p: Option<u8>| {
-                with_pico8(&ctx, |pico8| pico8.btnp(b, p))
-            },
-        )
-        .register(
-            "btn",
-            |ctx: FunctionCallContext, b: Option<u8>, p: Option<u8>| {
-                with_pico8(&ctx, |pico8| pico8.btn(b, p))
-            },
-        )
-
-        ;
-}
-
+        NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
+            .register(
+                "btnp",
+                |ctx: FunctionCallContext, b: Option<u8>, p: Option<u8>| {
+                    with_pico8(&ctx, |pico8| pico8.btnp(b, p))
+                },
+            )
+            .register(
+                "btn",
+                |ctx: FunctionCallContext, b: Option<u8>, p: Option<u8>| {
+                    with_pico8(&ctx, |pico8| pico8.btn(b, p))
+                },
+            );
+    }
 }
 
 #[cfg(test)]
@@ -228,5 +224,4 @@ mod test {
         assert!(!b.btn(None).unwrap());
         assert!(!b.btnp(None).unwrap());
     }
-
 }

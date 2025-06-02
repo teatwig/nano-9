@@ -107,8 +107,6 @@ fn bom_len(s: &str) -> usize {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -132,14 +130,8 @@ date: 2025-05-27
 This is the body.";
         let (fm, body) = parse(input);
 
-        assert_eq!(
-            fm,
-            Some("title: Test\ndate: 2025-05-27")
-        );
-        assert_eq!(
-            body,
-            "# Content\nThis is the body."
-        );
+        assert_eq!(fm, Some("title: Test\ndate: 2025-05-27"));
+        assert_eq!(body, "# Content\nThis is the body.");
     }
 
     #[test]
@@ -153,14 +145,8 @@ date: 2025-05-27
 This is the body.";
         let (fm, body) = LUA.parse(input);
 
-        assert_eq!(
-            fm,
-            Some("title: Test\ndate: 2025-05-27")
-        );
-        assert_eq!(
-            body,
-            "# Content\nThis is the body."
-        );
+        assert_eq!(fm, Some("title: Test\ndate: 2025-05-27"));
+        assert_eq!(body, "# Content\nThis is the body.");
     }
 
     #[test]
@@ -208,71 +194,71 @@ foo: bar
     }
 
     mod in_place {
-    use super::*;
+        use super::*;
 
-    #[test]
-    fn test_with_front_matter() {
-        let mut input = "\
-===\ntitle: Test\ndate: 2025-05-27\n===\n# Content\nBody text.".to_string();
+        #[test]
+        fn test_with_front_matter() {
+            let mut input = "\
+===\ntitle: Test\ndate: 2025-05-27\n===\n# Content\nBody text."
+                .to_string();
 
-        let fm = parse_in_place(&mut input);
+            let fm = parse_in_place(&mut input);
 
-        assert_eq!(fm, Some("title: Test\ndate: 2025-05-27".to_string()));
-        assert_eq!(input, "# Content\nBody text.");
-    }
+            assert_eq!(fm, Some("title: Test\ndate: 2025-05-27".to_string()));
+            assert_eq!(input, "# Content\nBody text.");
+        }
 
-    #[test]
-    fn test_without_front_matter() {
-        let original = "# Content\nNo front matter here.";
-        let mut input = original.to_string();
+        #[test]
+        fn test_without_front_matter() {
+            let original = "# Content\nNo front matter here.";
+            let mut input = original.to_string();
 
-        let fm = parse_in_place(&mut input);
+            let fm = parse_in_place(&mut input);
 
-        assert_eq!(fm, None);
-        assert_eq!(input, original);
-    }
+            assert_eq!(fm, None);
+            assert_eq!(input, original);
+        }
 
-    #[test]
-    fn test_front_matter_without_end() {
-        let original = "\
+        #[test]
+        fn test_front_matter_without_end() {
+            let original = "\
 ===\ntitle: Incomplete\nno end marker";
-        let mut input = original.to_string();
-        assert_eq!(original, "===\ntitle: Incomplete\nno end marker");
+            let mut input = original.to_string();
+            assert_eq!(original, "===\ntitle: Incomplete\nno end marker");
 
-        let fm = parse_in_place(&mut input);
+            let fm = parse_in_place(&mut input);
 
-        assert_eq!(fm, None);
-        assert_eq!(input, original);
-    }
+            assert_eq!(fm, None);
+            assert_eq!(input, original);
+        }
 
-    #[test]
-    fn test_empty_input() {
-        let mut input = "".to_string();
+        #[test]
+        fn test_empty_input() {
+            let mut input = "".to_string();
 
-        let fm = parse_in_place(&mut input);
+            let fm = parse_in_place(&mut input);
 
-        assert_eq!(fm, None);
-        assert_eq!(input, "");
-    }
+            assert_eq!(fm, None);
+            assert_eq!(input, "");
+        }
 
-    #[test]
-    fn test_only_front_matter() {
-        let mut input = "===\nfoo: bar\n===\n".to_string();
+        #[test]
+        fn test_only_front_matter() {
+            let mut input = "===\nfoo: bar\n===\n".to_string();
 
-        let fm = parse_in_place(&mut input);
+            let fm = parse_in_place(&mut input);
 
-        assert_eq!(fm, Some("foo: bar".to_string()));
-        assert_eq!(input, "");
-    }
+            assert_eq!(fm, Some("foo: bar".to_string()));
+            assert_eq!(input, "");
+        }
 
-    #[test]
-    fn test_trailing_newlines_after_front_matter() {
-        let mut input = "===\nfoo: bar\n===\n\n\nHello".to_string();
+        #[test]
+        fn test_trailing_newlines_after_front_matter() {
+            let mut input = "===\nfoo: bar\n===\n\n\nHello".to_string();
 
-        let fm = parse_in_place(&mut input);
+            let fm = parse_in_place(&mut input);
 
-        assert_eq!(fm, Some("foo: bar".to_string()));
-
-    }
+            assert_eq!(fm, Some("foo: bar".to_string()));
+        }
     }
 }

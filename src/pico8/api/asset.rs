@@ -1,7 +1,5 @@
-use bevy::{
-    prelude::*
-};
 use super::*;
+use bevy::prelude::*;
 
 #[derive(Clone, Asset, Debug, Reflect)]
 pub struct Pico8Asset {

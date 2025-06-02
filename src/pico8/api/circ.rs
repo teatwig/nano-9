@@ -1,9 +1,4 @@
-
-
 use super::*;
-
-
-
 
 pub(crate) fn plugin(app: &mut App) {
     #[cfg(feature = "scripting")]
@@ -142,69 +137,67 @@ impl super::Pico8<'_, '_> {
 #[cfg(feature = "scripting")]
 mod lua {
     use super::*;
-    use crate::{N9Entity, DropPolicy, pico8::lua::with_pico8};
+    use crate::{pico8::lua::with_pico8, DropPolicy, N9Entity};
 
-use bevy_mod_scripting::core::bindings::{
+    use bevy_mod_scripting::core::bindings::{
         function::{
             into_ref::IntoScriptRef,
             namespace::{GlobalNamespace, NamespaceBuilder},
             script_function::FunctionCallContext,
-        }, ReflectReference,
+        },
+        ReflectReference,
     };
-pub(crate) fn plugin(app: &mut App) {
-    // callbacks can receive any `ToLuaMulti` arguments, here '()' and
-    // return any `FromLuaMulti` arguments, here a `usize`
-    // check the Rlua documentation for more details
-    let world = app.world_mut();
+    pub(crate) fn plugin(app: &mut App) {
+        // callbacks can receive any `ToLuaMulti` arguments, here '()' and
+        // return any `FromLuaMulti` arguments, here a `usize`
+        // check the Rlua documentation for more details
+        let world = app.world_mut();
 
-    NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-        .register(
-            "circfill",
-            |ctx: FunctionCallContext,
-             x0: Option<i32>,
-             y0: Option<i32>,
-             r: Option<u32>,
-             c: Option<N9Color>| {
-                let id = with_pico8(&ctx, move |pico8| {
-                    pico8.circfill(
-                        IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
-                        UVec2::splat(r.unwrap_or(4)),
-                        c,
-                    )
-                })?;
+        NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
+            .register(
+                "circfill",
+                |ctx: FunctionCallContext,
+                 x0: Option<i32>,
+                 y0: Option<i32>,
+                 r: Option<u32>,
+                 c: Option<N9Color>| {
+                    let id = with_pico8(&ctx, move |pico8| {
+                        pico8.circfill(
+                            IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
+                            UVec2::splat(r.unwrap_or(4)),
+                            c,
+                        )
+                    })?;
 
-                let entity = N9Entity {
-                    entity: id,
-                    drop: DropPolicy::Nothing,
-                };
-                let world = ctx.world()?;
-                let reference = {
-                    let allocator = world.allocator();
-                    let mut allocator = allocator.write();
-                    ReflectReference::new_allocated(entity, &mut allocator)
-                };
-                ReflectReference::into_script_ref(reference, world)
-            },
-        )
-        .register(
-            "circ",
-            |ctx: FunctionCallContext,
-             x0: Option<i32>,
-             y0: Option<i32>,
-             r: Option<u32>,
-             c: Option<N9Color>| {
-                let _ = with_pico8(&ctx, move |pico8| {
-                    pico8.circ(
-                        IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
-                        UVec2::splat(r.unwrap_or(4)),
-                        c,
-                    )
-                })?;
-                Ok(())
-            },
-        )
-
-        ;
-}
-
+                    let entity = N9Entity {
+                        entity: id,
+                        drop: DropPolicy::Nothing,
+                    };
+                    let world = ctx.world()?;
+                    let reference = {
+                        let allocator = world.allocator();
+                        let mut allocator = allocator.write();
+                        ReflectReference::new_allocated(entity, &mut allocator)
+                    };
+                    ReflectReference::into_script_ref(reference, world)
+                },
+            )
+            .register(
+                "circ",
+                |ctx: FunctionCallContext,
+                 x0: Option<i32>,
+                 y0: Option<i32>,
+                 r: Option<u32>,
+                 c: Option<N9Color>| {
+                    let _ = with_pico8(&ctx, move |pico8| {
+                        pico8.circ(
+                            IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
+                            UVec2::splat(r.unwrap_or(4)),
+                            c,
+                        )
+                    })?;
+                    Ok(())
+                },
+            );
+    }
 }

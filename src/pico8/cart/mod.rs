@@ -332,7 +332,10 @@ impl AssetLoader for P8CartLoader {
 
 /// Convert Pico-8 dialect to Lua.
 #[cfg(feature = "pico8-to-lua")]
-pub(crate) async fn translate_pico8_to_lua<'a>(lua: &'a str, load_context: &mut LoadContext<'_>) -> Result<Option<String>, CartLoaderError> {
+pub(crate) async fn translate_pico8_to_lua<'a>(
+    lua: &'a str,
+    load_context: &mut LoadContext<'_>,
+) -> Result<Option<String>, CartLoaderError> {
     // Patch the includes.
     let include_paths: Vec<String> = pico8_to_lua::find_includes(lua).collect();
     let has_includes = !include_paths.is_empty();
@@ -345,8 +348,7 @@ pub(crate) async fn translate_pico8_to_lua<'a>(lua: &'a str, load_context: &mut 
             cart_path.pop();
             cart_path.push(&path);
             dbg!(&cart_path);
-            let source: AssetSourceId<'static> =
-                load_context.asset_path().source().clone_owned();
+            let source: AssetSourceId<'static> = load_context.asset_path().source().clone_owned();
             let extension = cart_path.extension().and_then(|s| s.to_str()).unwrap_or("");
             match extension {
                 "p8" | "png" => {
@@ -374,9 +376,8 @@ pub(crate) async fn translate_pico8_to_lua<'a>(lua: &'a str, load_context: &mut 
             }
         }
 
-        include_patch = pico8_to_lua::patch_includes(lua, |path| {
-            path_contents.remove(path).unwrap()
-        });
+        include_patch =
+            pico8_to_lua::patch_includes(lua, |path| path_contents.remove(path).unwrap());
     }
     // Patch the code.
     let result = pico8_to_lua::patch_lua(include_patch);

@@ -47,20 +47,18 @@ impl Default for MemoryDir {
     fn default() -> Self {
         Self {
             source: "memory",
-            dir: Dir::default()
+            dir: Dir::default(),
         }
     }
 }
-
 
 impl MemoryDir {
     pub fn new(source_name: &'static str) -> MemoryDir {
         Self {
             source: source_name,
-            dir: Dir::default()
+            dir: Dir::default(),
         }
     }
-
 }
 
 impl Plugin for MemoryDir {

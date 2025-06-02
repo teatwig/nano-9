@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use super::*;
+use bevy::prelude::*;
 /// Pico8State's state.
 #[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource)]

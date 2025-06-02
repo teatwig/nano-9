@@ -13,10 +13,10 @@ pub mod level;
 pub mod minibuffer;
 pub mod pico8;
 mod plugin;
-#[cfg(feature = "scripting")]
-mod var;
 mod plugins;
 pub mod prelude;
+#[cfg(feature = "scripting")]
+mod var;
 
 pub use color::*;
 #[cfg(feature = "scripting")]

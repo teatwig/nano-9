@@ -29,7 +29,7 @@ use bevy_mod_scripting::{
 use crate::{
     config::*,
     error::RunState,
-    pico8::{self, FillPat, input::fill_input, Pico8Asset, Pico8Handle},
+    pico8::{self, input::fill_input, FillPat, Pico8Asset, Pico8Handle},
     PColor,
 };
 
@@ -388,16 +388,18 @@ impl Plugin for Nano9Plugin {
             // deserialize.
             let config_string = toml::to_string(&self.config).unwrap();
             if let Some(memory_dir) = app.world_mut().get_resource_mut::<MemoryDir>() {
-                memory_dir
-                    .insert_asset(std::path::Path::new("Nano9.toml"), config_string.into_bytes());
-                app
-                    .add_systems(
-                        Startup,
-                        |asset_server: Res<AssetServer>,
-                        mut commands: Commands| {
-                            let pico8_asset: Handle<Pico8Asset> = asset_server.load("n9mem://Nano9.toml");
-                            commands.insert_resource(Pico8Handle::from(pico8_asset));
-                        });
+                memory_dir.insert_asset(
+                    std::path::Path::new("Nano9.toml"),
+                    config_string.into_bytes(),
+                );
+                app.add_systems(
+                    Startup,
+                    |asset_server: Res<AssetServer>, mut commands: Commands| {
+                        let pico8_asset: Handle<Pico8Asset> =
+                            asset_server.load("n9mem://Nano9.toml");
+                        commands.insert_resource(Pico8Handle::from(pico8_asset));
+                    },
+                );
             } else {
                 warn!("No 'n9mem://' asset source configured.");
             }
@@ -461,7 +463,13 @@ impl Plugin for Nano9Plugin {
                 16,
             )),
         })
-        .insert_resource(self.config.defaults.as_ref().map(pico8::Defaults::from_config).unwrap_or_default())
+        .insert_resource(
+            self.config
+                .defaults
+                .as_ref()
+                .map(pico8::Defaults::from_config)
+                .unwrap_or_default(),
+        )
         // Insert the config as a resource.
         // TODO: Should we constrain it, if it wasn't provided as an option?
         .insert_resource(Time::<Fixed>::from_seconds(
@@ -506,7 +514,6 @@ impl Plugin for Nano9Plugin {
             app.add_systems(Update, sync_window_size)
                 .add_systems(Update, fullscreen_key);
         }
-
     }
 }
 

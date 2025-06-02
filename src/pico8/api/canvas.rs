@@ -1,9 +1,4 @@
-
-
 use super::*;
-
-
-
 
 pub(crate) fn plugin(app: &mut App) {
     #[cfg(feature = "scripting")]
@@ -45,33 +40,30 @@ mod lua {
     use super::*;
     use crate::pico8::lua::with_pico8;
 
-use bevy_mod_scripting::core::bindings::function::{
-            namespace::{GlobalNamespace, NamespaceBuilder},
-            script_function::FunctionCallContext,
-        };
-pub(crate) fn plugin(app: &mut App) {
-    // callbacks can receive any `ToLuaMulti` arguments, here '()' and
-    // return any `FromLuaMulti` arguments, here a `usize`
-    // check the Rlua documentation for more details
-    let world = app.world_mut();
+    use bevy_mod_scripting::core::bindings::function::{
+        namespace::{GlobalNamespace, NamespaceBuilder},
+        script_function::FunctionCallContext,
+    };
+    pub(crate) fn plugin(app: &mut App) {
+        // callbacks can receive any `ToLuaMulti` arguments, here '()' and
+        // return any `FromLuaMulti` arguments, here a `usize`
+        // check the Rlua documentation for more details
+        let world = app.world_mut();
 
-    NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-        .register("cls", |ctx: FunctionCallContext, c: Option<PColor>| {
-            with_pico8(&ctx, |pico8| pico8.cls(c))
-        })
-        .register(
-            "pset",
-            |ctx: FunctionCallContext, x: u32, y: u32, color: Option<N9Color>| {
-                with_pico8(&ctx, |pico8| {
-                    // We want to ignore out of bounds errors specifically but possibly not others.
-                    // Ok(pico8.pset(x, y, color)?)
-                    let _ = pico8.pset(UVec2::new(x, y), color.unwrap_or(N9Color::Pen));
-                    Ok(())
-                })
-            },
-        )
-
-        ;
-}
-
+        NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
+            .register("cls", |ctx: FunctionCallContext, c: Option<PColor>| {
+                with_pico8(&ctx, |pico8| pico8.cls(c))
+            })
+            .register(
+                "pset",
+                |ctx: FunctionCallContext, x: u32, y: u32, color: Option<N9Color>| {
+                    with_pico8(&ctx, |pico8| {
+                        // We want to ignore out of bounds errors specifically but possibly not others.
+                        // Ok(pico8.pset(x, y, color)?)
+                        let _ = pico8.pset(UVec2::new(x, y), color.unwrap_or(N9Color::Pen));
+                        Ok(())
+                    })
+                },
+            );
+    }
 }

@@ -7,7 +7,15 @@ fn update(mut pico8: Pico8, mut t: Local<usize>) {
     let x = *t % 128;
     let y = *t / 128;
 
-    pico8.spr(n as usize, Vec2::new(x as f32, y as f32), None, Some(BVec2::new(true, false)), None).unwrap();
+    pico8
+        .spr(
+            n as usize,
+            Vec2::new(x as f32, y as f32),
+            None,
+            Some(BVec2::new(true, false)),
+            None,
+        )
+        .unwrap();
     *t += 1;
 }
 
@@ -21,10 +29,8 @@ fn main() {
         sprite_size: Some(UVec2::splat(16)),
         ..default()
     });
-    app
-        .add_systems(PreUpdate, run_pico8_when_loaded);
-    app
-        .add_plugins(Nano9Plugins { config })
+    app.add_systems(PreUpdate, run_pico8_when_loaded);
+    app.add_plugins(Nano9Plugins { config })
         .add_systems(PreUpdate, run_pico8_when_loaded)
         .run();
 }

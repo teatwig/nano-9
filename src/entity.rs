@@ -2,12 +2,11 @@ use bevy::prelude::*;
 
 use crate::pico8::{negate_y, Clearable, Pico8State};
 use bevy_mod_scripting::{
-    core::bindings::{
-        function::{from::Val, namespace::NamespaceBuilder, script_function::FunctionCallContext},
+    core::bindings::function::{
+        from::Val, namespace::NamespaceBuilder, script_function::FunctionCallContext,
     },
     lua::mlua::{self, FromLua, Lua, UserData, Value},
 };
-
 
 #[derive(Debug, Clone, Copy, Reflect)]
 pub enum DropPolicy {

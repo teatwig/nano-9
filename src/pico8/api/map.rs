@@ -1,14 +1,10 @@
 use super::*;
 
-
-
-
 pub(crate) fn plugin(app: &mut App) {
     #[cfg(feature = "scripting")]
     lua::plugin(app);
 }
 impl super::Pico8<'_, '_> {
-
     fn sprite_map(&self, map_index: Option<usize>) -> Result<&Map, Error> {
         let index = map_index.unwrap_or(0);
         self.pico8_asset()?
@@ -16,7 +12,6 @@ impl super::Pico8<'_, '_> {
             .get(index)
             .ok_or(Error::NoSuch(format!("map index {index}").into()))
     }
-
 
     fn sprite_map_mut(&mut self, map_index: Option<usize>) -> Result<&mut Map, Error> {
         let index = map_index.unwrap_or(0);
@@ -105,91 +100,87 @@ impl super::Pico8<'_, '_> {
             }
         }
     }
-
-
 }
 
 #[cfg(feature = "scripting")]
 mod lua {
     use super::*;
-    use crate::{N9Entity, DropPolicy, pico8::lua::with_pico8};
+    use crate::{pico8::lua::with_pico8, DropPolicy, N9Entity};
 
-use bevy_mod_scripting::core::bindings::{
+    use bevy_mod_scripting::core::bindings::{
         function::{
             into_ref::IntoScriptRef,
             namespace::{GlobalNamespace, NamespaceBuilder},
             script_function::FunctionCallContext,
-        }, ReflectReference,
+        },
+        ReflectReference,
     };
-pub(crate) fn plugin(app: &mut App) {
-    // callbacks can receive any `ToLuaMulti` arguments, here '()' and
-    // return any `FromLuaMulti` arguments, here a `usize`
-    // check the Rlua documentation for more details
-    let world = app.world_mut();
+    pub(crate) fn plugin(app: &mut App) {
+        // callbacks can receive any `ToLuaMulti` arguments, here '()' and
+        // return any `FromLuaMulti` arguments, here a `usize`
+        // check the Rlua documentation for more details
+        let world = app.world_mut();
 
-    NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
+        NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
+            .register(
+                "mget",
+                |ctx: FunctionCallContext,
+                 x: f32,
+                 y: f32,
+                 map_index: Option<usize>,
+                 layer_index: Option<usize>| {
+                    with_pico8(&ctx, move |pico8| {
+                        Ok(pico8.mget(Vec2::new(x, y), map_index, layer_index))
+                    })
+                },
+            )
+            .register(
+                "mset",
+                |ctx: FunctionCallContext,
+                 x: f32,
+                 y: f32,
+                 v: usize,
+                 map_index: Option<usize>,
+                 layer_index: Option<usize>| {
+                    with_pico8(&ctx, move |pico8| {
+                        pico8.mset(Vec2::new(x, y), v, map_index, layer_index)
+                    })
+                },
+            )
+            // map( celx, cely, sx, sy, celw, celh, [layer] )
+            .register(
+                "map",
+                |ctx: FunctionCallContext,
+                 celx: Option<u32>,
+                 cely: Option<u32>,
+                 sx: Option<f32>,
+                 sy: Option<f32>,
+                 celw: Option<u32>,
+                 celh: Option<u32>,
+                 layer: Option<u8>,
+                 map_index: Option<usize>| {
+                    let id = with_pico8(&ctx, move |pico8| {
+                        pico8.map(
+                            UVec2::new(celx.unwrap_or(0), cely.unwrap_or(0)),
+                            Vec2::new(sx.unwrap_or(0.0), sy.unwrap_or(0.0)),
+                            UVec2::new(celw.unwrap_or(16), celh.unwrap_or(16)),
+                            layer,
+                            map_index,
+                        )
+                    })?;
 
-        .register(
-            "mget",
-            |ctx: FunctionCallContext,
-             x: f32,
-             y: f32,
-             map_index: Option<usize>,
-             layer_index: Option<usize>| {
-                with_pico8(&ctx, move |pico8| {
-                    Ok(pico8.mget(Vec2::new(x, y), map_index, layer_index))
-                })
-            },
-        )
-        .register(
-            "mset",
-            |ctx: FunctionCallContext,
-             x: f32,
-             y: f32,
-             v: usize,
-             map_index: Option<usize>,
-             layer_index: Option<usize>| {
-                with_pico8(&ctx, move |pico8| {
-                    pico8.mset(Vec2::new(x, y), v, map_index, layer_index)
-                })
-            },
-        )
-        // map( celx, cely, sx, sy, celw, celh, [layer] )
-        .register(
-            "map",
-            |ctx: FunctionCallContext,
-             celx: Option<u32>,
-             cely: Option<u32>,
-             sx: Option<f32>,
-             sy: Option<f32>,
-             celw: Option<u32>,
-             celh: Option<u32>,
-             layer: Option<u8>,
-             map_index: Option<usize>| {
-                let id = with_pico8(&ctx, move |pico8| {
-                    pico8.map(
-                        UVec2::new(celx.unwrap_or(0), cely.unwrap_or(0)),
-                        Vec2::new(sx.unwrap_or(0.0), sy.unwrap_or(0.0)),
-                        UVec2::new(celw.unwrap_or(16), celh.unwrap_or(16)),
-                        layer,
-                        map_index,
-                    )
-                })?;
-
-                let entity = N9Entity {
-                    entity: id,
-                    drop: DropPolicy::Nothing,
-                };
-                let world = ctx.world()?;
-                let reference = {
-                    let allocator = world.allocator();
-                    let mut allocator = allocator.write();
-                    ReflectReference::new_allocated(entity, &mut allocator)
-                };
-                ReflectReference::into_script_ref(reference, world)
-            },
-        )
-        ;
-}
-
+                    let entity = N9Entity {
+                        entity: id,
+                        drop: DropPolicy::Nothing,
+                    };
+                    let world = ctx.world()?;
+                    let reference = {
+                        let allocator = world.allocator();
+                        let mut allocator = allocator.write();
+                        ReflectReference::new_allocated(entity, &mut allocator)
+                    };
+                    ReflectReference::into_script_ref(reference, world)
+                },
+            );
+    }
 }

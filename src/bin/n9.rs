@@ -9,7 +9,11 @@ use bevy::{
 };
 #[cfg(feature = "minibuffer")]
 use bevy_minibuffer::prelude::*;
-use nano9::{config::{Config, front_matter, run_pico8_when_loaded}, pico8::{Pico8Handle, Pico8Asset}, *};
+use nano9::{
+    config::{front_matter, run_pico8_when_loaded, Config},
+    pico8::{Pico8Asset, Pico8Handle},
+    *,
+};
 use std::{env, fs, io, path::PathBuf, process::ExitCode};
 
 fn usage(mut output: impl io::Write) -> io::Result<()> {
@@ -50,8 +54,10 @@ fn main() -> io::Result<ExitCode> {
     };
     let mut app = App::new();
     let cwd = AssetSourceId::Name("cwd".into());
-    let mut builder =
-        AssetSourceBuilder::platform_default(dbg!(env::current_dir()?.to_str().expect("current dir")), None);
+    let mut builder = AssetSourceBuilder::platform_default(
+        dbg!(env::current_dir()?.to_str().expect("current dir")),
+        None,
+    );
     builder.watcher = None;
     builder.processed_watcher = None;
     app.register_asset_source(&cwd, builder);
@@ -87,7 +93,10 @@ fn main() -> io::Result<ExitCode> {
             } else if let Some(parent) = path.parent() {
                 app.register_asset_source(
                     &AssetSourceId::Default,
-                    AssetSourceBuilder::platform_default(parent.to_str().expect("parent dir"), None),
+                    AssetSourceBuilder::platform_default(
+                        parent.to_str().expect("parent dir"),
+                        None,
+                    ),
                 );
             }
             // OLD SHANE: Get rid of this.
@@ -119,28 +128,32 @@ fn main() -> io::Result<ExitCode> {
                     commands.insert_resource(Pico8Handle::from(pico8_asset));
                 },
             );
-            nano9_plugin = Nano9Plugin {
-                config,
-            };
+            nano9_plugin = Nano9Plugin { config };
         }
         "lua" | "p8lua" => {
             if cfg!(not(feature = "pico8-to-lua")) && extension == "p8lua" {
-                eprintln!("error: Must compile with 'pico8-to-lua' feature to handle 'p8lua' files.");
+                eprintln!(
+                    "error: Must compile with 'pico8-to-lua' feature to handle 'p8lua' files."
+                );
                 return Ok(ExitCode::from(3));
             }
             eprintln!("loading lua");
             let mut content = fs::read_to_string(&script_path)?;
 
-            let mut config = if let Some(front_matter) = front_matter::LUA.parse_in_place(&mut content) {
-                let mut config: Config = toml::from_str::<Config>(&front_matter)
-                    .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
-                config.inject_template(None)
+            let mut config =
+                if let Some(front_matter) = front_matter::LUA.parse_in_place(&mut content) {
+                    let mut config: Config = toml::from_str::<Config>(&front_matter)
                         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
-                config
-            } else {
-                Config::pico8()
-            };
-            config.code = Some(dbg!(AssetPath::from_path(&script_path).with_source(&cwd).to_string()));
+                    config
+                        .inject_template(None)
+                        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
+                    config
+                } else {
+                    Config::pico8()
+                };
+            config.code = Some(dbg!(AssetPath::from_path(&script_path)
+                .with_source(&cwd)
+                .to_string()));
             nano9_plugin = Nano9Plugin { config };
         }
         _ext => {
@@ -148,8 +161,10 @@ fn main() -> io::Result<ExitCode> {
             return Ok(ExitCode::from(1));
         }
     }
-    app.add_plugins(Nano9Plugins { config: nano9_plugin.config })
-       .add_plugins(FpsOverlayPlugin {
+    app.add_plugins(Nano9Plugins {
+        config: nano9_plugin.config,
+    })
+    .add_plugins(FpsOverlayPlugin {
         config: FpsOverlayConfig {
             text_config: TextFont {
                 // Here we define size of our overlay

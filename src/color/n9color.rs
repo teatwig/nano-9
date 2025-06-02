@@ -1,6 +1,6 @@
 use super::PColor;
 use bevy::prelude::*;
-use std::{any::TypeId};
+use std::any::TypeId;
 
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::{
@@ -18,15 +18,14 @@ use bevy_mod_scripting::{
 pub enum N9Color {
     #[default]
     Pen,
-    PColor(PColor)
+    PColor(PColor),
 }
-
 
 impl N9Color {
     pub fn into_pcolor(&self, pen_color: &PColor) -> PColor {
         match self {
             N9Color::Pen => *pen_color,
-            N9Color::PColor(p) => *p
+            N9Color::PColor(p) => *p,
         }
     }
 }

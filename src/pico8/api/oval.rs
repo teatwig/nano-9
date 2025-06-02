@@ -1,9 +1,4 @@
-
-
 use super::*;
-
-
-
 
 pub(crate) fn plugin(app: &mut App) {
     #[cfg(feature = "scripting")]
@@ -153,55 +148,52 @@ mod lua {
     use super::*;
     use crate::pico8::lua::with_pico8;
 
-use bevy_mod_scripting::core::bindings::function::{
-            namespace::{GlobalNamespace, NamespaceBuilder},
-            script_function::FunctionCallContext,
-        };
-pub(crate) fn plugin(app: &mut App) {
-    // callbacks can receive any `ToLuaMulti` arguments, here '()' and
-    // return any `FromLuaMulti` arguments, here a `usize`
-    // check the Rlua documentation for more details
-    let world = app.world_mut();
+    use bevy_mod_scripting::core::bindings::function::{
+        namespace::{GlobalNamespace, NamespaceBuilder},
+        script_function::FunctionCallContext,
+    };
+    pub(crate) fn plugin(app: &mut App) {
+        // callbacks can receive any `ToLuaMulti` arguments, here '()' and
+        // return any `FromLuaMulti` arguments, here a `usize`
+        // check the Rlua documentation for more details
+        let world = app.world_mut();
 
-    NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-        .register(
-            "ovalfill",
-            |ctx: FunctionCallContext,
-             x0: Option<i32>,
-             y0: Option<i32>,
-             x1: Option<i32>,
-             y1: Option<i32>,
-             c: Option<N9Color>| {
-                let _ = with_pico8(&ctx, move |pico8| {
-                    pico8.ovalfill(
-                        IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
-                        IVec2::new(x1.unwrap_or(0), y1.unwrap_or(0)),
-                        c,
-                    )
-                })?;
-                Ok(())
-            },
-        )
-        .register(
-            "oval",
-            |ctx: FunctionCallContext,
-             x0: Option<i32>,
-             y0: Option<i32>,
-             x1: Option<i32>,
-             y1: Option<i32>,
-             c: Option<N9Color>| {
-                let _ = with_pico8(&ctx, move |pico8| {
-                    pico8.oval(
-                        IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
-                        IVec2::new(x1.unwrap_or(0), y1.unwrap_or(0)),
-                        c,
-                    )
-                })?;
-                Ok(())
-            },
-        )
-
-        ;
-}
-
+        NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
+            .register(
+                "ovalfill",
+                |ctx: FunctionCallContext,
+                 x0: Option<i32>,
+                 y0: Option<i32>,
+                 x1: Option<i32>,
+                 y1: Option<i32>,
+                 c: Option<N9Color>| {
+                    let _ = with_pico8(&ctx, move |pico8| {
+                        pico8.ovalfill(
+                            IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
+                            IVec2::new(x1.unwrap_or(0), y1.unwrap_or(0)),
+                            c,
+                        )
+                    })?;
+                    Ok(())
+                },
+            )
+            .register(
+                "oval",
+                |ctx: FunctionCallContext,
+                 x0: Option<i32>,
+                 y0: Option<i32>,
+                 x1: Option<i32>,
+                 y1: Option<i32>,
+                 c: Option<N9Color>| {
+                    let _ = with_pico8(&ctx, move |pico8| {
+                        pico8.oval(
+                            IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
+                            IVec2::new(x1.unwrap_or(0), y1.unwrap_or(0)),
+                            c,
+                        )
+                    })?;
+                    Ok(())
+                },
+            );
+    }
 }

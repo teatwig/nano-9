@@ -1,9 +1,4 @@
-
-
 use super::*;
-
-
-
 
 pub(crate) fn plugin(app: &mut App) {
     #[cfg(feature = "scripting")]
@@ -18,11 +13,9 @@ pub enum PalModify {
     Secondary,
 }
 
-
 impl super::Pico8<'_, '_> {
     pub(crate) fn palette(&self, index: Option<usize>) -> Result<&Palette, Error> {
-        self
-            .pico8_asset()?
+        self.pico8_asset()?
             .palettes
             .get(index.unwrap_or(self.state.palette))
             .ok_or(Error::NoSuch("palette".into()))
@@ -83,56 +76,56 @@ mod lua {
     use super::*;
     use crate::pico8::lua::with_pico8;
 
-use bevy_mod_scripting::core::bindings::function::{
-            namespace::{GlobalNamespace, NamespaceBuilder},
-            script_function::FunctionCallContext,
-        };
-pub(crate) fn plugin(app: &mut App) {
-    // callbacks can receive any `ToLuaMulti` arguments, here '()' and
-    // return any `FromLuaMulti` arguments, here a `usize`
-    // check the Rlua documentation for more details
-    let world = app.world_mut();
+    use bevy_mod_scripting::core::bindings::function::{
+        namespace::{GlobalNamespace, NamespaceBuilder},
+        script_function::FunctionCallContext,
+    };
+    pub(crate) fn plugin(app: &mut App) {
+        // callbacks can receive any `ToLuaMulti` arguments, here '()' and
+        // return any `FromLuaMulti` arguments, here a `usize`
+        // check the Rlua documentation for more details
+        let world = app.world_mut();
 
-    NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-        .register(
-            "pal",
-            |ctx: FunctionCallContext, old: Option<usize>, new: Option<usize>, mode: Option<u8>| {
-                with_pico8(&ctx, move |pico8| {
-                    if old.is_some() && new.is_none() && mode.is_none() {
-                        // Set the palette.
-                        pico8.state.palette = old.unwrap();
-                    } else {
-                        pico8.pal_map(
-                            old.zip(new),
-                            mode.map(|i| match i {
-                                0 => PalModify::Following,
-                                1 => PalModify::Present,
-                                2 => PalModify::Secondary,
-                                x => panic!("No such palette modify mode {x}"),
-                            }),
-                        );
-                    }
-                    Ok(())
-                })
-            },
-        )
-        .register(
-            "palt",
-            |ctx: FunctionCallContext, color: Option<usize>, transparency: Option<bool>| {
-                with_pico8(&ctx, move |pico8| {
-                    pico8.palt(color, transparency);
-                    Ok(())
-                })
-            },
-        )
-        .register(
-            "color",
-            |ctx: FunctionCallContext, color: Option<PColor>| {
-                with_pico8(&ctx, move |pico8| pico8.color(color))
-            },
-        )
-
-        ;
-}
-
+        NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
+            .register(
+                "pal",
+                |ctx: FunctionCallContext,
+                 old: Option<usize>,
+                 new: Option<usize>,
+                 mode: Option<u8>| {
+                    with_pico8(&ctx, move |pico8| {
+                        if old.is_some() && new.is_none() && mode.is_none() {
+                            // Set the palette.
+                            pico8.state.palette = old.unwrap();
+                        } else {
+                            pico8.pal_map(
+                                old.zip(new),
+                                mode.map(|i| match i {
+                                    0 => PalModify::Following,
+                                    1 => PalModify::Present,
+                                    2 => PalModify::Secondary,
+                                    x => panic!("No such palette modify mode {x}"),
+                                }),
+                            );
+                        }
+                        Ok(())
+                    })
+                },
+            )
+            .register(
+                "palt",
+                |ctx: FunctionCallContext, color: Option<usize>, transparency: Option<bool>| {
+                    with_pico8(&ctx, move |pico8| {
+                        pico8.palt(color, transparency);
+                        Ok(())
+                    })
+                },
+            )
+            .register(
+                "color",
+                |ctx: FunctionCallContext, color: Option<PColor>| {
+                    with_pico8(&ctx, move |pico8| pico8.color(color))
+                },
+            );
+    }
 }

@@ -1,11 +1,7 @@
-
-
 use super::*;
 
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::bindings::script_value::ScriptValue;
-
-
 
 pub(crate) fn plugin(app: &mut App) {
     #[cfg(feature = "scripting")]
@@ -13,7 +9,6 @@ pub(crate) fn plugin(app: &mut App) {
 }
 
 impl super::Pico8<'_, '_> {
-
     pub fn poke(&mut self, addr: usize, value: u8) -> Result<(), Error> {
         match addr {
             0x5f2d => {
@@ -52,34 +47,31 @@ mod lua {
     use super::*;
     use crate::pico8::lua::with_pico8;
 
-use bevy_mod_scripting::core::bindings::function::{
-            namespace::{GlobalNamespace, NamespaceBuilder},
-            script_function::FunctionCallContext,
-        };
-pub(crate) fn plugin(app: &mut App) {
-    // callbacks can receive any `ToLuaMulti` arguments, here '()' and
-    // return any `FromLuaMulti` arguments, here a `usize`
-    // check the Rlua documentation for more details
-    let world = app.world_mut();
+    use bevy_mod_scripting::core::bindings::function::{
+        namespace::{GlobalNamespace, NamespaceBuilder},
+        script_function::FunctionCallContext,
+    };
+    pub(crate) fn plugin(app: &mut App) {
+        // callbacks can receive any `ToLuaMulti` arguments, here '()' and
+        // return any `FromLuaMulti` arguments, here a `usize`
+        // check the Rlua documentation for more details
+        let world = app.world_mut();
 
-    NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-        .register("peek", |ctx: FunctionCallContext, addr: usize| {
-            with_pico8(&ctx, move |pico8| pico8.peek(addr))
-        })
-        .register(
-            "poke",
-            |ctx: FunctionCallContext, addr: usize, value: u8| {
-                with_pico8(&ctx, move |pico8| pico8.poke(addr, value))
-            },
-        )
-        .register(
-            "stat",
-            |ctx: FunctionCallContext, n: u8, value: Option<u8>| {
-                with_pico8(&ctx, move |pico8| pico8.stat(n, value))
-            },
-        )
-
-        ;
-}
-
+        NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
+            .register("peek", |ctx: FunctionCallContext, addr: usize| {
+                with_pico8(&ctx, move |pico8| pico8.peek(addr))
+            })
+            .register(
+                "poke",
+                |ctx: FunctionCallContext, addr: usize, value: u8| {
+                    with_pico8(&ctx, move |pico8| pico8.poke(addr, value))
+                },
+            )
+            .register(
+                "stat",
+                |ctx: FunctionCallContext, n: u8, value: Option<u8>| {
+                    with_pico8(&ctx, move |pico8| pico8.stat(n, value))
+                },
+            );
+    }
 }
