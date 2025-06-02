@@ -17,7 +17,7 @@ Take your Pico-8 skills straight into Bevy!
 The goals for Nano-9 are to
 
 - offer a Pico-8 API and semantics in both Rust and Lua,
-- support the P8 and PNG cartridge format,
+- support reading and playing the P8 and PNG cartridge format,
 - provide a gateway from the Pico-8 world to the Bevy world,
 - support different color palettes,
 - support different color palette sizes,
@@ -36,7 +36,7 @@ The goals for Nano-9 are to
 - Do not support `peek()` or `poke()` in their entirety.
 - Do not write P8 or PNG cartridges.
 - Do not use fixed-point numbers in general.
-- Do not support same performance characteristics.
+- Do not support the same performance characteristics.
   
   Let me provide an example where Nano-9 and Pico-8 performance differ. In
   Pico-8 if one doesn't clear the screen `cls()` and continues to draw sprites
@@ -45,13 +45,16 @@ The goals for Nano-9 are to
   they will accumulate and degrade performance.
   
   Why not reify the last render to an image to preserve Pico-8's performance?
-  One could do this certainly but my aim is to support Bevy's native elements as
-  much as possible. I'd prefer for `spr()` to be a thin layer to Bevy's
-  `Sprite`, `print()` to create a `Text` component, `map()` to create a
-  `bevy_ecs_tilemap::TilemapBundle`. In this way the comfortable world of Pico-8
-  can help introduce one to the world of Bevy, and it can also provide affordances
-  not possible in Pico-8. For instance one could query on-screen entities for
-  collision information.
+  One could do this certainly but the aim is to support Bevy's native elements
+  as much as possible. I'd prefer for `spr()` to be a thin layer to Bevy's
+  [`Sprite`](https://docs.rs/bevy/latest/bevy/sprite/struct.Sprite.html),
+  `print()` to create a
+  [`Text`](https://docs.rs/bevy/latest/bevy/prelude/struct.Text.html) component,
+  `map()` to create a
+  [`bevy_ecs_tilemap::TilemapBundle`](https://docs.rs/bevy_ecs_tilemap/latest/bevy_ecs_tilemap/type.TilemapBundle.html).
+  In this way the comfortable world of Pico-8 can help introduce one to the
+  world of Bevy, and it can also provide affordances not possible in Pico-8. For
+  instance one could query on-screen entities for collision information.
 
 ## Install
 
@@ -261,12 +264,12 @@ disabled, there will be no conversion, so it would be like using Pico-8 but with
 y = 0 being the top of the screen and y = -127 being the bottom of the screen.
 
 ### "fixed" (enabled by default)
-Pico-8's numbers are all 32-bit fixed-point numbers. Nano-9 using `f32`
-generally. However, for a number of bit-twiddling functions like `shl()`,
-`shr()`, `lshr()`, `rotr()`, and `rotl()` that difference may be noticeable. The
-"fixed" feature converts `f32` to a fixed-point, does the operation then
-converts it back to `f32`. If it's disabled, those bit operations are simply not
-available (but perhaps they should be in the future).
+Pico-8's numbers are all 32-bit fixed-point numbers. Nano-9 uses `f32`
+generally. Bit-twiddling functions like `shl()`, `shr()`, `lshr()`, `rotr()`,
+and `rotl()`on a fixed-point is significantly different than its floating-point
+counterpart. The "fixed" feature converts `f32` to a fixed-point, does the
+operation, then converts it back to `f32`. If it's disabled, those bit
+operations are simply not available (but perhaps they should be in the future).
 
 ### "pico8-to-lua" (enabled by default)
 This enables conversion of Pico-8's dialect to regular Lua code.
