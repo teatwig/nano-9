@@ -271,7 +271,11 @@ available (but perhaps they should be in the future).
 ### "pico8-to-lua" (enabled by default)
 This enables conversion of Pico-8's dialect to regular Lua code.
 
-### "web_asset" (disabled by default)
+### "pixel-snap" (enabled by default)
+This applies a floor to screen positions when enabled, such that the pixels will
+"snap" to the grid.
+
+### "web-asset" (disabled by default)
 This enables one to place "http[s]://" URLs that will be resolved in the
 Nano9.toml configuration file.
 

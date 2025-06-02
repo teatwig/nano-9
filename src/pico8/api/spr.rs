@@ -110,7 +110,7 @@ impl super::Pico8<'_, '_> {
         flip: Option<BVec2>,
         sheet_index: Option<usize>,
     ) -> Result<Entity, Error> {
-        let screen_pos = self.state.draw_state.apply_camera_delta(screen_pos);
+        let screen_pos = pixel_snap(self.state.draw_state.apply_camera_delta(screen_pos));
         let x = screen_pos.x;
         let y = screen_pos.y;
         let flip = flip.unwrap_or_default();
@@ -193,7 +193,7 @@ impl super::Pico8<'_, '_> {
         flip: Option<BVec2>,
         turns: Option<f32>,
     ) -> Result<Entity, Error> {
-        let pos = self.state.draw_state.apply_camera_delta(pos);
+        let pos = pixel_snap(self.state.draw_state.apply_camera_delta(pos));
         let x = pos.x;
         let y = pos.y;
         let flip = flip.unwrap_or_default();

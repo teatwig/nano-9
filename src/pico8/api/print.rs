@@ -9,7 +9,7 @@ impl super::Pico8<'_, '_> {
     pub fn cursor(&mut self, pos: Option<Vec2>, color: Option<PColor>) -> (Vec2, PColor) {
         let last_pos = self.state.draw_state.print_cursor;
         let last_color = self.state.draw_state.pen;
-        if let Some(pos) = pos.map(|p| self.state.draw_state.apply_camera_delta(p)) {
+        if let Some(pos) = pos.map(|p| pixel_snap(self.state.draw_state.apply_camera_delta(p))) {
             self.state.draw_state.print_cursor = pos;
         }
         if let Some(color) = color {
@@ -112,14 +112,13 @@ impl super::Pico8<'_, '_> {
         )?;
         // XXX: Should the camera delta apply to the print cursor position?
         let pos = pos
-            .map(|p| state.draw_state.apply_camera_delta(p))
+            .map(|p| pixel_snap(state.draw_state.apply_camera_delta(p)))
             .unwrap_or_else(|| {
-                Vec2::new(
+                pixel_snap(Vec2::new(
                     state.draw_state.print_cursor.x,
                     state.draw_state.print_cursor.y,
-                )
+                ))
             });
-        // pos =
         let clearable = Clearable::default();
         let add_newline = if text.ends_with('\0') {
             text.pop();

@@ -8,15 +8,15 @@ pub(crate) fn plugin(app: &mut App) {
 impl super::Pico8<'_, '_> {
     pub fn ovalfill(
         &mut self,
-        upper_left: IVec2,
-        lower_right: IVec2,
+        upper_left: Vec2,
+        lower_right: Vec2,
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
-        let upper_left = self.state.draw_state.apply_camera_delta_ivec2(upper_left);
-        let lower_right = self.state.draw_state.apply_camera_delta_ivec2(lower_right);
+        let upper_left = pixel_snap(self.state.draw_state.apply_camera_delta(upper_left));
+        let lower_right = pixel_snap(self.state.draw_state.apply_camera_delta(lower_right));
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         // let min = a.min(b);
-        let size: UVec2 = ((lower_right - upper_left) + IVec2::ONE)
+        let size: UVec2 = ((lower_right.as_ivec2() - upper_left.as_ivec2()) + IVec2::ONE)
             .try_into()
             .unwrap();
         // // let size = UVec2::new((a.x - b.x).abs() + 1,
@@ -64,8 +64,8 @@ impl super::Pico8<'_, '_> {
                     ..default()
                 },
                 Transform::from_xyz(
-                    upper_left.x as f32,
-                    negate_y(upper_left.y as f32),
+                    upper_left.x,
+                    negate_y(upper_left.y),
                     clearable.suggest_z(),
                 ),
                 clearable,
@@ -77,14 +77,14 @@ impl super::Pico8<'_, '_> {
 
     pub fn oval(
         &mut self,
-        upper_left: IVec2,
-        lower_right: IVec2,
+        upper_left: Vec2,
+        lower_right: Vec2,
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
-        let upper_left = self.state.draw_state.apply_camera_delta_ivec2(upper_left);
-        let lower_right = self.state.draw_state.apply_camera_delta_ivec2(lower_right);
+        let upper_left = pixel_snap(self.state.draw_state.apply_camera_delta(upper_left));
+        let lower_right = pixel_snap(self.state.draw_state.apply_camera_delta(lower_right));
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
-        let size: UVec2 = ((lower_right - upper_left) + IVec2::ONE)
+        let size: UVec2 = ((lower_right.as_ivec2() - upper_left.as_ivec2()) + IVec2::ONE)
             .try_into()
             .unwrap();
         let mut pixmap = Pixmap::new(size.x, size.y).expect("pixmap");
@@ -131,8 +131,8 @@ impl super::Pico8<'_, '_> {
                     ..default()
                 },
                 Transform::from_xyz(
-                    upper_left.x as f32,
-                    negate_y(upper_left.y as f32),
+                    upper_left.x,
+                    negate_y(upper_left.y),
                     clearable.suggest_z(),
                 ),
                 clearable,
@@ -159,15 +159,15 @@ mod lua {
             .register(
                 "ovalfill",
                 |ctx: FunctionCallContext,
-                 x0: Option<i32>,
-                 y0: Option<i32>,
-                 x1: Option<i32>,
-                 y1: Option<i32>,
+                 x0: Option<f32>,
+                 y0: Option<f32>,
+                 x1: Option<f32>,
+                 y1: Option<f32>,
                  c: Option<N9Color>| {
                     let _ = with_pico8(&ctx, move |pico8| {
                         pico8.ovalfill(
-                            IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
-                            IVec2::new(x1.unwrap_or(0), y1.unwrap_or(0)),
+                            Vec2::new(x0.unwrap_or(0.0), y0.unwrap_or(0.0)),
+                            Vec2::new(x1.unwrap_or(0.0), y1.unwrap_or(0.0)),
                             c,
                         )
                     })?;
@@ -177,15 +177,15 @@ mod lua {
             .register(
                 "oval",
                 |ctx: FunctionCallContext,
-                 x0: Option<i32>,
-                 y0: Option<i32>,
-                 x1: Option<i32>,
-                 y1: Option<i32>,
+                 x0: Option<f32>,
+                 y0: Option<f32>,
+                 x1: Option<f32>,
+                 y1: Option<f32>,
                  c: Option<N9Color>| {
                     let _ = with_pico8(&ctx, move |pico8| {
                         pico8.oval(
-                            IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
-                            IVec2::new(x1.unwrap_or(0), y1.unwrap_or(0)),
+                            Vec2::new(x0.unwrap_or(0.0), y0.unwrap_or(0.0)),
+                            Vec2::new(x1.unwrap_or(0.0), y1.unwrap_or(0.0)),
                             c,
                         )
                     })?;

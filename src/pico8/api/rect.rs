@@ -12,8 +12,8 @@ impl super::Pico8<'_, '_> {
         lower_right: Vec2,
         color: Option<impl Into<FillColor>>,
     ) -> Result<Entity, Error> {
-        let upper_left = self.state.draw_state.apply_camera_delta(upper_left);
-        let lower_right = self.state.draw_state.apply_camera_delta(lower_right);
+        let upper_left = pixel_snap(self.state.draw_state.apply_camera_delta(upper_left));
+        let lower_right = pixel_snap(self.state.draw_state.apply_camera_delta(lower_right));
         let size = (lower_right - upper_left) + Vec2::ONE;
         let clearable = Clearable::default();
         let color = color.map(|x| x.into());
@@ -100,8 +100,8 @@ impl super::Pico8<'_, '_> {
         lower_right: Vec2,
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
-        let upper_left = self.state.draw_state.apply_camera_delta(upper_left);
-        let lower_right = self.state.draw_state.apply_camera_delta(lower_right);
+        let upper_left = pixel_snap(self.state.draw_state.apply_camera_delta(upper_left));
+        let lower_right = pixel_snap(self.state.draw_state.apply_camera_delta(lower_right));
         let c = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let size = (lower_right - upper_left) + Vec2::ONE;
         let clearable = Clearable::default();

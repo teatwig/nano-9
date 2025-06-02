@@ -8,11 +8,11 @@ pub(crate) fn plugin(app: &mut App) {
 impl super::Pico8<'_, '_> {
     pub fn circfill(
         &mut self,
-        pos: IVec2,
+        pos: Vec2,
         r: impl Into<UVec2>,
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
-        let pos = self.state.draw_state.apply_camera_delta_ivec2(pos);
+        let pos = pixel_snap(self.state.draw_state.apply_camera_delta(pos));
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let r: UVec2 = r.into();
         let size: UVec2 = r * UVec2::splat(2) + UVec2::ONE;
@@ -70,11 +70,11 @@ impl super::Pico8<'_, '_> {
 
     pub fn circ(
         &mut self,
-        pos: IVec2,
+        pos: Vec2,
         r: impl Into<UVec2>,
         color: Option<N9Color>,
     ) -> Result<Entity, Error> {
-        let pos = self.state.draw_state.apply_camera_delta_ivec2(pos);
+        let pos = pixel_snap(self.state.draw_state.apply_camera_delta(pos));
         let color = self.get_color(color.unwrap_or(N9Color::Pen))?;
         let r: UVec2 = r.into();
         let size: UVec2 = r * UVec2::splat(2) + UVec2::ONE;
@@ -154,13 +154,13 @@ mod lua {
             .register(
                 "circfill",
                 |ctx: FunctionCallContext,
-                 x0: Option<i32>,
-                 y0: Option<i32>,
+                 x0: Option<f32>,
+                 y0: Option<f32>,
                  r: Option<u32>,
                  c: Option<N9Color>| {
                     let id = with_pico8(&ctx, move |pico8| {
                         pico8.circfill(
-                            IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
+                            Vec2::new(x0.unwrap_or(0.0), y0.unwrap_or(0.0)),
                             UVec2::splat(r.unwrap_or(4)),
                             c,
                         )
@@ -182,13 +182,13 @@ mod lua {
             .register(
                 "circ",
                 |ctx: FunctionCallContext,
-                 x0: Option<i32>,
-                 y0: Option<i32>,
+                 x0: Option<f32>,
+                 y0: Option<f32>,
                  r: Option<u32>,
                  c: Option<N9Color>| {
                     let _ = with_pico8(&ctx, move |pico8| {
                         pico8.circ(
-                            IVec2::new(x0.unwrap_or(0), y0.unwrap_or(0)),
+                            Vec2::new(x0.unwrap_or(0.0), y0.unwrap_or(0.0)),
                             UVec2::splat(r.unwrap_or(4)),
                             c,
                         )

@@ -111,6 +111,16 @@ pub fn negate_y(y: f32) -> f32 {
     }
 }
 
+/// Snap to pixel IF the feature "pixel-snap" is enabled.
+#[inline]
+pub fn pixel_snap(v: Vec2) -> Vec2 {
+    if cfg!(feature = "pixel-snap") {
+        v.floor()
+    } else {
+        v
+    }
+}
+
 #[cfg(test)]
 mod test {
 
