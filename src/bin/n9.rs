@@ -62,7 +62,7 @@ fn main() -> io::Result<ExitCode> {
     builder.processed_watcher = None;
     app.register_asset_source(&cwd, builder);
 
-    let set_default_source = if let Some(dir_name) = env::var_os("NANO9_ASSET_DIR") {
+    let set_default_source = if let Some(dir_name) = env::var_os("NANO9_ASSETS_DIR") {
         let mut asset_dir: PathBuf = dir_name.into();
         if asset_dir.is_relative() {
             let mut cur_dir = env::current_dir()?;
@@ -89,7 +89,7 @@ fn main() -> io::Result<ExitCode> {
             eprintln!("loading config");
             let path = &script_path;
             if set_default_source {
-                eprintln!("warn: NANO9_ASSET_DIR environment variable overriding Nano-9.toml's directory.");
+                eprintln!("warn: NANO9_ASSETS_DIR environment variable overriding Nano-9.toml's directory.");
             } else if let Some(parent) = path.parent() {
                 app.register_asset_source(
                     &AssetSourceId::Default,

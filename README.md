@@ -243,12 +243,12 @@ n9 examples/line.lua
 However, the "sprite" example will probably produce an error saying it could not
 find an asset in your "$HOME/.cargo/bin/assets" directory. This is due to Bevy's
 standard behavior of looking for an "assets" directory where the executable is
-stored. We can override that behavior by setting the NANO9_ASSET_DIR environment
+stored. We can override that behavior by setting the NANO9_ASSETS_DIR environment
 variable.
 
 ``` sh
 cd nano-9
-NANO9_ASSET_DIR=assets n9 examples/sprite.p8lua
+NANO9_ASSETS_DIR=assets n9 examples/sprite.p8lua
 ```
 
 ## Cargo Features
