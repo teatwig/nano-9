@@ -1,5 +1,4 @@
 use super::*;
-use bevy::prelude::*;
 use bitvec::prelude::*;
 
 pub(crate) fn plugin(app: &mut App) {

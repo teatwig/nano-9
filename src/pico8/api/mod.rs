@@ -30,7 +30,7 @@ mod canvas;
 mod level;
 mod line;
 mod poke;
-mod time;
+mod sys;
 #[cfg(feature = "level")]
 pub use level::*;
 
@@ -95,7 +95,7 @@ pub(crate) fn plugin(app: &mut App) {
             poke::plugin,
             canvas::plugin,
             camera::plugin,
-            time::plugin,
+            sys::plugin,
             #[cfg(feature = "level")]
             level::plugin,
         ));

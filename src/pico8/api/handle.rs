@@ -1,5 +1,4 @@
 use super::*;
-use bevy::prelude::*;
 
 #[derive(Resource, Debug, Reflect, Deref)]
 pub struct Pico8Handle {
