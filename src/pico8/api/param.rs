@@ -32,4 +32,5 @@ pub struct Pico8<'w, 's> {
     pub(crate) pico8_assets: ResMut<'w, Assets<Pico8Asset>>,
     pub(crate) pico8_handle: Res<'w, Pico8Handle>,
     pub(crate) defaults: Res<'w, pico8::Defaults>,
+    pub(crate) clear_cache: Res<'w, ClearCache>,
 }

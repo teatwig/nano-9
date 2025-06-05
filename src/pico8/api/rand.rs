@@ -1,5 +1,3 @@
-
-
 use super::*;
 
 #[cfg(feature = "scripting")]
@@ -8,11 +6,6 @@ use bevy_mod_scripting::core::{
         error::InteropError,
     };
 
-use crate::pico8::{
-        Gfx,
-    };
-
-use std::any::TypeId;
 
 pub(crate) fn plugin(app: &mut App) {
     #[cfg(feature = "scripting")]

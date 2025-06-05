@@ -33,11 +33,13 @@ impl P8Map {
         size: UVec2,
         mask: Option<u8>,
         sprite_sheets: &[pico8::SpriteSheet],
+        hash: Option<u64>,
         commands: &mut Commands,
         mut gfx_to_image: impl FnMut(&Handle<Gfx>) -> Result<Handle<Image>, Error>,
     ) -> Result<Entity, pico8::Error> {
         let map_size = TilemapSize::from(size);
-        let clearable = Clearable::default();
+        let mut clearable = Clearable::new(2);
+        clearable.hash = hash;
         let mut tile_storage = TileStorage::empty(map_size);
         let tilemap_entity = commands.spawn(Name::new("map")).id();
         commands.entity(tilemap_entity).with_children(|builder| {

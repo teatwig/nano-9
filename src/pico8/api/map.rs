@@ -1,4 +1,8 @@
 use super::*;
+use bevy::{
+    utils::hashbrown::hash_map::DefaultHashBuilder,
+};
+use std::hash::{BuildHasher, Hash, Hasher};
 
 pub(crate) fn plugin(app: &mut App) {
     #[cfg(feature = "scripting")]
@@ -29,10 +33,36 @@ impl super::Pico8<'_, '_> {
         mask: Option<u8>,
         map_index: Option<usize>,
     ) -> Result<Entity, Error> {
+
         screen_start = self.state.draw_state.apply_camera_delta(screen_start);
         if cfg!(feature = "negate-y") {
             screen_start.y = -screen_start.y;
         }
+        let hash = { let mut hasher = DefaultHashBuilder::default().build_hasher();
+                     map_pos.hash(&mut hasher);
+                     size.hash(&mut hasher);
+                     mask.inspect(|m| m.hash(&mut hasher));
+                     map_index.inspect(|i| i.hash(&mut hasher));
+                     hasher.finish()
+        };
+        // See if there's already an entity here.
+        if let Some(id) = self.clear_cache.get(&hash) {
+            let id = *id;
+            self.commands.queue(move |world: &mut World| {
+                if let Some(mut clearable) = world.get_mut::<Clearable>(id) {
+                    clearable.time_to_live = 2;
+                }
+                if let Some(mut visibility) = world.get_mut::<Visibility>(id) {
+                    *visibility = Visibility::Inherited;
+                }
+                if let Some(mut transform) = world.get_mut::<Transform>(id) {
+                    // TODO: Need to update the transform.
+                    // transform.
+                }
+            });
+            return Ok(id);
+        }
+
         match self.sprite_map(map_index)?.clone() {
             Map::P8(map) => {
                 let palette = self.palette(None)?.clone();
@@ -44,6 +74,7 @@ impl super::Pico8<'_, '_> {
                     size,
                     mask,
                     sprite_sheets,
+                    Some(hash),
                     &mut self.commands,
                     |handle| {
                         self.gfx_handles.get_or_create(

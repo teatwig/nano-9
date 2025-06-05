@@ -1,13 +1,26 @@
 use crate::pico8::Pico8State;
-use bevy::prelude::*;
+use bevy::{
+    ecs::world::DeferredWorld,
+    ecs::component::ComponentId,
+    prelude::*,
+};
 use std::{
     fmt,
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
+use bevy::utils::HashMap;
 
 static DRAW_COUNTER: DrawCounter = DrawCounter::new(1);
 ///
 const MAX_EXPECTED_CLEARABLES: f32 = 1000.0;
+
+pub(crate) fn plugin(app: &mut App) {
+    app
+        .add_event::<ClearEvent>()
+        .init_resource::<ClearCache>()
+        .add_systems(Last, (handle_overflow, handle_clear_event).chain());
+}
+
 
 // Define a newtype around AtomicUsize
 struct DrawCounter {
@@ -77,29 +90,66 @@ impl Default for ClearEvent {
     }
 }
 
+#[derive(Debug, Resource, Deref, DerefMut, Default)]
+pub(crate) struct ClearCache(HashMap<u64, Entity>);
+
 #[derive(Debug, Component, Clone, Copy)]
+#[component(on_add = on_insert_hook)]
+#[component(on_insert = on_insert_hook)]
+#[component(on_remove = on_remove_hook)]
 pub struct Clearable {
     draw_count: usize,
+    pub time_to_live: u8,
+    pub hash: Option<u64>,
+}
+
+fn on_insert_hook(mut world: DeferredWorld, id: Entity, comp_id: ComponentId) {
+    let Some(hash) = world.get::<Clearable>(id).and_then(|clearable| clearable.hash) else { return; };
+    let Some(mut cache) = world.get_resource_mut::<ClearCache>() else { return; };
+    cache.insert(hash, id);
+}
+
+fn on_remove_hook(mut world: DeferredWorld, id: Entity, comp_id: ComponentId) {
+    let Some(hash) = world.get::<Clearable>(id).and_then(|clearable| clearable.hash) else { return; };
+    let Some(mut cache) = world.get_resource_mut::<ClearCache>() else { return; };
+    cache.remove(&hash);
 }
 
 impl Default for Clearable {
     fn default() -> Self {
         Clearable {
             draw_count: DRAW_COUNTER.increment(),
+            time_to_live: 0,
+            hash: None,
         }
     }
 }
 
 impl Clearable {
+
+    pub fn new(time_to_live: u8) -> Self {
+        Clearable {
+            draw_count: DRAW_COUNTER.increment(),
+            time_to_live,
+            hash: None
+        }
+    }
+
+    pub fn with_hash(mut self, hash: u64) -> Self {
+        // That's _some_ hash!
+        self.hash = Some(hash);
+        self
+    }
+
     /// Suggest a z value based on the draw count.
     pub fn suggest_z(&self) -> f32 {
         1.0 + self.draw_count as f32 / MAX_EXPECTED_CLEARABLES
     }
-}
 
-pub(crate) fn plugin(app: &mut App) {
-    app.add_event::<ClearEvent>()
-        .add_systems(Last, (handle_overflow, handle_clear_event).chain());
+    /// Update the draw count, changes the suggest_z() to be current.
+    pub fn update(&mut self) {
+        self.draw_count = DRAW_COUNTER.increment();
+    }
 }
 
 fn handle_overflow(mut query: Query<&mut Clearable>) {
@@ -114,26 +164,31 @@ fn handle_overflow(mut query: Query<&mut Clearable>) {
 
 fn handle_clear_event(
     mut events: EventReader<ClearEvent>,
-    mut query: Query<(Entity, &mut Clearable, &mut Transform)>,
+    mut query: Query<(Entity, &mut Clearable, &mut Transform, &mut Visibility)>,
     mut commands: Commands,
     mut state: ResMut<Pico8State>,
 ) {
     if let Some(ceiling) = events.read().map(|e| e.draw_ceiling).max() {
         let (less_than, mut greater_than): (Vec<_>, Vec<_>) = query
             .iter_mut()
-            .partition(|(_, clearable, _)| clearable.draw_count < ceiling);
-        for (id, _, _) in less_than {
-            commands.entity(id).despawn_recursive();
+            .partition(|(_, clearable, _, _)| clearable.draw_count < ceiling);
+        for (id, mut clearable, _, mut visibility) in less_than {
+            if clearable.time_to_live <= 0 {
+                commands.entity(id).despawn_recursive();
+            } else {
+                clearable.time_to_live -= 1;
+                *visibility = Visibility::Hidden;
+            }
         }
 
         let mut i = 1;
-        greater_than.sort_by(|(_, _, a), (_, _, b)| {
+        greater_than.sort_by(|(_, _, a, _), (_, _, b, _)| {
             a.translation
                 .z
                 .partial_cmp(&b.translation.z)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        for (_id, mut clearable, mut transform) in greater_than {
+        for (_id, mut clearable, mut transform, _) in greater_than {
             clearable.draw_count = 0;
             transform.translation.z = i as f32 / MAX_EXPECTED_CLEARABLES;
             i += 1;

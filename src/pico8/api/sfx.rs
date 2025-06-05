@@ -156,17 +156,18 @@ mod lua {
                 "sfx",
                 |ctx: FunctionCallContext,
                  // TODO: Need to be able to specify which audio bank.
-                 n: i8,
+                 n: Option<isize>,
                  channel: Option<u8>,
                  offset: Option<u8>,
                  length: Option<u8>,
                  bank: Option<u8>| {
+                     let n = n.unwrap_or(0);
                     with_pico8(&ctx, move |pico8| {
                         pico8.sfx(
                             match n {
                                 -2 => Ok(SfxCommand::Release),
                                 -1 => Ok(SfxCommand::Stop),
-                                n if n >= 0 => Ok(SfxCommand::Play(n as u8)),
+                                n if n >= 0 => Ok(SfxCommand::Play(n as u8)), // TODO: Change to usize
                                 x => Err(Error::InvalidArgument(
                                     format!("sfx: expected n to be -2, -1 or >= 0 but was {x}")
                                         .into(),
@@ -184,10 +185,11 @@ mod lua {
                 "music",
                 |ctx: FunctionCallContext,
                  // TODO: Need to be able to specify which audio bank.
-                 n: i8,
+                 n: Option<isize>,
                  fade_ms: Option<u32>,
                  channel_mask: Option<u8>,
                  bank: Option<u8>| {
+                     let n = n.unwrap_or(0);
                     with_pico8(&ctx, move |pico8| {
                         pico8.music(
                             match n {

@@ -31,6 +31,7 @@ mod level;
 mod line;
 mod poke;
 mod sys;
+mod rand;
 #[cfg(feature = "level")]
 pub use level::*;
 
@@ -80,6 +81,7 @@ pub(crate) fn plugin(app: &mut App) {
                 camera.translation.y = negate_y(pos.0.y);
             },
         )
+        .add_plugins(rand::plugin)
         .add_plugins((
             sfx::plugin,
             spr::plugin,
