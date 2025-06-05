@@ -1,15 +1,11 @@
 use bevy::{
     ecs::system::{SystemParam, SystemState},
-    prelude::*,
 };
 
 use bevy_mod_scripting::core::{
     bindings::{
         access_map::ReflectAccessId,
-        function::{
-            namespace::{GlobalNamespace, NamespaceBuilder},
-            script_function::FunctionCallContext,
-        },
+        function::script_function::FunctionCallContext,
     },
     error::InteropError,
 };

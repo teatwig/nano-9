@@ -10,7 +10,6 @@ use bevy::{
 #[cfg(feature = "minibuffer")]
 use bevy_minibuffer::prelude::*;
 use nano9::{
-    prelude::RunState,
     config::{front_matter, run_pico8_when_loaded, Config},
     pico8::{Pico8Asset, Pico8Handle, PICO8_FONT},
     *,

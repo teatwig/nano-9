@@ -1,10 +1,7 @@
 use super::*;
 
 #[cfg(feature = "scripting")]
-use bevy_mod_scripting::core::{
-        bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
-        error::InteropError,
-    };
+use bevy_mod_scripting::core::bindings::script_value::ScriptValue;
 
 
 pub(crate) fn plugin(app: &mut App) {
@@ -26,22 +23,15 @@ impl super::Pico8<'_, '_> {
 #[cfg(feature = "scripting")]
 mod lua {
     use super::*;
-    use crate::{N9Entity, DropPolicy, pico8::lua::with_pico8};
+    use crate::pico8::lua::with_pico8;
 
-use bevy_mod_scripting::core::{
-    bindings::{
-        access_map::ReflectAccessId,
+use bevy_mod_scripting::core::bindings::{
         function::{
-            from::FromScript,
-            into_ref::IntoScriptRef,
             namespace::{GlobalNamespace, NamespaceBuilder},
             script_function::FunctionCallContext,
         },
         script_value::ScriptValue,
-        IntoScript, ReflectReference,
-    },
-    error::InteropError,
-};
+    };
 pub(crate) fn plugin(app: &mut App) {
     let world = app.world_mut();
 

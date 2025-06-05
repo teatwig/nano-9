@@ -103,13 +103,13 @@ pub struct Clearable {
     pub hash: Option<u64>,
 }
 
-fn on_insert_hook(mut world: DeferredWorld, id: Entity, comp_id: ComponentId) {
+fn on_insert_hook(mut world: DeferredWorld, id: Entity, _comp_id: ComponentId) {
     let Some(hash) = world.get::<Clearable>(id).and_then(|clearable| clearable.hash) else { return; };
     let Some(mut cache) = world.get_resource_mut::<ClearCache>() else { return; };
     cache.insert(hash, id);
 }
 
-fn on_remove_hook(mut world: DeferredWorld, id: Entity, comp_id: ComponentId) {
+fn on_remove_hook(mut world: DeferredWorld, id: Entity, _comp_id: ComponentId) {
     let Some(hash) = world.get::<Clearable>(id).and_then(|clearable| clearable.hash) else { return; };
     let Some(mut cache) = world.get_resource_mut::<ClearCache>() else { return; };
     cache.remove(&hash);

@@ -55,7 +55,7 @@ impl super::Pico8<'_, '_> {
                 if let Some(mut visibility) = world.get_mut::<Visibility>(id) {
                     *visibility = Visibility::Inherited;
                 }
-                if let Some(mut transform) = world.get_mut::<Transform>(id) {
+                if let Some(_transform) = world.get_mut::<Transform>(id) {
                     // TODO: Need to update the transform.
                     // transform.
                 }
