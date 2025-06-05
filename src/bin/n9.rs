@@ -10,8 +10,9 @@ use bevy::{
 #[cfg(feature = "minibuffer")]
 use bevy_minibuffer::prelude::*;
 use nano9::{
+    prelude::RunState,
     config::{front_matter, run_pico8_when_loaded, Config},
-    pico8::{Pico8Asset, Pico8Handle},
+    pico8::{Pico8Asset, Pico8Handle, PICO8_FONT},
     *,
 };
 use std::{env, fs, io, path::PathBuf, process::ExitCode};
@@ -161,16 +162,28 @@ fn main() -> io::Result<ExitCode> {
             return Ok(ExitCode::from(1));
         }
     }
-    app.add_plugins(Nano9Plugins {
-        config: nano9_plugin.config,
-    })
+
+
+    app
+        .add_plugins(Nano9Plugins {
+            config: nano9_plugin.config,
+        });
+
+    let font: Handle<Font> = {
+        if let Some(asset_server) = app.world().get_resource::<AssetServer>() {
+            asset_server.load(PICO8_FONT)
+        } else {
+            default()
+        }
+    };
+    app
     .add_plugins(FpsOverlayPlugin {
         config: FpsOverlayConfig {
             text_config: TextFont {
                 // Here we define size of our overlay
                 font_size: 24.0,
                 // If we want, we can use a custom font
-                font: default(),
+                font,
                 // We could also disable font smoothing,
                 font_smoothing: FontSmoothing::None,
             },
@@ -193,7 +206,7 @@ fn main() -> io::Result<ExitCode> {
         //     .add::<TilePos>("tile")
         //     .add::<Sprite>("sprite")
         //     .add::<Clearable>("clearables"),
-        toggle_fps, // inspector::AssetActs::default().add::<Image>(),
+        Act::new(toggle_fps).bind(keyseq! { Space N F }), // inspector::AssetActs::default().add::<Image>(),
     ));
 
     #[cfg(all(feature = "minibuffer", feature = "inspector"))]
