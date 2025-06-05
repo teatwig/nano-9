@@ -10,6 +10,10 @@ impl super::Pico8<'_, '_> {
         self.time.elapsed_secs()
     }
 
+    pub fn delta_time(&self) -> f32 {
+        self.time.delta_secs()
+    }
+
     pub fn exit(&mut self, error: Option<u8>) {
         self.commands.send_event(match error {
             Some(n) => std::num::NonZero::new(n)
@@ -41,6 +45,10 @@ mod lua {
             })
             .register("time", |ctx: FunctionCallContext| {
                 with_pico8(&ctx, move |pico8| Ok(pico8.time()))
-            });
+            })
+            .register("delta_time", |ctx: FunctionCallContext| {
+                with_pico8(&ctx, move |pico8| Ok(pico8.delta_time()))
+            })
+            ;
     }
 }
