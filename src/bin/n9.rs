@@ -211,7 +211,7 @@ fn main() -> io::Result<ExitCode> {
     #[cfg(all(feature = "minibuffer", feature = "inspector"))]
     app.add_acts((
         bevy_minibuffer_inspector::WorldActs::default(),
-        bevy_minibuffer_inspector::StateActs::default().add::<RunState>(),
+        bevy_minibuffer_inspector::StateActs::default().add::<crate::error::RunState>(),
     ));
     #[cfg(all(feature = "level", feature = "user_properties"))]
     app.add_systems(Startup, |reg: Res<AppTypeRegistry>| {
