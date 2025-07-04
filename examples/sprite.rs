@@ -1,5 +1,4 @@
-use bevy::prelude::*;
-use nano9::{config::*, error::RunState, pico8::*, *};
+use nano9::{bevy::prelude::*, config::*, error::RunState, pico8::*, *};
 
 fn update(mut pico8: Pico8, mut t: Local<usize>) {
     pico8.cls(None).unwrap();

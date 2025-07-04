@@ -1,6 +1,7 @@
 #![doc(html_root_url = "https://docs.rs/nano9/0.1.0-alpha.2")]
 #![doc = include_str!("../README.md")]
 #![allow(clippy::type_complexity)]
+pub use bevy;
 use bevy::prelude::*;
 mod color;
 #[cfg(feature = "scripting")]
