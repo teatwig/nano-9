@@ -17,7 +17,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/shanecelis/nano-9"
 
 [dependencies]
-bevy = { version = "0.15", features = [ "bevy_dev_tools", "asset_processor" ] }
+bevy = { version = "0.15", features = [ "bevy_dev_tools", "asset_processor", "wayland" ] }
 bevy_mod_scripting = { version = "0.12", features = ["lua54", "core_functions"], default-features = false, optional = true }
 bytemuck = "1.16.3"
 thiserror = "1.0.63"
