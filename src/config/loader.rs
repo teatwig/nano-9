@@ -14,13 +14,12 @@ use std::{io, path::PathBuf};
 
 pub(crate) fn plugin(app: &mut App) {
     dbg!("loader::plugin");
-    app
-        .init_asset_loader::<ConfigLoader>()
-        .init_asset_loader::<LuaLoader>()
+    app.init_asset_loader::<ConfigLoader>();
+    #[cfg(feature = "scripting")]
+    app.init_asset_loader::<LuaLoader>();
         // .register_asset_processor(LuaProcess {})
         // .set_default_asset_processor::<LuaProcess>("lua")
         // .set_default_asset_processor::<LuaProcess>("p8lua")
-        ;
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -160,6 +159,7 @@ pub struct LuaLoaderSettings {
 //     }
 // }
 
+#[cfg(feature = "scripting")]
 impl AssetLoader for LuaLoader {
     type Asset = ScriptAsset;
     type Settings = LuaLoaderSettings;
