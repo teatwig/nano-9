@@ -107,36 +107,36 @@ pub(crate) fn fill_input(
         buttons.curr.fill(false);
 
         // buttons.curr.set(0, keys.pressed(KeyCode::ArrowLeft)
-        for b in 0..=5 {
+        for b in 0..=6 {
             let key_pressed = match i {
                 0 => match b {
-                    0 => keys.pressed(KeyCode::ArrowLeft),
-                    1 => keys.pressed(KeyCode::ArrowRight),
-                    2 => keys.pressed(KeyCode::ArrowUp),
-                    3 => keys.pressed(KeyCode::ArrowDown),
+                    0 => keys.pressed(KeyCode::KeyA),
+                    1 => keys.pressed(KeyCode::KeyD),
+                    2 => keys.pressed(KeyCode::KeyW),
+                    3 => keys.pressed(KeyCode::KeyS),
                     4 => keys.any_pressed([
-                        KeyCode::KeyZ,
-                        KeyCode::KeyC,
-                        KeyCode::KeyN,
-                        KeyCode::NumpadSubtract,
+                        KeyCode::ShiftLeft,
+                        KeyCode::KeyJ
                     ]),
                     5 => keys.any_pressed([
-                        KeyCode::KeyX,
-                        KeyCode::KeyV,
-                        KeyCode::KeyM,
-                        KeyCode::Numpad8,
+                        KeyCode::Space,
+                        KeyCode::KeyK
+                    ]),
+                    6 => keys.any_pressed([
+                        KeyCode::Escape,
+                        KeyCode::KeyP
                     ]),
                     _ => unreachable!(),
                 },
-                1 => match b {
-                    0 => keys.pressed(KeyCode::KeyS),
-                    1 => keys.pressed(KeyCode::KeyF),
-                    2 => keys.pressed(KeyCode::KeyE),
-                    3 => keys.pressed(KeyCode::KeyD),
-                    4 => keys.any_pressed([KeyCode::ShiftLeft, KeyCode::Tab]),
-                    5 => keys.any_pressed([KeyCode::KeyA, KeyCode::KeyQ]),
-                    _ => unreachable!(),
-                },
+                // 1 => match b {
+                //     0 => keys.pressed(KeyCode::KeyS),
+                //     1 => keys.pressed(KeyCode::KeyF),
+                //     2 => keys.pressed(KeyCode::KeyE),
+                //     3 => keys.pressed(KeyCode::KeyD),
+                //     4 => keys.any_pressed([KeyCode::ShiftLeft, KeyCode::Tab]),
+                //     5 => keys.any_pressed([KeyCode::KeyA, KeyCode::KeyQ]),
+                //     _ => unreachable!(),
+                // },
                 _ => false,
             };
             let (button, dir_maybe) = match b {
@@ -146,6 +146,7 @@ pub(crate) fn fill_input(
                 3 => (GamepadButton::DPadDown, Some(Vec2::NEG_Y)),
                 4 => (GamepadButton::South, None),
                 5 => (GamepadButton::East, None),
+                6 => (GamepadButton::Start, None),
                 _ => unreachable!(),
             };
             let button_pressed = buttons
