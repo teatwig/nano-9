@@ -10,7 +10,7 @@ use bevy::{
 };
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::asset::ScriptAsset;
-use std::{io, path::PathBuf};
+use std::io;
 
 pub(crate) fn plugin(app: &mut App) {
     dbg!("loader::plugin");
@@ -75,7 +75,7 @@ impl AssetLoader for ConfigLoader {
         let _ = reader.read_to_end(&mut bytes).await?;
         let content = std::str::from_utf8(&bytes)?;
         let mut config: Config = toml::from_str::<Config>(content)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
+            .map_err(|e| io::Error::other(format!("{e}")))?;
         config.inject_template(None)?;
         into_asset(config, load_context).await
     }

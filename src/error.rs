@@ -1,4 +1,4 @@
-use bevy::{color::palettes::css, core::FrameCount, prelude::*, window::RequestRedraw};
+use bevy::{color::palettes::css, prelude::*, window::RequestRedraw};
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::{asset::ScriptAsset, event::ScriptErrorEvent};
 
@@ -19,7 +19,6 @@ pub(crate) fn plugin(app: &mut App) {
     }
 }
 
-const FONT_SIZE: f32 = 24.0;
 const PADDING: Val = Val::Px(5.);
 const LEFT_PADDING: Val = Val::Px(10.);
 

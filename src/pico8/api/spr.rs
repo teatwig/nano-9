@@ -8,9 +8,8 @@ use bevy_mod_scripting::core::{
 
 use crate::pico8::Gfx;
 
-use std::any::TypeId;
 
-pub(crate) fn plugin(app: &mut App) {
+pub(crate) fn plugin(_app: &mut App) {
     #[cfg(feature = "scripting")]
     lua::plugin(app);
 }

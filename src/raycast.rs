@@ -6,7 +6,7 @@ use bevy::{
 
 #[cfg(feature = "scripting")]
 use crate::pico8::lua::with_system_param;
-use crate::pico8::{negate_y, Error};
+use crate::pico8::negate_y;
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::{
     bindings::{
@@ -30,7 +30,6 @@ impl Plugin for RaycastPlugin {
         app.register_type::<Place>().register_type::<Cover>();
 
         // XXX: cfg!(feature = "scripting")
-        let world = app.world_mut();
         #[cfg(feature = "scripting")]
         NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
             .register(

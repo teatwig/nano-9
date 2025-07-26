@@ -9,7 +9,7 @@ use crate::{
     pico8::{self, Pico8Handle},
 };
 use bevy::{
-    asset::{embedded_asset, AssetPath},
+    asset::embedded_asset,
     prelude::*,
 };
 #[cfg(feature = "scripting")]
@@ -134,7 +134,7 @@ pub fn update_asset(
         info!("update asset event {e:?}");
         if let AssetEvent::LoadedWithDependencies { id } = e {
             if let Some(ref mut pico8_handle) = pico8_handle {
-                if let Some(pico8_asset) = assets.get(*id) {
+                if let Some(_pico8_asset) = assets.get(*id) {
                     if pico8_handle.handle.id() != *id {
                         warn!("Script loaded but does not match Pico8Handle.");
                         continue;

@@ -1,7 +1,7 @@
 use super::*;
 use bitvec::prelude::*;
 
-pub(crate) fn plugin(app: &mut App) {
+pub(crate) fn plugin(_app: &mut App) {
     #[cfg(feature = "scripting")]
     lua::plugin(app);
 }

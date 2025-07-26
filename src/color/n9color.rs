@@ -1,6 +1,5 @@
 use super::PColor;
 use bevy::prelude::*;
-use std::any::TypeId;
 
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::{

@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use std::any::TypeId;
 
 use super::PColor;
 #[cfg(feature = "scripting")]

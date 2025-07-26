@@ -1,10 +1,6 @@
 use bevy::prelude::*;
-use std::{any::TypeId, sync::Arc};
 
-use crate::{
-    pico8::{Error, PalMap},
-    ValueExt,
-};
+use crate::pico8::{Error, PalMap};
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::{
     core::docgen::typed_through::{ThroughTypeInfo, TypedThrough},

@@ -1,10 +1,8 @@
 use super::*;
-use bevy::{
-    utils::hashbrown::hash_map::DefaultHashBuilder,
-};
+use bevy::utils::hashbrown::hash_map::DefaultHashBuilder;
 use std::hash::{BuildHasher, Hash, Hasher};
 
-pub(crate) fn plugin(app: &mut App) {
+pub(crate) fn plugin(_app: &mut App) {
     #[cfg(feature = "scripting")]
     lua::plugin(app);
 }
@@ -33,17 +31,17 @@ impl super::Pico8<'_, '_> {
         mask: Option<u8>,
         map_index: Option<usize>,
     ) -> Result<Entity, Error> {
-
         screen_start = self.state.draw_state.apply_camera_delta(screen_start);
         if cfg!(feature = "negate-y") {
             screen_start.y = -screen_start.y;
         }
-        let hash = { let mut hasher = DefaultHashBuilder::default().build_hasher();
-                     map_pos.hash(&mut hasher);
-                     size.hash(&mut hasher);
-                     mask.inspect(|m| m.hash(&mut hasher));
-                     map_index.inspect(|i| i.hash(&mut hasher));
-                     hasher.finish()
+        let hash = {
+            let mut hasher = DefaultHashBuilder::default().build_hasher();
+            map_pos.hash(&mut hasher);
+            size.hash(&mut hasher);
+            mask.inspect(|m| m.hash(&mut hasher));
+            map_index.inspect(|i| i.hash(&mut hasher));
+            hasher.finish()
         };
         // See if there's already an entity here.
         if let Some(id) = self.clear_cache.get(&hash) {

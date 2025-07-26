@@ -1,10 +1,8 @@
-use crate::pico8::Error;
 use bevy::{ecs::system::SystemParam, prelude::*};
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::{bindings::ScriptValue, error::InteropError};
 use bevy_prng::WyRand;
 use bevy_rand::prelude::{Entropy, EntropyPlugin, RngSeed, SeedSource};
-use rand::RngCore;
 
 #[derive(Debug, Component)]
 struct Source;

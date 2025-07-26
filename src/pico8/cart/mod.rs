@@ -1,12 +1,11 @@
 use crate::pico8::{audio::*, *};
 use bevy::asset::{
-    io::{AssetSourceId, Reader},
-    AssetLoader, AssetPath, LoadContext,
+    io::Reader,
+    AssetLoader, LoadContext,
 };
 use bitvec::prelude::*;
 use pico8_decompress::{decompress, extract_bits_from_png};
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, path::PathBuf};
 
 mod asset;
 
@@ -312,12 +311,12 @@ impl AssetLoader for P8CartLoader {
         &self,
         reader: &mut dyn Reader,
         settings: &CartLoaderSettings,
-        load_context: &mut LoadContext<'_>,
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let content = String::from_utf8(bytes)?;
-        let mut parts = Cart::from_str(&content, settings)?;
+        let parts = Cart::from_str(&content, settings)?;
         #[cfg(feature = "pico8-to-lua")]
         if let Some(patched_code) = translate_pico8_to_lua(&parts.lua, load_context).await? {
             parts.lua = patched_code;
@@ -417,7 +416,7 @@ impl AssetLoader for PngCartLoader {
         let v = extract_bits_from_png(&bytes[..])?;
         let p8scii_code: Vec<u8> = decompress(&v[0x4300..=0x7fff], None)
             .map_err(|e| CartLoaderError::Decompression(format!("{e}")))?;
-        let mut code: String = p8scii::vec_to_utf8(p8scii_code);
+        let code: String = p8scii::vec_to_utf8(p8scii_code);
 
         #[cfg(feature = "pico8-to-lua")]
         {

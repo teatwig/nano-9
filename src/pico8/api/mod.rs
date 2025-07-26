@@ -55,7 +55,7 @@ use crate::{
     DrawState, FillColor, N9Color, Nano9Camera, PColor,
 };
 
-use std::{borrow::Cow, f32::consts::PI};
+use std::f32::consts::PI;
 
 pub const MAP_COLUMNS: u32 = 128;
 pub const PICO8_SPRITE_SIZE: UVec2 = UVec2::new(8, 8);

@@ -3,7 +3,7 @@ use super::*;
 #[cfg(feature = "scripting")]
 use bevy_mod_scripting::core::bindings::script_value::ScriptValue;
 
-pub(crate) fn plugin(app: &mut App) {
+pub(crate) fn plugin(_app: &mut App) {
     #[cfg(feature = "scripting")]
     lua::plugin(app);
 }
