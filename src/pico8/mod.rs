@@ -1,16 +1,11 @@
 use bevy::{asset::embedded_asset, prelude::*};
 mod api;
 pub use api::*;
-// pub mod cartridge;
-mod cart;
-pub use cart::*;
 mod clear;
 pub use clear::*;
 pub mod audio;
 mod map;
 pub use map::*;
-#[cfg(feature = "scripting")]
-pub(crate) mod lua;
 mod pal_map;
 pub(crate) use pal_map::*;
 mod pal;
@@ -38,6 +33,5 @@ pub(crate) fn plugin(app: &mut App) {
         .add_plugins(clear::plugin)
         .add_plugins(audio::plugin)
         .add_plugins(gfx::plugin)
-        .add_plugins(gfx_handles::plugin)
-        .add_plugins(cart::plugin);
+        .add_plugins(gfx_handles::plugin);
 }

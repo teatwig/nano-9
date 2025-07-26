@@ -48,11 +48,28 @@ use crate::{
     DrawState, FillColor, N9Color, Nano9Camera, PColor,
 };
 
-use std::f32::consts::PI;
-
 pub const MAP_COLUMNS: u32 = 128;
 pub const PICO8_SPRITE_SIZE: UVec2 = UVec2::new(8, 8);
 pub const PICO8_TILE_COUNT: UVec2 = UVec2::new(16, 16);
+
+pub(crate) const PALETTE: [[u8; 4]; 16] = [
+    [0x00, 0x00, 0x00, 0xff], //black
+    [0x1d, 0x2b, 0x53, 0xff], //dark-blue
+    [0x7e, 0x25, 0x53, 0xff], //dark-purple
+    [0x00, 0x87, 0x51, 0xff], //dark-green
+    [0xab, 0x52, 0x36, 0xff], //brown
+    [0x5f, 0x57, 0x4f, 0xff], //dark-grey
+    [0xc2, 0xc3, 0xc7, 0xff], //light-grey
+    [0xff, 0xf1, 0xe8, 0xff], //white
+    [0xff, 0x00, 0x4d, 0xff], //red
+    [0xff, 0xa3, 0x00, 0xff], //orange
+    [0xff, 0xec, 0x27, 0xff], //yellow
+    [0x00, 0xe4, 0x36, 0xff], //green
+    [0x29, 0xad, 0xff, 0xff], //blue
+    [0x83, 0x76, 0x9c, 0xff], //lavender
+    [0xff, 0x77, 0xa8, 0xff], //pink
+    [0xff, 0xcc, 0xaa, 0xff], //light-peach
+];
 
 pub(crate) fn plugin(app: &mut App) {
     app.register_type::<Pico8Asset>()
@@ -70,22 +87,18 @@ pub(crate) fn plugin(app: &mut App) {
                 camera.translation.x = pos.0.x;
                 camera.translation.y = negate_y(pos.0.y);
             },
-        )
-        .add_plugins((
-            sfx::plugin,
-            spr::plugin,
-            map::plugin,
-            print::plugin,
-            rect::plugin,
-            circ::plugin,
-            oval::plugin,
-            pal::plugin,
-            line::plugin,
-            canvas::plugin,
-            camera::plugin,
-            #[cfg(feature = "level")]
-            level::plugin,
-        ));
+        );
+}
+
+pub(crate) fn to_nybble(a: u8) -> Option<u8> {
+    let b = a as char;
+    b.to_digit(16).map(|x| x as u8)
+}
+
+pub(crate) fn to_byte(a: u8, b: u8) -> Option<u8> {
+    let a = to_nybble(a)?;
+    let b = to_nybble(b)?;
+    Some((a << 4) | b)
 }
 
 /// Negates y IF the feature "negate-y" is enabled.

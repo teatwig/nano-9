@@ -1,16 +1,10 @@
 use bevy::{color::palettes::css, prelude::*, window::RequestRedraw};
-#[cfg(feature = "scripting")]
-use bevy_mod_scripting::core::{asset::ScriptAsset, event::ScriptErrorEvent};
 
 pub(crate) fn plugin(app: &mut App) {
     app.init_state::<RunState>()
         .add_systems(Startup, spawn_error_message_layout);
-    #[cfg(feature = "scripting")]
-    app.add_systems(Update, add_messages);
 
     if app.is_plugin_added::<WindowPlugin>() {
-        #[cfg(feature = "scripting")]
-        app.add_systems(PreUpdate, try_to_run_after_error);
         app.add_systems(OnEnter(RunState::Messages), show::<ErrorMessages>)
             .add_systems(
                 OnExit(RunState::Messages),
@@ -106,56 +100,8 @@ fn spawn_error_message_layout(mut commands: Commands) {
         });
 }
 
-#[cfg(feature = "scripting")]
-pub fn add_messages(
-    mut r: EventReader<ScriptErrorEvent>,
-    query: Query<Entity, With<ErrorMessages>>,
-    _frame_count: Res<FrameCount>,
-    mut state: ResMut<NextState<RunState>>,
-    mut commands: Commands,
-) {
-    if r.is_empty() {
-        return;
-    }
-    let id = query.single();
-    commands.entity(id).with_children(|parent| {
-        for e in r.read() {
-            // eprintln!("XXXX\n\n err {}", e.error);
-
-            let error_style = TextFont::default().with_font_size(FONT_SIZE);
-            // let msg = match &e.error {
-            //     ScriptError::FailedToLoad { script: _, msg } => msg.clone(),
-            //     x => format!("{}", &x.error),
-            // };
-            let msg = format!("{}", &e.error);
-            parent.spawn((Text::new(msg), error_style));
-        }
-    });
-
-    state.set(RunState::Messages {
-        // frame: frame_count.0,
-    });
-}
-
 /// Clear any error messages.
 pub fn clear_messages(query: Query<Entity, With<ErrorMessages>>, mut commands: Commands) {
     let id = query.single();
     commands.entity(id).despawn_descendants();
-}
-
-#[cfg(feature = "scripting")]
-fn try_to_run_after_error(
-    mut reader: EventReader<AssetEvent<ScriptAsset>>,
-    state: Res<State<RunState>>,
-    mut next_state: ResMut<NextState<RunState>>,
-) {
-    if *state != RunState::Messages {
-        return;
-    }
-    for e in reader.read() {
-        if let AssetEvent::Modified { .. } = e {
-            info!("Goto run state from error state.");
-            next_state.set(RunState::Run);
-        }
-    }
 }

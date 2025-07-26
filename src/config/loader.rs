@@ -8,18 +8,11 @@ use bevy::{
     asset::{io::Reader, AssetLoader, AssetPath, LoadContext},
     prelude::*,
 };
-#[cfg(feature = "scripting")]
-use bevy_mod_scripting::core::asset::ScriptAsset;
 use std::io;
 
 pub(crate) fn plugin(app: &mut App) {
     dbg!("loader::plugin");
     app.init_asset_loader::<ConfigLoader>();
-    #[cfg(feature = "scripting")]
-    app.init_asset_loader::<LuaLoader>();
-        // .register_asset_processor(LuaProcess {})
-        // .set_default_asset_processor::<LuaProcess>("lua")
-        // .set_default_asset_processor::<LuaProcess>("p8lua")
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -53,8 +46,6 @@ pub enum ConfigLoaderError {
     },
     #[error("invalid template {0:?}")]
     InvalidTemplate(String),
-    #[error("include error: {0}")]
-    Cart(#[from] pico8::CartLoaderError),
 }
 
 #[derive(Default)]
@@ -74,8 +65,8 @@ impl AssetLoader for ConfigLoader {
         let mut bytes = Vec::new();
         let _ = reader.read_to_end(&mut bytes).await?;
         let content = std::str::from_utf8(&bytes)?;
-        let mut config: Config = toml::from_str::<Config>(content)
-            .map_err(|e| io::Error::other(format!("{e}")))?;
+        let mut config: Config =
+            toml::from_str::<Config>(content).map_err(|e| io::Error::other(format!("{e}")))?;
         config.inject_template(None)?;
         into_asset(config, load_context).await
     }
@@ -158,72 +149,6 @@ pub struct LuaLoaderSettings {
 //         EXTENSIONS
 //     }
 // }
-
-#[cfg(feature = "scripting")]
-impl AssetLoader for LuaLoader {
-    type Asset = ScriptAsset;
-    type Settings = LuaLoaderSettings;
-    type Error = ConfigLoaderError;
-
-    async fn load(
-        &self,
-        reader: &mut dyn Reader,
-        settings: &Self::Settings,
-        load_context: &mut LoadContext<'_>,
-    ) -> Result<Self::Asset, Self::Error> {
-        let mut bytes = Vec::new();
-        let _ = reader.read_to_end(&mut bytes).await?;
-        let content = String::from_utf8(bytes)?;
-
-        // We don't need config here. We need it at the beginning during App configuration.
-        //
-        // let config = if let Some(front_matter) = front_matter::LUA.parse_in_place(&mut content) {
-        //     let mut config: Config = toml::from_str::<Config>(&front_matter)
-        //         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{e}")))?;
-        //     if let Some(template) = config.template.take() {
-        //         config.inject_template(&template)?;
-        //     }
-        //     config
-        // } else {
-        //     Config::pico8()
-        // };
-        // let mut asset = into_asset(config, load_context).await?;
-        // assert!(asset.code.is_none());
-
-        let code_path: PathBuf = load_context.path().into();
-        let mut code = content;
-        let translate = settings
-            .translate_pico8
-            .or(load_context.path().extension().map(|x| x == "p8lua"))
-            .unwrap_or(false);
-        if cfg!(feature = "pico8-to-lua") {
-            if translate {
-                if let Some(patched_code) =
-                    pico8::translate_pico8_to_lua(&code, load_context).await?
-                {
-                    code = patched_code;
-                }
-            }
-        } else if translate {
-            warn!("Pico-8 dialect translation requested but 'pico8-to-lua' feature not active.");
-        }
-
-        Ok(ScriptAsset {
-            content: code.into_bytes().into_boxed_slice(),
-            asset_path: code_path.into(),
-        })
-    }
-
-    fn extensions(&self) -> &[&str] {
-        // This can load "lua" files, but bevy_mod_scripting has a loader as
-        // well, so having it here generates a warning. We don't need to load
-        // .lua files ourselves, so we're dropping it.
-
-        // static EXTENSIONS: &[&str] = &["lua", "p8lua"];
-        static EXTENSIONS: &[&str] = &["p8lua"];
-        EXTENSIONS
-    }
-}
 
 async fn into_asset(
     config: Config,
@@ -346,9 +271,6 @@ async fn into_asset(
         }
     }
     let state = pico8::Pico8Asset {
-#[cfg(feature = "scripting")]
-                // code: config.code.map(|p| load_context.loader().with_settings(LuaLoaderSettings::default()).load(&*p)),
-                code: config.code.map(|p| load_context.load(&*p)),
                 palettes,
                 border: load_context.loader()
                                     .with_settings(pixel_art_settings)

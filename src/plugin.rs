@@ -12,29 +12,12 @@ use bevy::{
     window::{PresentMode, PrimaryWindow, WindowMode, WindowResized},
 };
 
-#[cfg(feature = "scripting")]
-use bevy_mod_scripting::{
-    core::{
-        asset::{Language, ScriptAsset, ScriptAssetSettings},
-        bindings::{function::namespace::NamespaceBuilder, script_value::ScriptValue},
-        callback_labels,
-        event::ScriptCallbackEvent,
-        handler::event_handler,
-        ConfigureScriptPlugin,
-    },
-    lua::LuaScriptingPlugin,
-    BMSPlugin,
-};
-
 use crate::{
     config::*,
     error::RunState,
-    pico8::{self,  FillPat, Pico8Asset, Pico8Handle},
+    pico8::{self, FillPat, Pico8Asset, Pico8Handle},
     PColor,
 };
-
-#[cfg(feature = "scripting")]
-use crate::N9Var;
 
 #[derive(Component)]
 pub struct Nano9Sprite;
@@ -118,18 +101,6 @@ pub fn setup_canvas(mut canvas: Option<ResMut<N9Canvas>>, mut assets: ResMut<Ass
     }
 }
 
-#[cfg(feature = "scripting")]
-pub mod call {
-    use super::*;
-    callback_labels!(
-    SetGlobal => "_set_global",
-    Update => "_update",
-    // Update60 => "_update60",
-    Init => "_init",
-    Eval => "_eval",
-    Draw => "_draw"); // TODO: Should permit trailing comma
-}
-
 // pub fn set_camera(
 //     camera: Query<Entity, With<Camera>>,
 //     mut events: PriorityEventWriter<LuaEvent<N9Args>>,
@@ -179,8 +150,6 @@ fn spawn_camera(mut commands: Commands, canvas: Option<Res<N9Canvas>>) {
                 IsDefaultUiCamera,
                 InheritedVisibility::default(),
                 Nano9Camera,
-                #[cfg(feature = "scripting")]
-                N9Var::new("camera"),
             ));
             if let Some(handle) = handle {
                 camera_commands.with_children(|parent| {
@@ -189,8 +158,6 @@ fn spawn_camera(mut commands: Commands, canvas: Option<Res<N9Canvas>>) {
                         Sprite::from_image(handle),
                         Transform::from_xyz(0.0, 0.0, -100.0),
                         Nano9Sprite,
-                        #[cfg(feature = "scripting")]
-                        N9Var::new("canvas"),
                     ));
                 });
             }
@@ -290,33 +257,6 @@ pub fn sync_window_size(
     }
 }
 
-#[cfg(feature = "scripting")]
-/// Sends events allowing scripts to drive update logic
-pub fn send_update(mut writer: EventWriter<ScriptCallbackEvent>) {
-    writer.send(ScriptCallbackEvent::new_for_all(
-        call::Update,
-        vec![ScriptValue::Unit],
-    ));
-}
-
-#[cfg(feature = "scripting")]
-/// Sends initialization event
-pub fn send_init(mut writer: EventWriter<ScriptCallbackEvent>) {
-    info!("calling init");
-    writer.send(ScriptCallbackEvent::new_for_all(
-        call::Init,
-        vec![ScriptValue::Unit],
-    ));
-}
-
-#[cfg(feature = "scripting")]
-/// Sends draw event
-pub fn send_draw(mut writer: EventWriter<ScriptCallbackEvent>) {
-    writer.send(ScriptCallbackEvent::new_for_all(
-        call::Draw,
-        vec![ScriptValue::Unit],
-    ));
-}
 const DEFAULT_FRAMES_PER_SECOND: u8 = 60;
 
 #[derive(Default)]
@@ -350,24 +290,6 @@ impl Nano9Plugin {
             ..default()
         }
     }
-}
-
-#[cfg(feature = "scripting")]
-fn add_lua_logging(app: &mut App) {
-    let world = app.world_mut();
-    NamespaceBuilder::<World>::new_unregistered(world)
-        .register("info", |s: String| {
-            bevy::log::info!(s);
-        })
-        .register("warn", |s: String| {
-            bevy::log::warn!(s);
-        })
-        .register("error", |s: String| {
-            bevy::log::error!(s);
-        })
-        .register("debug", |s: String| {
-            bevy::log::debug!(s);
-        });
 }
 
 impl Plugin for Nano9Plugin {
@@ -405,54 +327,6 @@ impl Plugin for Nano9Plugin {
             }
         }
 
-        #[cfg(feature = "scripting")]
-        {
-            let mut lua_scripting_plugin = LuaScriptingPlugin::default().enable_context_sharing();
-            lua_scripting_plugin
-                .scripting_plugin
-                .add_context_initializer(
-                    |_script_id: &str, context: &mut bevy_mod_scripting::lua::mlua::Lua| {
-                        context.globals().set(
-                            "_eval_string",
-                            context.create_function(|ctx, arg: String| {
-                                ctx.load(format!("tostring({arg})")).eval::<String>()
-                            })?,
-                        )?;
-
-                        context
-                            .load(include_str!("builtin.lua"))
-                            .exec()
-                            .expect("Problem in builtin.lua");
-                        Ok(())
-                    },
-                );
-
-            app.add_plugins(BMSPlugin.set(lua_scripting_plugin))
-                .insert_resource({
-                    let mut settings = ScriptAssetSettings::default();
-                    // settings
-                    //     .extension_to_language_map
-                    //     .insert("p8#lua", Language::Lua);
-                    settings
-                        .extension_to_language_map
-                        .insert("p8", Language::Lua);
-
-                    settings
-                        .extension_to_language_map
-                        .insert("p8lua", Language::Lua);
-
-                    // settings
-                    //     .extension_to_language_map
-                    //     .insert("png#lua", Language::Lua);
-                    settings
-                        .extension_to_language_map
-                        .insert("png", Language::Lua);
-                    // settings.script_id_mapper = AssetPathToScriptIdMapper {
-                    //     map: (|path: &AssetPath| path.to_string().into()),
-                    // };
-                    settings
-                });
-        }
         // let resolution = settings.canvas_size.as_vec2() * settings.pixel_scale;
         app.insert_resource(bevy::winit::WinitSettings {
             // focused_mode: bevy::winit::UpdateMode::Continuous,
@@ -484,9 +358,6 @@ impl Plugin for Nano9Plugin {
         })
         .add_plugins(crate::plugin)
         .add_systems(PreStartup, (setup_canvas, spawn_camera).chain());
-
-        #[cfg(feature = "scripting")]
-        app.add_plugins(add_lua_logging);
 
         // bevy_ecs_ldtk will add this plugin, so let's not add that if it's
         // present.

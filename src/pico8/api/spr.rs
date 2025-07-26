@@ -1,18 +1,8 @@
+use std::f32::consts::PI;
+
 use super::*;
 
-#[cfg(feature = "scripting")]
-use bevy_mod_scripting::core::{
-    bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
-    error::InteropError,
-};
-
 use crate::pico8::Gfx;
-
-
-pub(crate) fn plugin(_app: &mut App) {
-    #[cfg(feature = "scripting")]
-    lua::plugin(app);
-}
 
 #[derive(Reflect, Clone, Debug, Copy)]
 pub enum Spr {
@@ -24,39 +14,6 @@ pub enum Spr {
     ///
     /// XXX: Not sure I like this.
     Set { sheet: usize },
-}
-
-#[cfg(feature = "scripting")]
-impl FromScript for Spr {
-    type This<'w> = Self;
-    fn from_script(
-        value: ScriptValue,
-        _world: WorldAccessGuard<'_>,
-    ) -> Result<Self::This<'_>, InteropError> {
-        match value {
-            ScriptValue::Float(f) => Ok(Spr::Cur { sprite: f as usize }),
-            ScriptValue::Integer(n) => Ok(if n >= 0 {
-                Spr::Cur { sprite: n as usize }
-            } else {
-                Spr::Set {
-                    sheet: n.unsigned_abs() as usize,
-                }
-            }),
-            ScriptValue::List(list) => {
-                assert_eq!(list.len(), 2, "Expect two elements for spr.");
-                let mut iter = list.into_iter().map(|v| match v {
-                    ScriptValue::Integer(n) => Ok(n as usize),
-                    x => Err(InteropError::external_error(Box::new(
-                        Error::InvalidArgument(format!("{x:?}").into()),
-                    ))),
-                });
-                let sprite = iter.next().expect("sprite index")?;
-                let sheet = iter.next().expect("sheet index")?;
-                Ok(Spr::From { sprite, sheet })
-            }
-            _ => Err(InteropError::impossible_conversion(TypeId::of::<Spr>())),
-        }
-    }
 }
 
 impl From<i64> for Spr {
@@ -360,135 +317,5 @@ impl super::Pico8<'_, '_> {
             }
         };
         Ok(())
-    }
-}
-
-#[cfg(feature = "scripting")]
-mod lua {
-    use super::*;
-    use crate::{pico8::lua::with_pico8, DropPolicy, N9Entity};
-
-    use bevy_mod_scripting::core::bindings::{
-        function::{
-            from::FromScript,
-            into_ref::IntoScriptRef,
-            namespace::{GlobalNamespace, NamespaceBuilder},
-            script_function::FunctionCallContext,
-        },
-        script_value::ScriptValue,
-        ReflectReference,
-    };
-    pub(crate) fn plugin(app: &mut App) {
-        let world = app.world_mut();
-
-        NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-            // spr(n, [x,] [y,] [w,] [h,] [flip_x,] [flip_y,] [turns])
-            .register(
-                "spr",
-                |ctx: FunctionCallContext,
-                 n: ScriptValue,
-                 x: Option<f32>,
-                 y: Option<f32>,
-                 w: Option<f32>,
-                 h: Option<f32>,
-                 flip_x: Option<bool>,
-                 flip_y: Option<bool>,
-                 turns: Option<f32>| {
-                    let pos = Vec2::new(x.unwrap_or(0.0), y.unwrap_or(0.0));
-                    let flip = (flip_x.is_some() || flip_y.is_some())
-                        .then(|| BVec2::new(flip_x.unwrap_or(false), flip_y.unwrap_or(false)));
-                    let size = w
-                        .or(h)
-                        .is_some()
-                        .then(|| Vec2::new(w.unwrap_or(1.0), h.unwrap_or(1.0)));
-
-                    // We get back an entity. Not doing anything with it here yet.
-                    let n = Spr::from_script(n, ctx.world()?)?;
-                    let id = with_pico8(&ctx, move |pico8| pico8.spr(n, pos, size, flip, turns))?;
-
-                    let entity = N9Entity {
-                        entity: id,
-                        drop: DropPolicy::Nothing,
-                    };
-                    let world = ctx.world()?;
-                    let reference = {
-                        let allocator = world.allocator();
-                        let mut allocator = allocator.write();
-                        ReflectReference::new_allocated(entity, &mut allocator)
-                    };
-                    ReflectReference::into_script_ref(reference, world)
-                    // Ok(())
-                },
-            )
-            // sspr( sx, sy, sw, sh, dx, dy, [dw,] [dh,] [flip_x,] [flip_y,] [sheet_index] )
-            .register(
-                "sspr",
-                |ctx: FunctionCallContext,
-                 sx: f32,
-                 sy: f32,
-                 sw: f32,
-                 sh: f32,
-                 dx: f32,
-                 dy: f32,
-                 dw: Option<f32>,
-                 dh: Option<f32>,
-                 flip_x: Option<bool>,
-                 flip_y: Option<bool>,
-                 sheet_index: Option<usize>| {
-                    let sprite_rect = Rect::new(sx, sy, sx + sw, sy + sh);
-                    let pos = Vec2::new(dx, dy);
-                    let size = dw
-                        .or(dh)
-                        .is_some()
-                        .then(|| Vec2::new(dw.unwrap_or(sw), dh.unwrap_or(sh)));
-                    let flip = (flip_x.is_some() || flip_y.is_some())
-                        .then(|| BVec2::new(flip_x.unwrap_or(false), flip_y.unwrap_or(false)));
-                    // We get back an entity. Not doing anything with it here yet.
-                    let _id = with_pico8(&ctx, move |pico8| {
-                        pico8.sspr(sprite_rect, pos, size, flip, sheet_index)
-                    })?;
-                    Ok(())
-                },
-            )
-            .register(
-                "sset",
-                |ctx: FunctionCallContext,
-                 x: u32,
-                 y: u32,
-                 color: Option<N9Color>,
-                 sprite_index: Option<usize>| {
-                    with_pico8(&ctx, move |pico8| {
-                        pico8.sset(UVec2::new(x, y), color, sprite_index)
-                    })
-                },
-            )
-            .register(
-                "sget",
-                |ctx: FunctionCallContext, x: u32, y: u32, sprite_index: Option<usize>| {
-                    with_pico8(&ctx, move |pico8| {
-                        pico8.sget(UVec2::new(x, y), sprite_index)
-                    })
-                },
-            )
-            .register(
-                "fget",
-                |ctx: FunctionCallContext, n: Option<usize>, f: Option<u8>| {
-                    with_pico8(&ctx, move |pico8| {
-                        let v = pico8.fget(n, f)?;
-                        Ok(if f.is_some() {
-                            ScriptValue::Bool(v == 1)
-                        } else {
-                            ScriptValue::Integer(v as i64)
-                        })
-                    })
-                },
-            )
-            .register(
-                "fset",
-                |ctx: FunctionCallContext, n: usize, f_or_v: u8, v: Option<u8>| {
-                    let (f, v) = v.map(|v| (Some(f_or_v), v)).unwrap_or((None, f_or_v));
-                    with_pico8(&ctx, move |pico8| pico8.fset(n, f, v))
-                },
-            );
     }
 }

@@ -1,10 +1,5 @@
 use super::*;
 
-pub(crate) fn plugin(_app: &mut App) {
-    #[cfg(feature = "scripting")]
-    lua::plugin(app);
-}
-
 impl super::Pico8<'_, '_> {
     pub fn rectfill(
         &mut self,
@@ -145,56 +140,5 @@ impl super::Pico8<'_, '_> {
             }
         }
         last
-    }
-}
-
-#[cfg(feature = "scripting")]
-mod lua {
-    use super::*;
-    use crate::pico8::lua::with_pico8;
-
-    use bevy_mod_scripting::core::bindings::function::{
-        namespace::{GlobalNamespace, NamespaceBuilder},
-        script_function::FunctionCallContext,
-    };
-    pub(crate) fn plugin(app: &mut App) {
-        let world = app.world_mut();
-
-        NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-            .register(
-                "rectfill",
-                |ctx: FunctionCallContext,
-                 x0: f32,
-                 y0: f32,
-                 x1: f32,
-                 y1: f32,
-                 color: Option<FillColor>| {
-                    with_pico8(&ctx, |pico8| {
-                        // We want to ignore out of bounds errors specifically but possibly not others.
-                        // Ok(pico8.pset(x, y, color)?)
-                        let _ = pico8.rectfill(Vec2::new(x0, y0), Vec2::new(x1, y1), color);
-                        Ok(())
-                    })
-                },
-            )
-            .register("fillp", |ctx: FunctionCallContext, pattern: Option<u16>| {
-                with_pico8(&ctx, move |pico8| Ok(pico8.fillp(pattern)))
-            })
-            .register(
-                "rect",
-                |ctx: FunctionCallContext,
-                 x0: f32,
-                 y0: f32,
-                 x1: f32,
-                 y1: f32,
-                 color: Option<N9Color>| {
-                    with_pico8(&ctx, |pico8| {
-                        // We want to ignore out of bounds errors specifically but possibly not others.
-                        // Ok(pico8.pset(x, y, color)?)
-                        let _ = pico8.rect(Vec2::new(x0, y0), Vec2::new(x1, y1), color);
-                        Ok(())
-                    })
-                },
-            );
     }
 }

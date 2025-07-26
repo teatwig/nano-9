@@ -1,10 +1,5 @@
 use super::*;
 
-pub(crate) fn plugin(_app: &mut App) {
-    #[cfg(feature = "scripting")]
-    lua::plugin(app);
-}
-
 impl super::Pico8<'_, '_> {
     pub fn ovalfill(
         &mut self,
@@ -63,11 +58,7 @@ impl super::Pico8<'_, '_> {
                     custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
                     ..default()
                 },
-                Transform::from_xyz(
-                    upper_left.x,
-                    negate_y(upper_left.y),
-                    clearable.suggest_z(),
-                ),
+                Transform::from_xyz(upper_left.x, negate_y(upper_left.y), clearable.suggest_z()),
                 clearable,
             ))
             .id();
@@ -130,67 +121,11 @@ impl super::Pico8<'_, '_> {
                     custom_size: Some(Vec2::new(size.x as f32, size.y as f32)),
                     ..default()
                 },
-                Transform::from_xyz(
-                    upper_left.x,
-                    negate_y(upper_left.y),
-                    clearable.suggest_z(),
-                ),
+                Transform::from_xyz(upper_left.x, negate_y(upper_left.y), clearable.suggest_z()),
                 clearable,
             ))
             .id();
         self.state.draw_state.mark_drawn();
         Ok(id)
-    }
-}
-
-#[cfg(feature = "scripting")]
-mod lua {
-    use super::*;
-    use crate::pico8::lua::with_pico8;
-
-    use bevy_mod_scripting::core::bindings::function::{
-        namespace::{GlobalNamespace, NamespaceBuilder},
-        script_function::FunctionCallContext,
-    };
-    pub(crate) fn plugin(app: &mut App) {
-        let world = app.world_mut();
-
-        NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-            .register(
-                "ovalfill",
-                |ctx: FunctionCallContext,
-                 x0: Option<f32>,
-                 y0: Option<f32>,
-                 x1: Option<f32>,
-                 y1: Option<f32>,
-                 c: Option<N9Color>| {
-                    let _ = with_pico8(&ctx, move |pico8| {
-                        pico8.ovalfill(
-                            Vec2::new(x0.unwrap_or(0.0), y0.unwrap_or(0.0)),
-                            Vec2::new(x1.unwrap_or(0.0), y1.unwrap_or(0.0)),
-                            c,
-                        )
-                    })?;
-                    Ok(())
-                },
-            )
-            .register(
-                "oval",
-                |ctx: FunctionCallContext,
-                 x0: Option<f32>,
-                 y0: Option<f32>,
-                 x1: Option<f32>,
-                 y1: Option<f32>,
-                 c: Option<N9Color>| {
-                    let _ = with_pico8(&ctx, move |pico8| {
-                        pico8.oval(
-                            Vec2::new(x0.unwrap_or(0.0), y0.unwrap_or(0.0)),
-                            Vec2::new(x1.unwrap_or(0.0), y1.unwrap_or(0.0)),
-                            c,
-                        )
-                    })?;
-                    Ok(())
-                },
-            );
     }
 }

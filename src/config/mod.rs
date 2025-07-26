@@ -8,12 +8,7 @@ use crate::{
     error::RunState,
     pico8::{self, Pico8Handle},
 };
-use bevy::{
-    asset::embedded_asset,
-    prelude::*,
-};
-#[cfg(feature = "scripting")]
-use bevy_mod_scripting::core::{asset::ScriptAssetSettings, script::ScriptComponent};
+use bevy::{asset::embedded_asset, prelude::*};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -53,8 +48,6 @@ pub struct Config {
     pub fonts: Vec<Font>,
     #[serde(default, rename = "image")]
     pub sprite_sheets: Vec<SpriteSheet>,
-    #[cfg(feature = "scripting")]
-    pub code: Option<String>,
     #[serde(default, rename = "audio_bank")]
     pub audio_banks: Vec<AudioBank>,
     #[serde(default, rename = "map")]
@@ -127,8 +120,6 @@ pub fn update_asset(
 
     mut next_state: ResMut<NextState<RunState>>,
     mut pico8_handle: Option<ResMut<Pico8Handle>>,
-    #[cfg(feature = "scripting")] mut commands: Commands,
-    #[cfg(feature = "scripting")] script_settings: Res<ScriptAssetSettings>,
 ) {
     for e in reader.read() {
         info!("update asset event {e:?}");
@@ -138,19 +129,6 @@ pub fn update_asset(
                     if pico8_handle.handle.id() != *id {
                         warn!("Script loaded but does not match Pico8Handle.");
                         continue;
-                    }
-                    // XXX: It happens here too!
-                    #[cfg(feature = "scripting")]
-                    {
-                        if let Some(code) = &pico8_asset.code {
-                            if pico8_handle.script_component.is_none() {
-                                let path: &AssetPath<'static> = code.path().unwrap();
-                                let script_path = (script_settings.script_id_mapper.map)(path);
-                                info!("Add script component path {}", &script_path);
-                                pico8_handle.script_component =
-                                    Some(commands.spawn(ScriptComponent(vec![script_path])).id());
-                            }
-                        }
                     }
                     info!("Goto Loaded state");
                     next_state.set(RunState::Loaded);

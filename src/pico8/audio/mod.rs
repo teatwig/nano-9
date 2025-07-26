@@ -1,6 +1,5 @@
 //! Sfx audio
 
-use crate::pico8::cart::{to_byte, to_nybble};
 use bevy::{
     audio::{AddAudioSource, Source},
     prelude::*,
@@ -21,6 +20,8 @@ use std::{
 
 mod command;
 pub use command::*;
+
+use crate::pico8::{to_byte, to_nybble};
 
 const SAMPLE_RATE: u32 = 22_050;
 

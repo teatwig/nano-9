@@ -3,11 +3,6 @@ use bevy::audio::PlaybackMode;
 
 use crate::pico8::audio::{AudioCommand, SfxDest};
 
-pub(crate) fn plugin(_app: &mut App) {
-    #[cfg(feature = "scripting")]
-    lua::plugin(app);
-}
-
 #[derive(Debug, Clone, Copy)]
 pub enum SfxCommand {
     Play(u8),
@@ -136,77 +131,5 @@ impl super::Pico8<'_, '_> {
             }
         }
         Ok(())
-    }
-}
-
-#[cfg(feature = "scripting")]
-mod lua {
-    use super::*;
-    use crate::pico8::lua::with_pico8;
-
-    use bevy_mod_scripting::core::bindings::function::{
-        namespace::{GlobalNamespace, NamespaceBuilder},
-        script_function::FunctionCallContext,
-    };
-    pub(crate) fn plugin(app: &mut App) {
-        let world = app.world_mut();
-
-        NamespaceBuilder::<GlobalNamespace>::new_unregistered(world)
-            .register(
-                "sfx",
-                |ctx: FunctionCallContext,
-                 // TODO: Need to be able to specify which audio bank.
-                 n: Option<isize>,
-                 channel: Option<u8>,
-                 offset: Option<u8>,
-                 length: Option<u8>,
-                 bank: Option<u8>| {
-                     let n = n.unwrap_or(0);
-                    with_pico8(&ctx, move |pico8| {
-                        pico8.sfx(
-                            match n {
-                                -2 => Ok(SfxCommand::Release),
-                                -1 => Ok(SfxCommand::Stop),
-                                n if n >= 0 => Ok(SfxCommand::Play(n as u8)), // TODO: Change to usize
-                                x => Err(Error::InvalidArgument(
-                                    format!("sfx: expected n to be -2, -1 or >= 0 but was {x}")
-                                        .into(),
-                                )),
-                            }?,
-                            channel,
-                            offset,
-                            length,
-                            bank,
-                        )
-                    })
-                },
-            )
-            .register(
-                "music",
-                |ctx: FunctionCallContext,
-                 // TODO: Need to be able to specify which audio bank.
-                 n: Option<isize>,
-                 fade_ms: Option<u32>,
-                 channel_mask: Option<u8>,
-                 bank: Option<u8>| {
-                     let n = n.unwrap_or(0);
-                    with_pico8(&ctx, move |pico8| {
-                        pico8.music(
-                            match n {
-                                -2 => Ok(SfxCommand::Release),
-                                -1 => Ok(SfxCommand::Stop),
-                                n if n >= 0 => Ok(SfxCommand::Play(n as u8)),
-                                x => Err(Error::InvalidArgument(
-                                    format!("sfx: expected n to be -2, -1 or >= 0 but was {x}")
-                                        .into(),
-                                )),
-                            }?,
-                            fade_ms,
-                            channel_mask,
-                            bank,
-                        )
-                    })
-                },
-            );
     }
 }

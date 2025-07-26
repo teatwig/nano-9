@@ -1,19 +1,7 @@
 use super::PColor;
 use bevy::prelude::*;
 
-#[cfg(feature = "scripting")]
-use bevy_mod_scripting::{
-    core::docgen::typed_through::{ThroughTypeInfo, TypedThrough},
-    core::{
-        bindings::{function::from::FromScript, script_value::ScriptValue, WorldAccessGuard},
-        error::InteropError,
-    },
-    GetTypeDependencies,
-};
-
-#[derive(Debug, Clone, Copy, Reflect)]
-#[cfg_attr(feature = "scripting", derive(GetTypeDependencies))]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Reflect, Default)]
 pub enum N9Color {
     #[default]
     Pen,
@@ -38,28 +26,6 @@ impl From<PColor> for N9Color {
 impl From<usize> for N9Color {
     fn from(n: usize) -> Self {
         N9Color::PColor(n.into())
-    }
-}
-
-#[cfg(feature = "scripting")]
-impl TypedThrough for N9Color {
-    fn through_type_info() -> ThroughTypeInfo {
-        ThroughTypeInfo::TypeInfo(<N9Color as bevy::reflect::Typed>::type_info())
-    }
-}
-
-#[cfg(feature = "scripting")]
-impl FromScript for N9Color {
-    type This<'w> = Self;
-    fn from_script(
-        value: ScriptValue,
-        _world: WorldAccessGuard<'_>,
-    ) -> Result<Self::This<'_>, InteropError> {
-        match value {
-            ScriptValue::Integer(n) => Ok(N9Color::PColor((n as usize).into())),
-            ScriptValue::Unit => Ok(N9Color::Pen),
-            _ => Err(InteropError::impossible_conversion(TypeId::of::<N9Color>())),
-        }
     }
 }
 
