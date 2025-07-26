@@ -2,7 +2,6 @@
 #![doc = include_str!("../README.md")]
 #![allow(clippy::type_complexity)]
 pub use bevy;
-pub use bevy_rand;
 use bevy::prelude::*;
 mod color;
 #[cfg(feature = "scripting")]

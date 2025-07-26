@@ -9,8 +9,6 @@ mod state;
 pub use state::*;
 mod handle;
 pub use handle::*;
-pub mod input;
-use input::*;
 mod camera;
 use camera::*;
 mod param;
@@ -24,20 +22,15 @@ mod pal;
 mod print;
 mod rect;
 pub use pal::*;
-mod bit_ops;
 mod canvas;
 #[cfg(feature = "level")]
 mod level;
 mod line;
-mod poke;
-mod sys;
-mod rand;
 #[cfg(feature = "level")]
 pub use level::*;
 
 use bevy::{
     image::ImageSampler,
-    input::gamepad::GamepadConnectionEvent,
     render::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
@@ -61,8 +54,6 @@ pub const MAP_COLUMNS: u32 = 128;
 pub const PICO8_SPRITE_SIZE: UVec2 = UVec2::new(8, 8);
 pub const PICO8_TILE_COUNT: UVec2 = UVec2::new(16, 16);
 
-const ANALOG_STICK_THRESHOLD: f32 = 0.1;
-
 pub(crate) fn plugin(app: &mut App) {
     app.register_type::<Pico8Asset>()
         .register_type::<Pico8State>()
@@ -71,7 +62,6 @@ pub(crate) fn plugin(app: &mut App) {
         .register_type::<SpriteSheet>()
         .init_asset::<Pico8Asset>()
         .init_resource::<Pico8State>()
-        .init_resource::<PlayerInputs>()
         .add_observer(
             |trigger: Trigger<UpdateCameraPos>,
              camera: Single<&mut Transform, With<Nano9Camera>>| {
@@ -81,23 +71,18 @@ pub(crate) fn plugin(app: &mut App) {
                 camera.translation.y = negate_y(pos.0.y);
             },
         )
-        .add_plugins(rand::plugin)
         .add_plugins((
             sfx::plugin,
             spr::plugin,
             map::plugin,
-            input::plugin,
             print::plugin,
             rect::plugin,
             circ::plugin,
             oval::plugin,
             pal::plugin,
-            bit_ops::plugin,
             line::plugin,
-            poke::plugin,
             canvas::plugin,
             camera::plugin,
-            sys::plugin,
             #[cfg(feature = "level")]
             level::plugin,
         ));

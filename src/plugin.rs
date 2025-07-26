@@ -29,7 +29,7 @@ use bevy_mod_scripting::{
 use crate::{
     config::*,
     error::RunState,
-    pico8::{self, input::fill_input, FillPat, Pico8Asset, Pico8Handle},
+    pico8::{self,  FillPat, Pico8Asset, Pico8Handle},
     PColor,
 };
 
@@ -487,24 +487,7 @@ impl Plugin for Nano9Plugin {
 
         #[cfg(feature = "scripting")]
         app.add_plugins(add_lua_logging);
-        #[cfg(feature = "scripting")]
-        app.add_systems(
-            Update,
-            (
-                fill_input,
-                send_init.run_if(init_when::<ScriptAsset>()),
-                event_handler::<call::Init, LuaScriptingPlugin>,
-                send_update.run_if(in_state(RunState::Run)),
-                event_handler::<call::Update, LuaScriptingPlugin>,
-                event_handler::<call::Eval, LuaScriptingPlugin>,
-                send_draw.run_if(in_state(RunState::Run)),
-                event_handler::<call::Draw, LuaScriptingPlugin>,
-            )
-                .chain(),
-        );
 
-        #[cfg(not(feature = "scripting"))]
-        app.add_systems(Update, fill_input);
         // bevy_ecs_ldtk will add this plugin, so let's not add that if it's
         // present.
         #[cfg(not(feature = "level"))]
